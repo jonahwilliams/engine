@@ -35,6 +35,7 @@ enum class SemanticsAction : int32_t {
   kPaste = 1 << 14,
   kDidGainAccessibilityFocus = 1 << 15,
   kDidLoseAccessibilityFocus = 1 << 16,
+  kCustomAction = 1 << 18,
 };
 
 const int kScrollableSemanticsActions =
@@ -71,6 +72,7 @@ struct SemanticsNode {
   int32_t id = 0;
   int32_t flags = 0;
   int32_t actions = 0;
+  int32_t customActions = 0;
   int32_t textSelectionBase = -1;
   int32_t textSelectionExtent = -1;
   double scrollPosition = std::nan("");
@@ -81,6 +83,7 @@ struct SemanticsNode {
   std::string value;
   std::string increasedValue;
   std::string decreasedValue;
+  std::string customActionLabels;
   int32_t textDirection = 0;  // 0=unknown, 1=rtl, 2=ltr
 
   SkRect rect = SkRect::MakeEmpty();

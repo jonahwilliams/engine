@@ -26,6 +26,7 @@ class SemanticsAction {
   static const int _kPasteIndex = 1 << 14;
   static const int _kDidGainAccessibilityFocusIndex = 1 << 15;
   static const int _kDidLoseAccessibilityFocusIndex = 1 << 16;
+  static const int _kCustomActionIndex = 1 << 17;
 
   /// The numerical value for this action.
   ///
@@ -146,6 +147,9 @@ class SemanticsAction {
   /// Accessibility focus and input focus can be held by two different nodes!
   static const SemanticsAction didLoseAccessibilityFocus = const SemanticsAction._(_kDidLoseAccessibilityFocusIndex);
 
+  /// Indicate that the user has invoked a custom semantics action on the node.
+  static const SemanticsAction customAction = const SemanticsAction._(_kCustomActionIndex);
+
   /// The possible semantics actions.
   ///
   /// The map's key is the [index] of the action and the value is the action
@@ -168,6 +172,7 @@ class SemanticsAction {
     _kPasteIndex: paste,
     _kDidGainAccessibilityFocusIndex: didGainAccessibilityFocus,
     _kDidLoseAccessibilityFocusIndex: didLoseAccessibilityFocus,
+    _kCustomActionIndex: customAction,
   };
 
   @override
@@ -207,10 +212,24 @@ class SemanticsAction {
         return 'SemanticsAction.didGainAccessibilityFocus';
       case _kDidLoseAccessibilityFocusIndex:
         return 'SemanticsAction.didLoseAccessibilityFocus';
+      case _kCustomActionIndex:
+        return 'SemanticsAction.customAction';
     }
     return null;
   }
 }
+
+/// A [SemanticsAction] defined by an application for use on a semantics node.
+class CustomSemanticsAction implements SemanticsAction {
+  const CustomSemanticsAction(this.label);
+
+  @override
+  int get index => SemanticsAction._kCustomActionIndex;
+
+  /// The name of the custom semantic action which is presented to the user.
+  final String label;
+}
+
 
 /// A Boolean value that can be associated with a semantics node.
 class SemanticsFlag {
@@ -455,6 +474,16 @@ class SemanticsUpdateBuilder extends NativeFieldWrapperClass2 {
   /// the possible [SemanticsAction]s. Because the semantics tree is maintained
   /// asynchronously, the [Window.onSemanticsAction] callback might be called
   /// with an action that is no longer possible.
+  /// 
+  /// The `customActions` are a bit field of [CustomSemanticsAction]s that can
+  /// be undertaken by this node. The label of each custom action is defined
+  /// on the closed parent node with a non-null `customActionLabels` field. The
+  /// label of the custom action corresponds to the index of the custom action
+  /// labels.
+  /// 
+  /// The `customActionLabels` is a comma-separated list of labels for a custom
+  /// action.  The nth label in the list corresponds to the nth bit in the
+  /// `customActions` bit field.
   ///
   /// The `label` is a string that describes this node. The `value` property
   /// describes the current value of the node as a string. The `increasedValue`
@@ -483,6 +512,7 @@ class SemanticsUpdateBuilder extends NativeFieldWrapperClass2 {
     int id,
     int flags,
     int actions,
+    int customActions,
     int textSelectionBase,
     int textSelectionExtent,
     double scrollPosition,
@@ -494,6 +524,7 @@ class SemanticsUpdateBuilder extends NativeFieldWrapperClass2 {
     String value,
     String increasedValue,
     String decreasedValue,
+    String customActionLabels,
     TextDirection textDirection,
     Float64List transform,
     Int32List childrenInTraversalOrder,
@@ -505,6 +536,7 @@ class SemanticsUpdateBuilder extends NativeFieldWrapperClass2 {
       id,
       flags,
       actions,
+      customActions,
       textSelectionBase,
       textSelectionExtent,
       scrollPosition,
@@ -519,6 +551,7 @@ class SemanticsUpdateBuilder extends NativeFieldWrapperClass2 {
       value,
       increasedValue,
       decreasedValue,
+      customActionLabels,
       textDirection != null ? textDirection.index + 1 : 0,
       transform,
       childrenInTraversalOrder,
@@ -529,6 +562,7 @@ class SemanticsUpdateBuilder extends NativeFieldWrapperClass2 {
     int id,
     int flags,
     int actions,
+    int customActions,
     int textSelectionBase,
     int textSelectionExtent,
     double scrollPosition,
@@ -543,6 +577,7 @@ class SemanticsUpdateBuilder extends NativeFieldWrapperClass2 {
     String value,
     String increasedValue,
     String decreasedValue,
+    String customActionLabels,
     int textDirection,
     Float64List transform,
     Int32List childrenInTraversalOrder,

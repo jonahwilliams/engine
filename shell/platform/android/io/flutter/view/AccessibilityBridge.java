@@ -41,6 +41,7 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
     private static final int ROOT_NODE_ID = 0;
 
     private Map<Integer, SemanticsObject> mObjects;
+    private Map<Integer, AccessibilityNodeInfo.AccessibilityAction> mCustomActions;
     private final FlutterView mOwner;
     private boolean mAccessibilityEnabled = false;
     private SemanticsObject mA11yFocusedObject;
@@ -68,7 +69,8 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
         CUT(1 << 13),
         PASTE(1 << 14),
         DID_GAIN_ACCESSIBILITY_FOCUS(1 << 15),
-        DID_LOSE_ACCESSIBILITY_FOCUS(1 << 16);
+        DID_LOSE_ACCESSIBILITY_FOCUS(1 << 16),
+        CUSTOM_ACTION(1 << 17);
 
         Action(int value) {
             this.value = value;
@@ -104,6 +106,7 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
         assert owner != null;
         mOwner = owner;
         mObjects = new HashMap<Integer, SemanticsObject>();
+        mCustomActions = new HashMap<Integer, AccessibilityNodeInfo.AccessibilityAction>();
         previousRoutes = new ArrayList<>();
         mFlutterAccessibilityChannel = new BasicMessageChannel<>(owner, "flutter/accessibility",
             StandardMessageCodec.INSTANCE);
@@ -143,6 +146,10 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
 
         if (mA11yFocusedObject != null)
             result.setAccessibilityFocused(mA11yFocusedObject.id == virtualViewId);
+        
+        if (object.hasCustomActionLabels()) {
+            List<String> customActionLabels = object.getCustomActionLabels();
+        }
 
         if (object.hasFlag(Flag.IS_TEXT_FIELD)) {
             result.setPassword(object.hasFlag(Flag.IS_OBSCURED));
@@ -389,6 +396,12 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
             case AccessibilityNodeInfo.ACTION_PASTE: {
                 mOwner.dispatchSemanticsAction(virtualViewId, Action.PASTE);
                 return true;
+            }
+            default: {
+                AccessibilityNodeInfo.AccessibilityAction customAction = mCustomActions.get(action);
+                if (customAction == null)
+                    return false;
+                mOwner.dispatchSemanticsAction(virtualViewId, Action.CUSTOM_ACTION, action);
             }
         }
         return false;
@@ -748,6 +761,7 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
 
         int flags;
         int actions;
+        int customActions;
         int textSelectionBase;
         int textSelectionExtent;
         float scrollPosition;
@@ -758,6 +772,7 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
         String increasedValue;
         String decreasedValue;
         String hint;
+        String customActionLabels;
         TextDirection textDirection;
 
         boolean hadPreviousConfig = false;
@@ -769,6 +784,7 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
         float previousScrollExtentMax;
         float previousScrollExtentMin;
         String previousValue;
+        String previousCustomActionLabels;
 
         private float left;
         private float top;
@@ -832,9 +848,11 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
             previousScrollPosition = scrollPosition;
             previousScrollExtentMax = scrollExtentMax;
             previousScrollExtentMin = scrollExtentMin;
+            previousCustomActionLabels = customActionLabels;
 
             flags = buffer.getInt();
             actions = buffer.getInt();
+            customActions = buffer.getInt();
             textSelectionBase = buffer.getInt();
             textSelectionExtent = buffer.getInt();
             scrollPosition = buffer.getFloat();
@@ -855,6 +873,9 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
 
             stringIndex = buffer.getInt();
             hint = stringIndex == -1 ? null : strings[stringIndex];
+
+            stringIndex = buffer.getInt();
+            customActionLabels = stringIndex == -1 ? null : strings[stringIndex];
 
             textDirection = TextDirection.fromInt(buffer.getInt());
 
@@ -1059,6 +1080,14 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
 
         private float max(float a, float b, float c, float d) {
             return Math.max(a, Math.max(b, Math.max(c, d)));
+        }
+
+        private boolean hasCustomActionLabels() {
+            return customActionLabels != null;
+        }
+
+        private List<String> getCustomActionLabels() {
+            return Arrays.asList(customActionLabels.split(","));
         }
 
         private String getValueLabelHint() {

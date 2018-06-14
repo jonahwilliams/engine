@@ -37,6 +37,7 @@ SemanticsUpdateBuilder::~SemanticsUpdateBuilder() = default;
 void SemanticsUpdateBuilder::updateNode(int id,
                                         int flags,
                                         int actions,
+                                        int customActions,
                                         int textSelectionBase,
                                         int textSelectionExtent,
                                         double scrollPosition,
@@ -51,6 +52,7 @@ void SemanticsUpdateBuilder::updateNode(int id,
                                         std::string value,
                                         std::string increasedValue,
                                         std::string decreasedValue,
+                                        std::string customActionLabels,
                                         int textDirection,
                                         const tonic::Float64List& transform,
                                         const tonic::Int32List& childrenInTraversalOrder,
@@ -59,6 +61,7 @@ void SemanticsUpdateBuilder::updateNode(int id,
   node.id = id;
   node.flags = flags;
   node.actions = actions;
+  node.customActions = customActions;
   node.textSelectionBase = textSelectionBase;
   node.textSelectionExtent = textSelectionExtent;
   node.scrollPosition = scrollPosition;
@@ -71,6 +74,7 @@ void SemanticsUpdateBuilder::updateNode(int id,
   node.increasedValue = increasedValue;
   node.decreasedValue = decreasedValue;
   node.textDirection = textDirection;
+  node.customActionLabels = customActionLabels;
   node.transform.setColMajord(transform.data());
   node.childrenInTraversalOrder = std::vector<int32_t>(
       childrenInTraversalOrder.data(), childrenInTraversalOrder.data() + childrenInTraversalOrder.num_elements());
