@@ -356,6 +356,9 @@ blink::SemanticsAction GetSemanticsActionForScrollDirection(
   if ([self node].HasFlag(blink::SemanticsFlags::kIsHeader)) {
     traits |= UIAccessibilityTraitHeader;
   }
+  if ([self node].HasFlag(blink::SemanticsFlags::kIsLink)) {
+    traits |= UIAccessibilityTraitLink;
+  }
   return traits;
 }
 

@@ -82,7 +82,8 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
         IS_OBSCURED(1 << 10),
         SCOPES_ROUTE(1 << 11),
         NAMES_ROUTE(1 << 12),
-        IS_HIDDEN(1 << 13);
+        IS_HIDDEN(1 << 13),
+        IS_LINK(1 << 14);
 
         Flag(int value) {
             this.value = value;
@@ -242,6 +243,10 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
 
         result.setSelected(object.hasFlag(Flag.IS_SELECTED));
         result.setText(object.getValueLabelHint());
+
+        if (object.hasFlag(Flag.IS_LINK)) {
+            result.setClassName("URLSpan");
+        }
 
         // Accessibility Focus
         if (mA11yFocusedObject != null && mA11yFocusedObject.id == virtualViewId) {

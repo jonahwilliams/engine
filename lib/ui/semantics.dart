@@ -228,6 +228,7 @@ class SemanticsFlag {
   static const int _kScopesRouteIndex= 1 << 11;
   static const int _kNamesRouteIndex = 1 << 12;
   static const int _kIsHiddenIndex = 1 << 13;
+  static const int _kIsLinkIndex = 1 << 14;
 
   const SemanticsFlag._(this.index);
 
@@ -366,6 +367,8 @@ class SemanticsFlag {
   /// used to implement accessibility scrolling on iOS.
   static const SemanticsFlag isHidden = const SemanticsFlag._(_kIsHiddenIndex);
 
+  static const SemanticsFlag isLink = const SemanticsFlag._(_kIsLinkIndex);
+
   /// The possible semantics flags.
   ///
   /// The map's key is the [index] of the flag and the value is the flag itself.
@@ -384,6 +387,7 @@ class SemanticsFlag {
     _kScopesRouteIndex: scopesRoute,
     _kNamesRouteIndex: namesRoute,
     _kIsHiddenIndex: isHidden,
+    _kIsLinkIndex: isLink,
   };
 
   @override
@@ -417,6 +421,8 @@ class SemanticsFlag {
         return 'SemanticsFlag.namesRoute';
       case _kIsHiddenIndex:
         return 'SemanticsFlag.isHidden';
+      case _kIsLinkIndex:
+        return 'SemanticsFlag.isLink';
     }
     return null;
   }
