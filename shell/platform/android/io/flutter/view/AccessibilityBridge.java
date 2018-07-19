@@ -600,6 +600,10 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
                     event.setScrollX((int) position);
                     event.setMaxScrollX((int) max);
                 }
+                event.setFromIndex(object.firstChildIndex);
+                event.setToIndex(object.firstChildIndex + object.childrenInHitTestOrder.size() - 1);
+                event.setItemCount(object.totalChildCount);
+                Log.i(TAG, "scrolling from " + Integer.toString(object.firstChildIndex) + " to " + Integer.toString(object.firstChildIndex + object.childrenInHitTestOrder.size() - 1) + " of " + Integer.toString(object.totalChildCount));
                 sendAccessibilityEvent(event);
             }
             if (mA11yFocusedObject != null && mA11yFocusedObject.id == object.id
@@ -796,6 +800,8 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
         int actions;
         int textSelectionBase;
         int textSelectionExtent;
+        int totalChildCount;
+        int firstChildIndex;
         float scrollPosition;
         float scrollExtentMax;
         float scrollExtentMin;
@@ -811,6 +817,8 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
         int previousActions;
         int previousTextSelectionBase;
         int previousTextSelectionExtent;
+        int previousTotalChildCount;
+        int previousFirstChildIndex;
         float previousScrollPosition;
         float previousScrollExtentMax;
         float previousScrollExtentMin;
@@ -884,6 +892,8 @@ class AccessibilityBridge extends AccessibilityNodeProvider implements BasicMess
             actions = buffer.getInt();
             textSelectionBase = buffer.getInt();
             textSelectionExtent = buffer.getInt();
+            totalChildCount = buffer.getInt();
+            firstChildIndex = buffer.getInt();
             scrollPosition = buffer.getFloat();
             scrollExtentMax = buffer.getFloat();
             scrollExtentMin = buffer.getFloat();
