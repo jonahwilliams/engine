@@ -61,6 +61,16 @@ class AccessibilityBridge;
 - (void)setSemanticsNode:(const blink::SemanticsNode*)node NS_REQUIRES_SUPER;
 
 /**
+ * Set the hint text of a text field.
+ */
+- (void)setHintText:(NSString*)text;
+
+/**
+ * Set the error text of a text field.
+ */
+- (void)setErrorText:(NSString*)text;
+
+/**
  * Whether this semantics object has child semantics objects.
  */
 @property(nonatomic, readonly) BOOL hasChildren;

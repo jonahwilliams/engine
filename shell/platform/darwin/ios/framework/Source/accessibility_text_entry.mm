@@ -167,6 +167,8 @@
 
 @implementation TextInputSemanticsObject {
   FlutterInactiveTextInput* _inactive_text_input;
+  NSString* _errorText;
+  NSString* _hintText;
 }
 
 - (instancetype)initWithBridge:(fml::WeakPtr<shell::AccessibilityBridge>)bridge uid:(int32_t)uid {
@@ -182,6 +184,14 @@
 - (void)dealloc {
   [_inactive_text_input release];
   [super dealloc];
+}
+
+- (void)setErrorText:(NSString*)text {
+  _errorText = text;
+}
+
+- (void)setHintText:(NSString*)text {
+  _hintText = text;
 }
 
 #pragma mark - SemanticsObject overrides
@@ -238,8 +248,17 @@
 
 - (NSString*)accessibilityLabel {
   NSString* label = [super accessibilityLabel];
-  if (label != nil)
-    return label;
+  if (label != nil) {
+    if ([_errorText length] == 0) {
+      if ([_hintText length] == 0) {
+        return label;
+      } else {
+        return [label stringByAppendingString:_hintText];
+      }
+    } else {
+      return [label stringByAppendingString:_errorText];
+    }
+  }
   return [self textInputSurrogate].accessibilityLabel;
 }
 

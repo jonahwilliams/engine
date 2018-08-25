@@ -20,6 +20,7 @@ import io.flutter.plugin.common.StandardMessageCodec;
 
 import java.nio.ByteBuffer;
 import java.util.*;
+import java.lang.reflect.*;
 
 class AccessibilityBridge
         extends AccessibilityNodeProvider implements BasicMessageChannel.MessageHandler<Object> {
@@ -45,6 +46,7 @@ class AccessibilityBridge
     private List<Integer> previousRoutes;
     private final View mDecorView;
     private Integer mLastLeftFrameInset = 0;
+    private final HintTextDelegate mHintTextDelegate;
 
     private final BasicMessageChannel<Object> mFlutterAccessibilityChannel;
 
@@ -97,7 +99,9 @@ class AccessibilityBridge
         IS_LIVE_REGION(1 << 15),
         HAS_TOGGLED_STATE(1 << 16),
         IS_TOGGLED(1 << 17),
-        HAS_IMPLICIT_SCROLLING(1 << 18);
+        HAS_IMPLICIT_SCROLLING(1 << 18),
+        IS_TEXT_FIELD_ERROR_MESSAGE(1 << 19),
+        IS_TEXT_FIELD_HINT_MESSAGE(1 << 20);
 
         Flag(int value) {
             this.value = value;
@@ -115,6 +119,7 @@ class AccessibilityBridge
         mFlutterAccessibilityChannel = new BasicMessageChannel<>(
                 owner, "flutter/accessibility", StandardMessageCodec.INSTANCE);
         mDecorView = ((Activity) owner.getContext()).getWindow().getDecorView();
+        mHintTextDelegate = new HintTextDelegate();
     }
 
     void setAccessibilityEnabled(boolean accessibilityEnabled) {
@@ -148,6 +153,10 @@ class AccessibilityBridge
         result.setClassName("android.view.View");
         result.setSource(mOwner, virtualViewId);
         result.setFocusable(object.isFocusable());
+        // Thes nodes are used to describe a parent and do not directly contribute emantics.
+        if (object.hasFlag(Flag.IS_TEXT_FIELD_HINT_MESSAGE) || object.hasFlag(Flag.IS_TEXT_FIELD_ERROR_MESSAGE)) {
+            return result;
+        }
         if (mInputFocusedObject != null) {
             result.setFocused(mInputFocusedObject.id == virtualViewId);
         }
@@ -157,6 +166,7 @@ class AccessibilityBridge
         }
 
         if (object.hasFlag(Flag.IS_TEXT_FIELD)) {
+            boolean isFocused = mInputFocusedObject != null && mInputFocusedObject.id == virtualViewId;
             result.setPassword(object.hasFlag(Flag.IS_OBSCURED));
             result.setClassName("android.widget.EditText");
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
@@ -169,6 +179,38 @@ class AccessibilityBridge
                 // guidelines for text fields on Android.
                 result.setLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
             }
+
+            // Check for a hint text and/or error text provided by a child node.
+            String hintMessage = null;
+            String errorMessage = null;
+            if (object.childrenInTraversalOrder != null) {
+                for (SemanticsObject child : object.childrenInTraversalOrder) {
+                    if (child.hasFlag(Flag.IS_TEXT_FIELD_ERROR_MESSAGE)) {
+                        errorMessage = child.getValueLabelHint();
+                    } else if (child.hasFlag(Flag.IS_TEXT_FIELD_HINT_MESSAGE)) {
+                        hintMessage = child.getValueLabelHint();
+                    }
+                }
+            }
+            boolean hasHint = hintMessage != null && !hintMessage.equals("");
+            boolean hasError = errorMessage != null && !errorMessage.equals("");
+            boolean showingText = object.value != null && !object.value.equals("");
+            if (hasError && Build.VERSION.SDK_INT >= 21) {
+                result.setError(errorMessage);
+            }
+            if (Build.VERSION.SDK_INT >= 19) {
+                result.setContentInvalid(hasError);
+            }
+            if (showingText) {
+                result.setText(object.value);
+            } else if (hasHint) {
+                result.setText(object.value);
+            }
+            if (hasHint) {
+                mHintTextDelegate.setHintText(result, hintMessage);
+                mHintTextDelegate.setShowingHintText(result, !showingText);
+            }
+            result.setContentDescription(object.label);
 
             // Cursor movements
             int granularities = 0;
@@ -311,7 +353,7 @@ class AccessibilityBridge
             result.setChecked(object.hasFlag(Flag.IS_TOGGLED));
             result.setClassName("android.widget.Switch");
             result.setContentDescription(object.getValueLabelHint());
-        } else {
+        } else if (!object.hasFlag(Flag.IS_TEXT_FIELD)) {
             // Setting the text directly instead of the content description
             // will replace the "checked" or "not-checked" label.
             result.setText(object.getValueLabelHint());
@@ -718,11 +760,6 @@ class AccessibilityBridge
                 sendAccessibilityEvent(event);
             }
             if (object.hasFlag(Flag.IS_LIVE_REGION) && !object.hadFlag(Flag.IS_LIVE_REGION)) {
-                sendAccessibilityEvent(object.id, AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);
-            } else if (object.hasFlag(Flag.IS_TEXT_FIELD) && object.didChangeLabel()
-                    && mInputFocusedObject != null && mInputFocusedObject.id == object.id) {
-                // Text fields should announce when their label changes while focused. We use a live
-                // region tag to do so, and this event triggers that update.
                 sendAccessibilityEvent(object.id, AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED);
             }
             if (mA11yFocusedObject != null && mA11yFocusedObject.id == object.id
@@ -1180,8 +1217,8 @@ class AccessibilityBridge
         //     about focusability there.
         boolean isFocusable() {
             // We enforce in the framework that no other useful semantics are merged with these
-            // nodes.
-            if (hasFlag(Flag.SCOPES_ROUTE)) {
+            // nodes. The error message is still focusable so that it can be read without typing.
+            if (hasFlag(Flag.SCOPES_ROUTE) || hasFlag(Flag.IS_TEXT_FIELD_HINT_MESSAGE)) {
                 return false;
             }
             int scrollableActions = Action.SCROLL_RIGHT.value | Action.SCROLL_LEFT.value
@@ -1308,6 +1345,52 @@ class AccessibilityBridge
                 }
             }
             return sb.length() > 0 ? sb.toString() : null;
+        }
+    }
+
+    /// A delegate for reflectively invoking hint text methods on an accessibility node.
+    class HintTextDelegate {
+        private Method setHintTextMethod;
+        private Method setShowingHintTextMethod;
+
+        HintTextDelegate() {
+            attachMethods();
+        }
+
+        @SuppressWarnings("unchecked")
+        private void attachMethods() {
+            if (Build.VERSION.SDK_INT < 26) {
+                return;
+            }
+            try {
+                Class accessibilityNodeInfoClass = AccessibilityNodeInfo.class;
+                setHintTextMethod = accessibilityNodeInfoClass.getDeclaredMethod("setHintText", CharSequence.class);
+                setShowingHintTextMethod = accessibilityNodeInfoClass.getDeclaredMethod("setShowingHintTextMethod", boolean.class);
+            } catch (NoSuchMethodException exception) {}
+        }
+
+        public boolean canUseHintText() {
+            return setHintTextMethod != null;
+        }
+
+        public void setHintText(AccessibilityNodeInfo nodeInfo, CharSequence text) {
+            if (setHintTextMethod == null) {
+                return;
+            }
+            try {
+                setHintTextMethod.invoke(nodeInfo, text);
+            } catch (IllegalAccessException exception) {}
+              catch (InvocationTargetException exception) {}
+        }
+
+        public void setShowingHintText(AccessibilityNodeInfo nodeInfo, boolean value) {
+            if (setShowingHintTextMethod == null) {
+                return;
+            }
+            try {
+                setShowingHintTextMethod.invoke(nodeInfo, value);
+            } catch (IllegalAccessException exception) {}
+              catch (InvocationTargetException exception) {}
         }
     }
 }

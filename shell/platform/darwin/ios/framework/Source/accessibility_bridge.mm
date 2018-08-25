@@ -213,6 +213,13 @@ blink::SemanticsAction GetSemanticsActionForScrollDirection(
   return nil;
 }
 
+- (void)setHintText:(NSString*)text {
+}
+
+
+- (void)setErrorText:(NSString*)text {
+}
+
 - (NSString*)accessibilityLabel {
   if ([self node].label.empty())
     return nil;
@@ -533,6 +540,13 @@ void AccessibilityBridge::UpdateSemantics(blink::SemanticsNodeUpdates nodes,
         [[[NSMutableArray alloc] initWithCapacity:newChildCount] autorelease];
     for (NSUInteger i = 0; i < newChildCount; ++i) {
       SemanticsObject* child = GetOrCreateObject(node.childrenInTraversalOrder[i], nodes);
+      if (child.node.HasFlag(blink::SemanticsFlags::kIsTextFieldHint)) {
+        [object setHintText: child.accessibilityLabel];
+        continue;
+      } else if (child.node.HasFlag(blink::SemanticsFlags::kIsTextFieldError)) {
+        [object setErrorText: child.accessibilityLabel];
+        continue;
+      }
       child.parent = object;
       [newChildren addObject:child];
     }

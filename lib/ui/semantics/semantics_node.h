@@ -65,6 +65,9 @@ enum class SemanticsFlags : int32_t {
   kIsLiveRegion = 1 << 15,
   kHasToggledState = 1 << 16,
   kIsToggled = 1 << 17,
+  kHasImplicitScrollingIndex = 1 << 18,
+  kIsTextFieldError = 1 << 19,
+  kIsTextFieldHint = 1 << 20,
 };
 
 struct SemanticsNode {

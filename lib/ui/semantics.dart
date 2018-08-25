@@ -280,6 +280,8 @@ class SemanticsFlag {
   static const int _kHasToggledStateIndex = 1 << 16;
   static const int _kIsToggledIndex = 1 << 17;
   static const int _kHasImplicitScrollingIndex = 1 << 18;
+  static const int _kIsTextFieldErrorIndex  = 1 << 19;
+  static const int _kIsTextFieldHintIndex = 1 << 20;
 
   const SemanticsFlag._(this.index);
 
@@ -475,6 +477,14 @@ class SemanticsFlag {
   /// body when reaching the end of the tab bar.
   static const SemanticsFlag hasImplicitScrolling = const SemanticsFlag._(_kHasImplicitScrollingIndex);
 
+  /// If true, the semantics node defines the error message of a direct parent
+  /// node which is a text field.
+  static const SemanticsFlag isTextFieldError = const SemanticsFlag._(_kIsTextFieldErrorIndex);
+
+  /// If true, the semantics node defines the hint message of a direct parent
+  /// node which is a text field.
+  static const SemanticsFlag isTextFieldHint = const SemanticsFlag._(_kIsTextFieldHintIndex);
+
   /// The possible semantics flags.
   ///
   /// The map's key is the [index] of the flag and the value is the flag itself.
@@ -498,6 +508,8 @@ class SemanticsFlag {
     _kHasToggledStateIndex: hasToggledState,
     _kIsToggledIndex: isToggled,
     _kHasImplicitScrollingIndex: hasImplicitScrolling,
+    _kIsTextFieldErrorIndex: isTextFieldError,
+    _kIsTextFieldHintIndex: isTextFieldHint,
   };
 
   @override
@@ -541,6 +553,10 @@ class SemanticsFlag {
         return 'SemanticsFlag.isToggled';
       case _kHasImplicitScrollingIndex:
         return 'SemanticsFlag.hasImplicitScrolling';
+      case _kIsTextFieldErrorIndex:
+        return 'SemanticsFlag.isTextFieldError';
+      case _kIsTextFieldHintIndex:
+        return 'SemanticsFlag.isTextFieldHint';
     }
     return null;
   }
