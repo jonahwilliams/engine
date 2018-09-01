@@ -542,10 +542,8 @@ void AccessibilityBridge::UpdateSemantics(blink::SemanticsNodeUpdates nodes,
       SemanticsObject* child = GetOrCreateObject(node.childrenInTraversalOrder[i], nodes);
       if (child.node.HasFlag(blink::SemanticsFlags::kIsTextFieldHint)) {
         [object setHintText: child.accessibilityLabel];
-        continue;
       } else if (child.node.HasFlag(blink::SemanticsFlags::kIsTextFieldError)) {
         [object setErrorText: child.accessibilityLabel];
-        continue;
       }
       child.parent = object;
       [newChildren addObject:child];

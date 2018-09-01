@@ -188,10 +188,12 @@
 
 - (void)setErrorText:(NSString*)text {
   _errorText = text;
+  [_errorText retain];
 }
 
 - (void)setHintText:(NSString*)text {
   _hintText = text;
+   [_hintText retain];
 }
 
 #pragma mark - SemanticsObject overrides
@@ -248,18 +250,22 @@
 
 - (NSString*)accessibilityLabel {
   NSString* label = [super accessibilityLabel];
-  if (label != nil) {
-    if ([_errorText length] == 0) {
-      if ([_hintText length] == 0) {
-        return label;
-      } else {
-        return [label stringByAppendingString:_hintText];
-      }
-    } else {
-      return [label stringByAppendingString:_errorText];
-    }
+  NSMutableArray* newLabel = [[[NSMutableArray alloc] init] autorelease];
+  BOOL hasError = _errorText != nil && [_errorText length] != 0;
+  BOOL hasHint = _hintText != nil && [_hintText length] != 0;
+  BOOL hasLabel = [label length] != 0;
+  if (hasLabel) {
+    [newLabel addObject: label];
+    [newLabel addObject: @": "];
   }
-  return [self textInputSurrogate].accessibilityLabel;
+  if (hasHint) {
+    [newLabel addObject: _hintText];
+    [newLabel addObject: @", "];
+  }
+  if (hasError) {
+    [newLabel addObject: _errorText];
+  }
+  return [newLabel componentsJoinedByString:@""];
 }
 
 - (NSString*)accessibilityHint {
