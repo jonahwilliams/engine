@@ -2,17 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-library track_widget_constructor_locations;
-
-// The kernel/src import below that requires lint `ignore_for_file`
-// is a temporary state of things until kernel team builds better api that would
-// replace api used below. This api was made private in an effort to discourage
-// further use.
-// ignore_for_file: implementation_imports
 import 'package:kernel/ast.dart';
 import 'package:kernel/class_hierarchy.dart';
 import 'package:meta/meta.dart';
-import 'package:vm/frontend_server.dart' show ProgramTransformer;
+
+import 'src/flutter_transformer.dart';
 
 // Parameter name used to track were widget constructor calls were made from.
 //
@@ -286,50 +280,7 @@ class _WidgetCallSiteTransformer extends Transformer {
 /// The creation location is stored as a private field named `_location`
 /// on the base widget class and flowed through the constructors using a named
 /// parameter.
-class WidgetCreatorTracker implements ProgramTransformer {
-  Class _widgetClass;
-  Class _locationClass;
-
-  /// Marker interface indicating that a private _location field is
-  /// available.
-  Class _hasCreationLocationClass;
-
-  /// The [ClassHierarchy] that should be used after applying this transformer.
-  /// If any class was updated, in general we need to create a new
-  /// [ClassHierarchy] instance, with new dispatch targets; or at least let
-  /// the existing instance know that some of its dispatch tables are not
-  /// valid anymore.
-  ClassHierarchy hierarchy;
-
-  void _resolveFlutterClasses(Iterable<Library> libraries) {
-    // If the Widget or Debug location classes have been updated we need to get
-    // the latest version
-    for (Library library in libraries) {
-      final Uri importUri = library.importUri;
-      if (!library.isExternal &&
-          importUri != null &&
-          importUri.scheme == 'package') {
-        if (importUri.path == 'flutter/src/widgets/framework.dart') {
-          for (Class class_ in library.classes) {
-            if (class_.name == 'Widget') {
-              _widgetClass = class_;
-            }
-          }
-        } else {
-          if (importUri.path == 'flutter/src/widgets/widget_inspector.dart') {
-            for (Class class_ in library.classes) {
-              if (class_.name == '_HasCreationLocation') {
-                _hasCreationLocationClass = class_;
-              } else if (class_.name == '_Location') {
-                _locationClass = class_;
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-
+class WidgetCreatorTracker extends FlutterProgramTransformer {
   /// Modify [clazz] to add a field named [_locationFieldName] that is the
   /// first parameter of all constructors of the class.
   ///
@@ -342,14 +293,14 @@ class WidgetCreatorTracker implements ProgramTransformer {
       return;
     }
     clazz.implementedTypes
-        .add(new Supertype(_hasCreationLocationClass, <DartType>[]));
+        .add(new Supertype(hasCreationLocationClass, <DartType>[]));
     // We intentionally use the library context of the _HasCreationLocation
     // class for the private field even if [clazz] is in a different library
     // so that all classes implementing Widget behave consistently.
     final Field locationField = new Field(
       new Name(
         _locationFieldName,
-        _hasCreationLocationClass.enclosingLibrary,
+        hasCreationLocationClass.enclosingLibrary,
       ),
       isFinal: true,
     );
@@ -368,7 +319,7 @@ class WidgetCreatorTracker implements ProgramTransformer {
       ));
       final VariableDeclaration variable = new VariableDeclaration(
         _creationLocationParameterName,
-        type: _locationClass.thisType,
+        type: locationClass.thisType,
       );
       if (!_maybeAddNamedParameter(constructor.function, variable)) {
         return;
@@ -387,7 +338,7 @@ class WidgetCreatorTracker implements ProgramTransformer {
             initializer.arguments,
             initializer.target.function,
             new VariableGet(variable),
-            _locationClass,
+            locationClass,
           );
           hasRedirectingInitializer = true;
           break;
@@ -418,25 +369,6 @@ class WidgetCreatorTracker implements ProgramTransformer {
     clazz.constructors.forEach(handleConstructor);
   }
 
-  Component _computeFullProgram(Component deltaProgram) {
-    final Set<Library> libraries = new Set<Library>();
-    final List<Library> workList = <Library>[];
-    for (Library library in deltaProgram.libraries) {
-      if (libraries.add(library)) {
-        workList.add(library);
-      }
-    }
-    while (workList.isNotEmpty) {
-      final Library library = workList.removeLast();
-      for (LibraryDependency dependency in library.dependencies) {
-        if (libraries.add(dependency.targetLibrary)) {
-          workList.add(dependency.targetLibrary);
-        }
-      }
-    }
-    return new Component()..libraries.addAll(libraries);
-  }
-
   /// Transform the given [program].
   ///
   /// It is safe to call this method on a delta program generated as part of
@@ -449,9 +381,9 @@ class WidgetCreatorTracker implements ProgramTransformer {
       return;
     }
 
-    _resolveFlutterClasses(libraries);
+    resolveFlutterClasses(libraries);
 
-    if (_widgetClass == null) {
+    if (widgetClass == null) {
       // This application doesn't actually use the package:flutter library.
       return;
     }
@@ -460,7 +392,7 @@ class WidgetCreatorTracker implements ProgramTransformer {
     // constructor switch to using it instead of building a ClassHierarchy off
     // the full program.
     hierarchy = new ClassHierarchy(
-      _computeFullProgram(program),
+      computeFullProgram(program),
       onAmbiguousSupertypes: (Class cls, Supertype a, Supertype b) { },
     );
 
@@ -485,8 +417,8 @@ class WidgetCreatorTracker implements ProgramTransformer {
     final _WidgetCallSiteTransformer callsiteTransformer =
         new _WidgetCallSiteTransformer(
       hierarchy,
-      widgetClass: _widgetClass,
-      locationClass: _locationClass,
+      widgetClass: widgetClass,
+      locationClass: locationClass,
     );
 
     for (Library library in libraries) {
@@ -497,18 +429,9 @@ class WidgetCreatorTracker implements ProgramTransformer {
     }
   }
 
-  bool _isSubclassOfWidget(Class clazz) {
-    if (clazz == null) {
-      return false;
-    }
-    // TODO(jacobr): use hierarchy.isSubclassOf once we are using the
-    // non-deprecated ClassHierarchy constructor.
-    return hierarchy.isSubclassOf(clazz, _widgetClass);
-  }
-
   void _transformWidgetConstructors(Set<Library> librariesToBeTransformed,
       Set<Class> transformedClasses, Class clazz) {
-    if (!_isSubclassOfWidget(clazz) ||
+    if (!isSubclassOfWidget(clazz) ||
         !librariesToBeTransformed.contains(clazz.enclosingLibrary) ||
         !transformedClasses.add(clazz)) {
       return;
@@ -530,7 +453,7 @@ class WidgetCreatorTracker implements ProgramTransformer {
           procedure.function,
           new VariableDeclaration(
             _creationLocationParameterName,
-            type: _locationClass.thisType,
+            type: locationClass.thisType,
           ),
         );
       }
@@ -538,7 +461,7 @@ class WidgetCreatorTracker implements ProgramTransformer {
 
     // Handle the widget class and classes that implement but do not extend the
     // widget class.
-    if (!_isSubclassOfWidget(clazz.superclass)) {
+    if (!isSubclassOfWidget(clazz.superclass)) {
       _transformClassImplementingWidget(clazz);
       return;
     }
@@ -553,7 +476,7 @@ class WidgetCreatorTracker implements ProgramTransformer {
 
       final VariableDeclaration variable = new VariableDeclaration(
         _creationLocationParameterName,
-        type: _locationClass.thisType,
+        type: locationClass.thisType,
       );
       if (_hasNamedParameter(
           constructor.function, _creationLocationParameterName)) {
@@ -576,20 +499,19 @@ class WidgetCreatorTracker implements ProgramTransformer {
             initializer.arguments,
             initializer.target.function,
             new VariableGet(variable),
-            _locationClass,
+            locationClass,
           );
         } else if (initializer is SuperInitializer &&
-            _isSubclassOfWidget(initializer.target.enclosingClass)) {
+            isSubclassOfWidget(initializer.target.enclosingClass)) {
           _maybeAddCreationLocationArgument(
             initializer.arguments,
             initializer.target.function,
             new VariableGet(variable),
-            _locationClass,
+            locationClass,
           );
         }
       }
     }
-
     clazz.constructors.forEach(handleConstructor);
   }
 }

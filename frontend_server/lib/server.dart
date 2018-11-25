@@ -11,6 +11,8 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as path;
 
 import 'package:flutter_kernel_transformers/track_widget_constructor_locations.dart';
+import 'package:flutter_kernel_transformers/remove_debug_methods.dart';
+
 import 'package:vm/incremental_compiler.dart';
 import 'package:vm/frontend_server.dart' as frontend show FrontendCompiler,
     CompilerInterface, listenAndCompile, argParser, usage;
@@ -20,11 +22,13 @@ import 'package:vm/frontend_server.dart' as frontend show FrontendCompiler,
 class _FlutterFrontendCompiler implements frontend.CompilerInterface{
   final frontend.CompilerInterface _compiler;
 
-  _FlutterFrontendCompiler(StringSink output,
-      {bool trackWidgetCreation: false, bool unsafePackageSerialization}) :
-          _compiler = new frontend.FrontendCompiler(output,
-          transformer: trackWidgetCreation ? new WidgetCreatorTracker() : null,
-          unsafePackageSerialization: unsafePackageSerialization);
+  _FlutterFrontendCompiler(StringSink output, {
+    bool trackWidgetCreation = false,
+    bool unsafePackageSerialization,
+    bool removeDebugMethods = false,
+  }) :  _compiler = new frontend.FrontendCompiler(output,
+        transformer: trackWidgetCreation ? new WidgetCreatorTracker() : (removeDebugMethods ? new WidgetDebugMethodRemover() : null),
+        unsafePackageSerialization: unsafePackageSerialization);
 
   @override
   Future<bool> compile(String filename, ArgResults options, {IncrementalCompiler generator}) async {
@@ -88,10 +92,16 @@ Future<int> starter(
   frontend.argParser
     ..addFlag('track-widget-creation',
       help: 'Run a kernel transformer to track creation locations for widgets.',
+      defaultsTo: false)
+    ..addFlag('remove-debug-methods',
+      help: 'Run a kernel transformer to remove debug methods.',
       defaultsTo: false);
 
   try {
     options = frontend.argParser.parse(args);
+    if (options['track-widget-creation'] && options['remove-debug-methods']) {
+      throw StateError('--track-widget-creation and --remove-debug-methods are mutually exclusive');
+    }
   } catch (error) {
     print('ERROR: $error\n');
     print(frontend.usage);
@@ -126,8 +136,10 @@ Future<int> starter(
   }
 
   compiler ??= new _FlutterFrontendCompiler(output,
-      trackWidgetCreation: options['track-widget-creation'],
-      unsafePackageSerialization: options['unsafe-package-serialization']);
+    trackWidgetCreation: options['track-widget-creation'],
+    unsafePackageSerialization: options['unsafe-package-serialization'],
+    removeDebugMethods: options['remove-debug-methods'],
+  );
 
   if (options.rest.isNotEmpty) {
     return await compiler.compile(options.rest[0], options) ? 0 : 254;

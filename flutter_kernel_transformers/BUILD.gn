@@ -12,6 +12,8 @@ dart_library("flutter_kernel_transformers") {
 
   sources = [
     "track_widget_constructor_locations.dart",
+    "remove_debug_methods.dart",
+    "src/flutter_transformer.dart",
   ]
 
   deps = [
