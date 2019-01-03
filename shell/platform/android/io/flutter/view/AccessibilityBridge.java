@@ -68,7 +68,8 @@ class AccessibilityBridge
         CUSTOM_ACTION(1 << 17),
         DISMISS(1 << 18),
         MOVE_CURSOR_FORWARD_BY_WORD(1 << 19),
-        MOVE_CURSOR_BACKWARD_BY_WORD(1 << 20);
+        MOVE_CURSOR_BACKWARD_BY_WORD(1 << 20),
+        SET_PROGRESS(1 << 21);
 
         Action(int value) {
             this.value = value;
@@ -276,19 +277,32 @@ class AccessibilityBridge
                     result.setClassName("android.widget.ScrollView");
                 }
             }
-            // TODO(ianh): Once we're on SDK v23+, call addAction to
-            // expose AccessibilityAction.ACTION_SCROLL_LEFT, _RIGHT,
-            // _UP, and _DOWN when appropriate.
-            if (object.hasAction(Action.SCROLL_LEFT) || object.hasAction(Action.SCROLL_UP)) {
-                result.addAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
-            }
-            if (object.hasAction(Action.SCROLL_RIGHT) || object.hasAction(Action.SCROLL_DOWN)) {
-                result.addAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
+            if (Build.VERSION>SDK_INT >= 23) {
+                if (object.hasAction(Action.SCROLL_LEFT)) {
+                    result.addAction(AccessibilityNodeInfo.ACTION_SCROLL_LEFT);
+                }
+                if (object.hasAction(Action.SCROLL_UP)) {
+                    result.addAction(AccessibilityNodeInfo.ACTION_SCROLL_UP);
+                }
+                if (object.hasAction(Action.SCROLL_RIGHT)) {
+                    result.addAction(AccessibilityNodeInfo.ACTION_SCROLL_RIGHT);
+                }
+                if (object.hasAction(Action.SCROLL_DOWN)) {
+                    result.addAction(AccessibilityNodeInfo.ACTION_SCROLL_DOWN);
+                }
+            } else {
+                if (object.hasAction(Action.SCROLL_LEFT) || object.hasAction(Action.SCROLL_UP)) {
+                    result.addAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
+                }
+                if (object.hasAction(Action.SCROLL_RIGHT) || object.hasAction(Action.SCROLL_DOWN)) {
+                    result.addAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD);
+                }
             }
         }
         if (object.hasAction(Action.INCREASE) || object.hasAction(Action.DECREASE)) {
-            // TODO(jonahwilliams): support AccessibilityAction.ACTION_SET_PROGRESS once SDK is
-            // updated.
+            if (Build.VERSION.SDK_INT >= 24) {
+                result.addAction(AccessibilityNodeInfo.ACTION_SET_PROGRESS);
+            }
             result.setClassName("android.widget.SeekBar");
             if (object.hasAction(Action.INCREASE)) {
                 result.addAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD);
@@ -357,6 +371,24 @@ class AccessibilityBridge
         SemanticsObject object = mObjects.get(virtualViewId);
         if (object == null) {
             return false;
+        }
+        if (Build.VERSION.SDK_INT >= 23) {
+            switch (action) {
+                case AccessibilityNodeInfo.ACTION_SCROLL_LEFT:
+                    // TODO(ianh): bidi support using textDirection
+                    mOwner.dispatchSemanticsAction(virtualViewId, Action.SCROLL_LEFT);
+                    return true;
+                case AccessibilityNodeInfo.ACTION_SCROLL_UP:
+                    mOwner.dispatchSemanticsAction(virtualViewId, Action.SCROLL_UP);
+                    return true;
+                case AccessibilityNodeInfo.ACTION_SCROLL_RIGHT:
+                    // TODO(ianh): bidi support using textDirection
+                    mOwner.dispatchSemanticsAction(virtualViewId, Action.SCROLL_RIGHT);
+                    return true;
+                case AccessibilityNodeInfo.ACTION_SCROLL_DOWN:
+                    mOwner.dispatchSemanticsAction(virtualViewId, Action.SCROLL_DOWN);
+                    return true;
+            }
         }
         switch (action) {
             case AccessibilityNodeInfo.ACTION_CLICK: {
