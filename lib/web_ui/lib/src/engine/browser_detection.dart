@@ -117,8 +117,8 @@ OperatingSystem get operatingSystem {
 OperatingSystem debugOperatingSystemOverride;
 
 OperatingSystem _detectOperatingSystem() {
-  final String platform = html.window.navigator.platform;
-  final String userAgent = html.window.navigator.userAgent;
+  final String platform = navigator.platform;
+  final String userAgent = navigator.userAgent;
 
   if (platform.startsWith('Mac')) {
     return OperatingSystem.macOs;
@@ -155,3 +155,13 @@ const Set<OperatingSystem> _desktopOperatingSystems = {
 ///
 /// See [_desktopOperatingSystems].
 bool get isDesktop => _desktopOperatingSystems.contains(operatingSystem);
+
+@JS()
+class Navigator {
+  external String get platform;
+
+  external String get userAgent;
+}
+
+@JS('navigator')
+external Navigator get navigator;

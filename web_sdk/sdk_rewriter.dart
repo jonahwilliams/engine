@@ -19,6 +19,14 @@ const List<List<String>> uiPatterns = <List<String>>[
   <String>['part of ui;', 'part of dart.ui;'],
   <String>[
 r'''
+import 'package:js/js.dart';
+''',
+r'''
+import 'dart:_js_annotations';
+'''
+  ],
+  <String>[
+r'''
 import 'src/engine.dart' as engine;
 ''',
 r'''
@@ -38,6 +46,14 @@ export 'dart:_engine'
 const List<List<String>> enginePatterns = <List<String>>[
   <String>['library engine;', 'library dart._engine;'],
   <String>['part of engine;', 'part of dart._engine;'],
+  <String>[
+r'''
+import 'package:js/js.dart';
+''',
+r'''
+import 'dart:_js_annotations';
+'''
+  ],
   <String>[
 r'''
 import '../ui.dart' as ui;
