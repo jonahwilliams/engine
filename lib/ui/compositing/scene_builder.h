@@ -39,7 +39,8 @@ class SceneBuilder : public RefCountedDartWrappable<SceneBuilder> {
   void pushOffset(Dart_Handle layer_handle,
                   double dx,
                   double dy,
-                  fml::RefPtr<EngineLayer> oldLayer);
+                  fml::RefPtr<EngineLayer> oldLayer,
+                  bool IsScrollTransform);
   void pushClipRect(Dart_Handle layer_handle,
                     double left,
                     double right,

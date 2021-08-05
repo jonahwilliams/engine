@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <iostream>
 #include "flutter/flow/layers/transform_layer.h"
 
 #include <optional>
@@ -68,6 +69,10 @@ void TransformLayer::Preroll(PrerollContext* context, const SkMatrix& matrix) {
 
   context->cull_rect = previous_cull_rect;
   context->mutators_stack.Pop();
+
+  if (ConsiderRasterCache()) {
+    TryToPrepareRasterCache(context, layers()[0].get(), child_matrix);
+  }
 }
 
 void TransformLayer::Paint(PaintContext& context) const {
@@ -77,7 +82,28 @@ void TransformLayer::Paint(PaintContext& context) const {
   SkAutoCanvasRestore save(context.internal_nodes_canvas, true);
   context.internal_nodes_canvas->concat(transform_);
 
+  if (ConsiderRasterCache() && context.raster_cache &&
+        context.raster_cache->Draw(layers()[0].get(),
+                                  *context.leaf_nodes_canvas, nullptr)) {
+    return;
+  }
+
   PaintChildren(context);
+}
+
+///
+bool TransformLayer::ConsiderRasterCache() const {
+  // If this layer is not a scroll transform, we should not attempt to raster cache it.
+  if (!is_scroll_transform_ || this->layers().size() != 1) {
+    std::cerr << "not scroll transform or had more than one child" << std::endl;
+    return false;
+  }
+  // if this layer has only a single child picture layer (common for simple list views),
+  // then caching can be done more effectively at the child level.
+  if (this->layers()[0].get()->get_is_picture()) {
+    return false;
+  }
+  return true;
 }
 
 }  // namespace flutter

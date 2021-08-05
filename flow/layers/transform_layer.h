@@ -25,8 +25,23 @@ class TransformLayer : public ContainerLayer {
 
   void Paint(PaintContext& context) const override;
 
+  void SetScrollTransform(bool value) {
+    is_scroll_transform_ = value;
+  }
+
+  bool GetScrollTransform() const {
+    return is_scroll_transform_;
+  }
+
  private:
   SkMatrix transform_;
+
+  // Indicates that this offset layer is used to position child layers for a scrollable
+  // container. If the child layers are complex enough (i.e. not a single picture layer), then
+  // this indicates that it is worth raster caching.
+  bool is_scroll_transform_;
+
+  bool ConsiderRasterCache() const;
 
   FML_DISALLOW_COPY_AND_ASSIGN(TransformLayer);
 };

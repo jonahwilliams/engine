@@ -323,16 +323,17 @@ class SceneBuilder extends NativeFieldWrapperClass1 {
     double dx,
     double dy, {
     OffsetEngineLayer? oldLayer,
+    bool isScrollTransform = false,
   }) {
     assert(_debugCheckCanBeUsedAsOldLayer(oldLayer, 'pushOffset'));
     final EngineLayer engineLayer = EngineLayer._();
-    _pushOffset(engineLayer, dx, dy, oldLayer?._nativeLayer);
+    _pushOffset(engineLayer, dx, dy, oldLayer?._nativeLayer, isScrollTransform);
     final OffsetEngineLayer layer = OffsetEngineLayer._(engineLayer);
     assert(_debugPushLayer(layer));
     return layer;
   }
 
-  void _pushOffset(EngineLayer layer, double dx, double dy, EngineLayer? oldLayer)
+  void _pushOffset(EngineLayer layer, double dx, double dy, EngineLayer? oldLayer, bool isScrollTransform)
       native 'SceneBuilder_pushOffset';
 
   /// Pushes a rectangular clip operation onto the operation stack.

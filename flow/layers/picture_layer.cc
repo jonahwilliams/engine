@@ -16,7 +16,9 @@ PictureLayer::PictureLayer(const SkPoint& offset,
     : offset_(offset),
       picture_(std::move(picture)),
       is_complex_(is_complex),
-      will_change_(will_change) {}
+      will_change_(will_change) {
+        set_is_picture(true);
+      }
 
 #ifdef FLUTTER_ENABLE_DIFF_CONTEXT
 

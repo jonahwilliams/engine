@@ -237,6 +237,14 @@ class Layer {
 
   uint64_t unique_id() const { return unique_id_; }
 
+  bool get_is_picture() const {
+    return is_picture_;
+  }
+
+  void set_is_picture(bool value) {
+    is_picture_ = value;
+  }
+
 #ifdef FLUTTER_ENABLE_DIFF_CONTEXT
 
   virtual const PictureLayer* as_picture_layer() const { return nullptr; }
@@ -256,6 +264,7 @@ class Layer {
   uint64_t unique_id_;
   uint64_t original_layer_id_;
   bool subtree_has_platform_view_;
+  bool is_picture_ = false;
 
   static uint64_t NextUniqueID();
 
