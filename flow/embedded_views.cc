@@ -36,6 +36,11 @@ void MutatorsStack::PushOpacity(const int& alpha) {
   vector_.push_back(element);
 };
 
+void MutatorsStack::PushOffset(float dx, float dy) {
+  std::shared_ptr<Mutator> element = std::make_shared<Mutator>(dx, dy);
+  vector_.push_back(element);
+}
+
 void MutatorsStack::Pop() {
   vector_.pop_back();
 };

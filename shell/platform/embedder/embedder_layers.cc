@@ -100,6 +100,22 @@ static std::unique_ptr<FlutterPlatformViewMutation> ConvertMutation(
   return std::make_unique<FlutterPlatformViewMutation>(mutation);
 }
 
+static std::unique_ptr<FlutterPlatformViewMutation> ConvertMutation(
+    const SkPoint& offset) {
+  FlutterPlatformViewMutation mutation = {};
+  mutation.type = kFlutterPlatformViewMutationTypeTransformation;
+  mutation.transformation.scaleX = 1.0f;
+  mutation.transformation.skewX = 0.0f;
+  mutation.transformation.transX = offset.x();
+  mutation.transformation.skewY = 0.0f;
+  mutation.transformation.scaleY = 1.0f;
+  mutation.transformation.transY = offset.y();
+  mutation.transformation.pers0 = 0.0f;
+  mutation.transformation.pers1 = 0.0f;
+  mutation.transformation.pers2 = 1.0f;
+  return std::make_unique<FlutterPlatformViewMutation>(mutation);
+}
+
 void EmbedderLayers::PushPlatformViewLayer(
     FlutterPlatformViewIdentifier identifier,
     const EmbeddedViewParams& params) {
@@ -146,6 +162,12 @@ void EmbedderLayers::PushPlatformViewLayer(
                 mutations_referenced_.emplace_back(ConvertMutation(opacity))
                     .get());
           }
+        } break;
+        case MutatorType::offset: {
+          const SkPoint offset = mutator->GetOffset();
+            mutations_array.push_back(
+                mutations_referenced_.emplace_back(ConvertMutation(offset))
+                    .get());
         } break;
       }
     }

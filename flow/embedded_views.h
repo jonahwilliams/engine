@@ -21,7 +21,7 @@
 namespace flutter {
 
 // TODO(chinmaygarde): Make these enum names match the style guide.
-enum MutatorType { clip_rect, clip_rrect, clip_path, transform, opacity };
+enum MutatorType { clip_rect, clip_rrect, clip_path, transform, opacity, offset };
 
 // Stores mutation information like clipping or transform.
 //
@@ -61,12 +61,14 @@ class Mutator {
   explicit Mutator(const SkMatrix& matrix)
       : type_(transform), matrix_(matrix) {}
   explicit Mutator(const int& alpha) : type_(opacity), alpha_(alpha) {}
+  Mutator(float dx, float dy) : type_(offset), offset_(SkPoint::Make(dx, dy)) {}
 
   const MutatorType& GetType() const { return type_; }
   const SkRect& GetRect() const { return rect_; }
   const SkRRect& GetRRect() const { return rrect_; }
   const SkPath& GetPath() const { return *path_; }
   const SkMatrix& GetMatrix() const { return matrix_; }
+  const SkPoint& GetOffset() const { return offset_; }
   const int& GetAlpha() const { return alpha_; }
   float GetAlphaFloat() const { return (alpha_ / 255.0); }
 
@@ -85,6 +87,8 @@ class Mutator {
         return matrix_ == other.matrix_;
       case opacity:
         return alpha_ == other.alpha_;
+      case offset:
+        return offset_ == other.offset_;
     }
 
     return false;
@@ -110,6 +114,7 @@ class Mutator {
     SkRRect rrect_;
     SkMatrix matrix_;
     SkPath* path_;
+    SkPoint offset_;
     int alpha_;
   };
 
@@ -133,6 +138,7 @@ class MutatorsStack {
   void PushClipPath(const SkPath& path);
   void PushTransform(const SkMatrix& matrix);
   void PushOpacity(const int& alpha);
+  void PushOffset(float dx, float dy);
 
   // Removes the `Mutator` on the top of the stack
   // and destroys it.

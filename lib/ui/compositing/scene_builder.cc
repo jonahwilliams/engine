@@ -14,6 +14,7 @@
 #include "flutter/flow/layers/image_filter_layer.h"
 #include "flutter/flow/layers/layer.h"
 #include "flutter/flow/layers/layer_tree.h"
+#include "flutter/flow/layers/offset_layer.h"
 #include "flutter/flow/layers/opacity_layer.h"
 #include "flutter/flow/layers/performance_overlay_layer.h"
 #include "flutter/flow/layers/physical_shape_layer.h"
@@ -98,8 +99,7 @@ void SceneBuilder::pushOffset(Dart_Handle layer_handle,
                               double dx,
                               double dy,
                               fml::RefPtr<EngineLayer> oldLayer) {
-  SkMatrix sk_matrix = SkMatrix::Translate(dx, dy);
-  auto layer = std::make_shared<flutter::TransformLayer>(sk_matrix);
+  auto layer = std::make_shared<flutter::OffsetLayer>(dx, dy);
   PushLayer(layer);
   EngineLayer::MakeRetained(layer_handle, layer);
 

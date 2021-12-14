@@ -117,18 +117,18 @@ bool ShellTestPlatformViewVulkan::OffScreenSurface::CreateSkiaGrContext() {
   const auto options =
       MakeDefaultContextOptions(ContextType::kRender, GrBackendApi::kVulkan);
 
-  sk_sp<GrDirectContext> context =
-      GrDirectContext::MakeVulkan(backend_context, options);
+  // sk_sp<GrDirectContext> context =
+  //     GrDirectContext::MakeVulkan(backend_context, options);
 
-  if (context == nullptr) {
-    FML_DLOG(ERROR) << "Failed to create GrDirectContext";
-    return false;
-  }
+  // if (context == nullptr) {
+  //   FML_DLOG(ERROR) << "Failed to create GrDirectContext";
+  //   return false;
+  // }
 
-  context->setResourceCacheLimits(vulkan::kGrCacheMaxCount,
-                                  vulkan::kGrCacheMaxByteSize);
+  // context->setResourceCacheLimits(vulkan::kGrCacheMaxCount,
+  //                                 vulkan::kGrCacheMaxByteSize);
 
-  context_ = context;
+  // context_ = context;
 
   return true;
 }

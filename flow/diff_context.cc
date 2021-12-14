@@ -48,6 +48,10 @@ void DiffContext::PushTransform(const SkMatrix& transform) {
   state_.transform.preConcat(transform);
 }
 
+void DiffContext::PushOffset(float dx, float dy) {
+  state_.transform.preTranslate(dx, dy);
+}
+
 void DiffContext::SetTransform(const SkMatrix& transform) {
   state_.transform_override = transform;
 }
