@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include <filesystem>
+#include <iostream>
 
 #include "flutter/fml/backtrace.h"
 #include "flutter/fml/command_line.h"
@@ -32,8 +33,9 @@ bool Main(const fml::CommandLine& command_line) {
     return false;
   }
 
-  auto source_file_mapping = fml::FileMapping::CreateReadOnly(
-      *switches.working_directory, switches.source_file_name);
+  std::cerr << switches.source_file_name << "\n";
+  auto source_file_mapping =
+      fml::FileMapping::CreateReadOnly(switches.source_file_name);
   if (!source_file_mapping) {
     std::cerr << "Could not open input file." << std::endl;
     return false;
