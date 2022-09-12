@@ -3384,28 +3384,15 @@ class _ColorFilter extends NativeFieldWrapperClass1 {
 ///    this class as a child layer filter.
 abstract class ImageFilter {
   /// Creates an image filter that applies a Gaussian blur.
-  factory ImageFilter.blur({ double sigmaX = 0.0, double sigmaY = 0.0, TileMode tileMode = TileMode.clamp }) {
-    assert(sigmaX != null);
-    assert(sigmaY != null);
-    assert(tileMode != null);
-    return _GaussianBlurImageFilter(sigmaX: sigmaX, sigmaY: sigmaY, tileMode: tileMode);
-  }
+  const factory ImageFilter.blur({ double sigmaX, double sigmaY, TileMode tileMode }) = _GaussianBlurImageFilter;
 
   /// Creates an image filter that dilates each input pixel's channel values
   /// to the max value within the given radii along the x and y axes.
-  factory ImageFilter.dilate({ double radiusX = 0.0, double radiusY = 0.0 }) {
-    assert(radiusX != null);
-    assert(radiusY != null);
-    return _DilateImageFilter(radiusX: radiusX, radiusY: radiusY);
-  }
+  const factory ImageFilter.dilate({ double radiusX, double radiusY }) = _DilateImageFilter;
 
   /// Create a filter that erodes each input pixel's channel values
   /// to the minimum channel value within the given radii along the x and y axes.
-  factory ImageFilter.erode({ double radiusX = 0.0, double radiusY = 0.0 }) {
-    assert(radiusX != null);
-    assert(radiusY != null);
-    return _ErodeImageFilter(radiusX: radiusX, radiusY: radiusY);
-  }
+  const factory ImageFilter.erode({ double radiusX, double radiusY}) = _ErodeImageFilter;
 
   /// Creates an image filter that applies a matrix transformation.
   ///
@@ -3426,10 +3413,7 @@ abstract class ImageFilter {
   /// Creates a single [ImageFilter] that when applied, has the same effect as
   /// subsequently applying `inner` and `outer`, i.e.,
   /// result = outer(inner(source)).
-  factory ImageFilter.compose({ required ImageFilter outer, required ImageFilter inner }) {
-    assert(inner != null && outer != null);
-    return _ComposeImageFilter(innerFilter: inner, outerFilter: outer);
-  }
+  factory ImageFilter.compose({ required ImageFilter outer, required ImageFilter inner }) = _ComposeImageFilter;
 
   // Converts this to a native SkImageFilter. See the comments of this method in
   // subclasses for the exact type of SkImageFilter this method converts to.
@@ -3441,15 +3425,14 @@ abstract class ImageFilter {
 }
 
 class _MatrixImageFilter implements ImageFilter {
-  _MatrixImageFilter({ required this.data, required this.filterQuality });
+  const _MatrixImageFilter({ required this.data, required this.filterQuality });
 
   final Float64List data;
   final FilterQuality filterQuality;
 
   // MakeMatrixFilterRowMajor255
-  late final _ImageFilter nativeFilter = _ImageFilter.matrix(this);
   @override
-  _ImageFilter _toNativeImageFilter() => nativeFilter;
+  _ImageFilter _toNativeImageFilter() => _ImageFilter.matrix(this);
 
   @override
   String get _shortDescription => 'matrix($data, $filterQuality)';
@@ -3472,16 +3455,18 @@ class _MatrixImageFilter implements ImageFilter {
 }
 
 class _GaussianBlurImageFilter implements ImageFilter {
-  _GaussianBlurImageFilter({ required this.sigmaX, required this.sigmaY, required this.tileMode });
+  const _GaussianBlurImageFilter({ this.sigmaX = 0.0, this.sigmaY = 0.0, this.tileMode = TileMode.clamp })
+    : assert(sigmaX != null),
+      assert(sigmaY != null),
+      assert(tileMode != null);
 
   final double sigmaX;
   final double sigmaY;
   final TileMode tileMode;
 
   // MakeBlurFilter
-  late final _ImageFilter nativeFilter = _ImageFilter.blur(this);
   @override
-  _ImageFilter _toNativeImageFilter() => nativeFilter;
+  _ImageFilter _toNativeImageFilter() => _ImageFilter.blur(this);
 
   String get _modeString {
     switch (tileMode) {
@@ -3514,14 +3499,15 @@ class _GaussianBlurImageFilter implements ImageFilter {
 }
 
 class _DilateImageFilter implements ImageFilter {
-  _DilateImageFilter({ required this.radiusX, required this.radiusY });
+  const _DilateImageFilter({ this.radiusX = 0.0, this.radiusY = 0.0})
+    : assert(radiusX != null),
+      assert(radiusY != null);
 
   final double radiusX;
   final double radiusY;
 
-  late final _ImageFilter nativeFilter = _ImageFilter.dilate(this);
   @override
-  _ImageFilter _toNativeImageFilter() => nativeFilter;
+  _ImageFilter _toNativeImageFilter() => _ImageFilter.dilate(this);
 
   @override
   String get _shortDescription => 'dilate($radiusX, $radiusY)';
@@ -3544,14 +3530,15 @@ class _DilateImageFilter implements ImageFilter {
 }
 
 class _ErodeImageFilter implements ImageFilter {
-  _ErodeImageFilter({ required this.radiusX, required this.radiusY });
+  const _ErodeImageFilter({ this.radiusX = 0.0, this.radiusY = 0.0 })
+    : assert(radiusX != null),
+      assert(radiusY != null);
 
   final double radiusX;
   final double radiusY;
 
-  late final _ImageFilter nativeFilter = _ImageFilter.erode(this);
   @override
-  _ImageFilter _toNativeImageFilter() => nativeFilter;
+  _ImageFilter _toNativeImageFilter() => _ImageFilter.erode(this);
 
   @override
   String get _shortDescription => 'erode($radiusX, $radiusY)';
@@ -3574,18 +3561,17 @@ class _ErodeImageFilter implements ImageFilter {
 }
 
 class _ComposeImageFilter implements ImageFilter {
-  _ComposeImageFilter({ required this.innerFilter, required this.outerFilter });
+  const _ComposeImageFilter({ required this.inner, required this.outer })
+    : assert(inner != null && outer != null);
 
-  final ImageFilter innerFilter;
-  final ImageFilter outerFilter;
-
-  // SkImageFilters::Compose
-  late final _ImageFilter nativeFilter = _ImageFilter.composed(this);
-  @override
-  _ImageFilter _toNativeImageFilter() => nativeFilter;
+  final ImageFilter inner;
+  final ImageFilter outer;
 
   @override
-  String get _shortDescription => '${innerFilter._shortDescription} -> ${outerFilter._shortDescription}';
+  _ImageFilter _toNativeImageFilter() => _ImageFilter.composed(this);
+
+  @override
+  String get _shortDescription => '${inner._shortDescription} -> ${outer._shortDescription}';
 
   @override
   String toString() => 'ImageFilter.compose(source -> $_shortDescription -> result)';
@@ -3596,12 +3582,12 @@ class _ComposeImageFilter implements ImageFilter {
       return false;
     }
     return other is _ComposeImageFilter
-        && other.innerFilter == innerFilter
-        && other.outerFilter == outerFilter;
+        && other.inner == inner
+        && other.outer == outer;
   }
 
   @override
-  int get hashCode => Object.hash(innerFilter, outerFilter);
+  int get hashCode => Object.hash(inner, outer);
 }
 
 /// An [ImageFilter] that is backed by a native SkImageFilter.
@@ -3664,8 +3650,8 @@ class _ImageFilter extends NativeFieldWrapperClass1 {
     : assert(filter != null),
       creator = filter {
     _constructor();
-    final _ImageFilter nativeFilterInner = filter.innerFilter._toNativeImageFilter();
-    final _ImageFilter nativeFilterOuter = filter.outerFilter._toNativeImageFilter();
+    final _ImageFilter nativeFilterInner = filter.inner._toNativeImageFilter();
+    final _ImageFilter nativeFilterOuter = filter.outer._toNativeImageFilter();
     _initComposed(nativeFilterOuter, nativeFilterInner);
   }
 
