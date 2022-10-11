@@ -6,6 +6,8 @@
 
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/entity.h"
+#include "impeller/entity/solid_fill.frag.h"
+#include "impeller/entity/solid_fill.vert.h"
 #include "impeller/geometry/path.h"
 #include "impeller/renderer/render_pass.h"
 

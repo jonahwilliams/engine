@@ -28,6 +28,10 @@ std::unique_ptr<Geometry> Geometry::MakeCover() {
   return std::make_unique<CoverGeometry>();
 }
 
+std::unique_ptr<Geometry> Geometry::MakeRect(Rect rect) {
+  return std::make_unique<RectGeometry>(rect);
+}
+
 /////// Vertices Geometry ///////
 
 VerticesGeometry::VerticesGeometry(Vertices vertices)
@@ -286,6 +290,60 @@ GeometryVertexType CoverGeometry::GetVertexType() {
 
 std::optional<Rect> CoverGeometry::GetCoverage(Matrix transform) {
   return Rect::MakeMaximum();
+}
+
+/////// Rect Geometry ///////
+
+RectGeometry::RectGeometry(Rect rect) : rect_(rect) {}
+
+RectGeometry::~RectGeometry() = default;
+
+GeometryResult RectGeometry::GetPositionBuffer(
+    std::shared_ptr<Allocator> device_allocator,
+    HostBuffer& host_buffer,
+    std::shared_ptr<Tessellator> tessellator,
+    ISize render_target_size) {
+  constexpr uint16_t kRectIndices[4] = {0, 1, 2, 3};
+  VertexBuffer vertex_buffer = {
+      .vertex_buffer = host_buffer.Emplace(rect_.GetPoints().data(),
+                                           8 * sizeof(float), alignof(float)),
+      .index_buffer = host_buffer.Emplace(kRectIndices, 4 * sizeof(uint16_t),
+                                          alignof(uint16_t)),
+      .index_count = 4,
+      .index_type = IndexType::k16bit,
+  };
+  return GeometryResult{
+      .type = PrimitiveType::kTriangleStrip,
+      .vertex_buffer = vertex_buffer,
+      .prevent_overdraw = false,
+  };
+}
+
+GeometryResult RectGeometry::GetPositionColorBuffer(
+    std::shared_ptr<Allocator> device_allocator,
+    HostBuffer& host_buffer,
+    std::shared_ptr<Tessellator> tessellator,
+    Color paint_color,
+    BlendMode blend_mode) {
+  // TODO(jonahwilliams): support per-color vertex in cover geometry.
+  return {};
+}
+
+GeometryResult RectGeometry::GetPositionUVBuffer(
+    std::shared_ptr<Allocator> device_allocator,
+    HostBuffer& host_buffer,
+    std::shared_ptr<Tessellator> tessellator,
+    ISize render_target_size) {
+  // TODO(jonahwilliams): support texture coordinates in rect geometry.
+  return {};
+}
+
+GeometryVertexType RectGeometry::GetVertexType() {
+  return GeometryVertexType::kPosition;
+}
+
+std::optional<Rect> RectGeometry::GetCoverage(Matrix transform) {
+  return rect_.TransformBounds(transform);
 }
 
 }  // namespace impeller

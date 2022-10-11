@@ -34,6 +34,15 @@ void RenderPass::SetLabel(std::string label) {
   OnSetLabel(std::move(label));
 }
 
+Command* RenderPass::AllocateCommand() {
+  commands_.emplace_back(Command{});
+  return &commands_.back();
+}
+
+bool RenderPass::ValidateLastCommand() {
+  return true;
+}
+
 bool RenderPass::AddCommand(Command command) {
   if (!command) {
     VALIDATION_LOG << "Attempted to add an invalid command to the render pass.";

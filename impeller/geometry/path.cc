@@ -5,6 +5,7 @@
 #include "impeller/geometry/path.h"
 
 #include <optional>
+#include <iostream>
 
 #include "impeller/geometry/path_component.h"
 

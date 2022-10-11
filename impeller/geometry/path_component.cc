@@ -67,6 +67,10 @@ std::vector<Point> LinearPathComponent::CreatePolyline() const {
   return {p2};
 }
 
+void LinearPathComponent::AppendPolyline(std::vector<Point> points) const {
+  points.push_back(p2);
+}
+
 std::vector<Point> LinearPathComponent::Extrema() const {
   return {p1, p2};
 }

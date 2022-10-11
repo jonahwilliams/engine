@@ -49,6 +49,21 @@ class RenderPass {
   bool AddCommand(Command command);
 
   //----------------------------------------------------------------------------
+  /// @brief      Record an empty command for subsequent encoding to the underlying
+  ///             command buffer and return a reference to it.
+  ///
+  /// @return     The command.
+  ///
+  Command* AllocateCommand();
+
+  //----------------------------------------------------------------------------
+  /// @brief      Validate the current command created via allocate command.
+  ///
+  /// @return     If the command was valid for subsequent commitment.
+  ///
+  bool ValidateLastCommand();
+
+  //----------------------------------------------------------------------------
   /// @brief      Encode the recorded commands to the underlying command buffer.
   ///
   /// @return     If the commands were encoded to the underlying command

@@ -39,6 +39,8 @@ class Geometry {
 
   static std::unique_ptr<Geometry> MakeCover();
 
+  static std::unique_ptr<Geometry> MakeRect(Rect rect);
+
   virtual GeometryResult GetPositionBuffer(
       std::shared_ptr<Allocator> device_allocator,
       HostBuffer& host_buffer,
@@ -180,6 +182,50 @@ class CoverGeometry : public Geometry {
   std::optional<Rect> GetCoverage(Matrix transform) override;
 
   FML_DISALLOW_COPY_AND_ASSIGN(CoverGeometry);
+};
+
+/// @brief A geometry that is created from a filled Rect.
+///
+///        This is faster than using a more generic Path geometry by
+///        avoiding both tessellation (triangulation) and polyline generation
+///        algorithms. Only supports filled shapes.
+class RectGeometry : public Geometry {
+ public:
+  RectGeometry(Rect rect);
+
+  ~RectGeometry();
+
+ private:
+  // |Geometry|
+  GeometryResult GetPositionBuffer(std::shared_ptr<Allocator> device_allocator,
+                                   HostBuffer& host_buffer,
+                                   std::shared_ptr<Tessellator> tessellator,
+                                   ISize render_target_size) override;
+
+  // |Geometry|
+  GeometryResult GetPositionColorBuffer(
+      std::shared_ptr<Allocator> device_allocator,
+      HostBuffer& host_buffer,
+      std::shared_ptr<Tessellator> tessellator,
+      Color paint_color,
+      BlendMode blend_mode) override;
+
+  // |Geometry|
+  GeometryResult GetPositionUVBuffer(
+      std::shared_ptr<Allocator> device_allocator,
+      HostBuffer& host_buffer,
+      std::shared_ptr<Tessellator> tessellator,
+      ISize render_target_size) override;
+
+  // |Geometry|
+  GeometryVertexType GetVertexType() override;
+
+  // |Geometry|
+  std::optional<Rect> GetCoverage(Matrix transform) override;
+
+  Rect rect_;
+
+  FML_DISALLOW_COPY_AND_ASSIGN(RectGeometry);
 };
 
 }  // namespace impeller

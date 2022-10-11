@@ -43,6 +43,66 @@ std::shared_ptr<Contents> Paint::CreateContentsForEntity(Path path,
   return nullptr;
 }
 
+std::shared_ptr<Contents> Paint::CreateContentsForGeometry(
+    std::unique_ptr<Geometry> geometry) const {
+  FML_DCHECK(style != Style::kStroke);
+  if (color_source.has_value()) {
+    auto& source = color_source.value();
+    auto contents = source();
+    contents->SetGeometry(std::move(geometry));
+    contents->SetAlpha(color.alpha);
+    return contents;
+  }
+
+  switch (style) {
+    case Style::kFill: {
+      auto solid_color = std::make_shared<SolidColorContents>();
+      solid_color->SetGeometry(std::move(geometry));
+      solid_color->SetColor(color);
+      return solid_color;
+    }
+    case Style::kStroke: {
+      break;
+    }
+  }
+
+  return nullptr;
+}
+
+std::shared_ptr<Contents> Paint::CreateContentsForEntity(Path path,
+                                                         bool cover) const {
+  if (color_source.has_value()) {
+    auto& source = color_source.value();
+    auto contents = source();
+    contents->SetGeometry(cover ? Geometry::MakeCover()
+                                : Geometry::MakePath(std::move(path)));
+    contents->SetAlpha(color.alpha);
+    return contents;
+  }
+
+  switch (style) {
+    case Style::kFill: {
+      auto solid_color = std::make_shared<SolidColorContents>();
+      solid_color->SetGeometry(cover ? Geometry::MakeCover()
+                                     : Geometry::MakePath(std::move(path)));
+      solid_color->SetColor(color);
+      return solid_color;
+    }
+    case Style::kStroke: {
+      auto solid_stroke = std::make_shared<SolidStrokeContents>();
+      solid_stroke->SetPath(std::move(path));
+      solid_stroke->SetColor(color);
+      solid_stroke->SetStrokeSize(stroke_width);
+      solid_stroke->SetStrokeMiter(stroke_miter);
+      solid_stroke->SetStrokeCap(stroke_cap);
+      solid_stroke->SetStrokeJoin(stroke_join);
+      return solid_stroke;
+    }
+  }
+
+  return nullptr;
+}
+
 std::shared_ptr<Contents> Paint::WithFilters(
     std::shared_ptr<Contents> input,
     std::optional<bool> is_solid_color,

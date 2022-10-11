@@ -65,6 +65,8 @@ struct LinearPathComponent {
 
   std::vector<Point> CreatePolyline() const;
 
+  void AppendPolyline(std::vector<Point> points) const;
+
   std::vector<Point> Extrema() const;
 
   bool operator==(const LinearPathComponent& other) const {
