@@ -49,7 +49,8 @@ class RenderPass {
   bool AddCommand(Command command);
 
   //----------------------------------------------------------------------------
-  /// @brief      Record an empty command for subsequent encoding to the underlying
+  /// @brief      Record an empty command for subsequent encoding to the
+  /// underlying
   ///             command buffer and return a reference to it.
   ///
   /// @return     The command.

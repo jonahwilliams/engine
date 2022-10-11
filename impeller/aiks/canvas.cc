@@ -196,8 +196,8 @@ void Canvas::DrawRect(Rect rect, Paint paint) {
   entity.SetStencilDepth(GetStencilDepth());
   entity.SetBlendMode(paint.blend_mode);
   // TODO, conditionally create stroke or rect geom based on paint.
-  entity.SetContents(
-      paint.WithFilters(paint.CreateContentsForEntity(Geometry::MakeRect(rect))));
+  entity.SetContents(paint.WithFilters(
+      paint.CreateContentsForEntity(Geometry::MakeRect(rect))));
 
   GetCurrentPass().AddEntity(std::move(entity));
 }
