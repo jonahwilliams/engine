@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <iostream>
 #include "impeller/typographer/glyph_atlas.h"
 
 namespace impeller {
@@ -17,6 +18,14 @@ std::shared_ptr<GlyphAtlas> GlyphAtlasContext::GetGlyphAtlas() const {
 
 void GlyphAtlasContext::UpdateGlyphAtlas(std::shared_ptr<GlyphAtlas> atlas) {
   atlas_ = atlas;
+}
+
+std::shared_ptr<void> GlyphAtlasContext::GetExtraData() const {
+  return data_;
+}
+
+void GlyphAtlasContext::SetExtraData(std::shared_ptr<void> data) {
+  data_ = data;
 }
 
 GlyphAtlas::GlyphAtlas(Type type) : type_(type) {}
@@ -74,6 +83,28 @@ size_t GlyphAtlas::IterateGlyphs(
   return count;
 }
 
+size_t GlyphAtlas::IterateSubsetGlyphs(
+    const FontGlyphPair::Vector& glyphs,
+    const std::function<bool(const FontGlyphPair& pair, const Rect& rect)>&
+        iterator) const {
+  if (!iterator) {
+    return 0u;
+  }
+
+  size_t count = 0u;
+  for (const auto& glyph : glyphs) {
+    auto position = positions_.find(glyph);
+    if (position == positions_.end()) {
+      continue;
+    }
+    count++;
+    if (!iterator(position->first, position->second)) {
+      return count;
+    }
+  }
+  return count;
+}
+
 bool GlyphAtlas::HasSamePairs(const FontGlyphPair::Vector& new_glyphs) {
   for (const auto& pair : new_glyphs) {
     if (positions_.find(pair) == positions_.end()) {
@@ -81,6 +112,17 @@ bool GlyphAtlas::HasSamePairs(const FontGlyphPair::Vector& new_glyphs) {
     }
   }
   return true;
+}
+
+FontGlyphPair::Vector GlyphAtlas::CollectNewGlyphs(
+    const FontGlyphPair::Vector& glyphs) {
+  FontGlyphPair::Vector new_glyphs;
+  for (const auto& pair : glyphs) {
+    if (positions_.find(pair) == positions_.end()) {
+      new_glyphs.push_back(pair);
+    }
+  }
+  return new_glyphs;
 }
 
 }  // namespace impeller

@@ -107,6 +107,20 @@ class GlyphAtlas {
           iterator) const;
 
   //----------------------------------------------------------------------------
+  /// @brief      Iterate all of the glyps along with their locations from
+  ///             pairs.
+  ///
+  /// @param[in]  iterator  The iterator. Return `false` from the iterator to
+  ///                       stop iterating.
+  ///
+  /// @return     The number of glyphs iterated over.
+  ///
+  size_t IterateSubsetGlyphs(
+      const FontGlyphPair::Vector& glyphs,
+      const std::function<bool(const FontGlyphPair& pair, const Rect& rect)>&
+          iterator) const;
+
+  //----------------------------------------------------------------------------
   /// @brief      Find the location of a specific font-glyph pair in the atlas.
   ///
   /// @param[in]  pair  The font-glyph pair
@@ -125,6 +139,8 @@ class GlyphAtlas {
   /// @return     Whether this atlas contains all passed pairs.
   ///
   bool HasSamePairs(const FontGlyphPair::Vector& new_glyphs);
+
+  FontGlyphPair::Vector CollectNewGlyphs(const FontGlyphPair::Vector& glyphs);
 
  private:
   const Type type_;
@@ -153,11 +169,20 @@ class GlyphAtlasContext {
   std::shared_ptr<GlyphAtlas> GetGlyphAtlas() const;
 
   //----------------------------------------------------------------------------
+  /// @brief      Retrieve any additional data, if present.
+  std::shared_ptr<void> GetExtraData() const;
+
+  //----------------------------------------------------------------------------
   /// @brief      Update the context with a newly constructed glyph atlas.
   void UpdateGlyphAtlas(std::shared_ptr<GlyphAtlas> atlas);
 
+  //----------------------------------------------------------------------------
+  /// @brief      Update the context with new additional data.
+  void SetExtraData(std::shared_ptr<void>);
+
  private:
   std::shared_ptr<GlyphAtlas> atlas_;
+  std::shared_ptr<void> data_;
 
   FML_DISALLOW_COPY_AND_ASSIGN(GlyphAtlasContext);
 };
