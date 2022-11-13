@@ -44,6 +44,7 @@
 #include "impeller/entity/glyph_atlas_sdf.vert.h"
 #include "impeller/entity/gradient_fill.vert.h"
 #include "impeller/entity/linear_gradient_fill.frag.h"
+#include "impeller/entity/linear_gradient_two_color_fill.frag.h"
 #include "impeller/entity/linear_to_srgb_filter.frag.h"
 #include "impeller/entity/linear_to_srgb_filter.vert.h"
 #include "impeller/entity/morphology_filter.frag.h"
@@ -76,6 +77,9 @@ namespace impeller {
 
 using LinearGradientFillPipeline =
     RenderPipelineT<GradientFillVertexShader, LinearGradientFillFragmentShader>;
+using LinearGradientTwoColorFillPipeline =
+    RenderPipelineT<GradientFillVertexShader,
+                    LinearGradientTwoColorFillFragmentShader>;
 using SolidFillPipeline =
     RenderPipelineT<SolidFillVertexShader, SolidFillFragmentShader>;
 using RadialGradientFillPipeline =
@@ -208,6 +212,11 @@ class ContentContext {
   std::shared_ptr<Pipeline<PipelineDescriptor>> GetLinearGradientFillPipeline(
       ContentContextOptions opts) const {
     return GetPipeline(linear_gradient_fill_pipelines_, opts);
+  }
+
+  std::shared_ptr<Pipeline<PipelineDescriptor>>
+  GetLinearGradientTwoColorFillPipeline(ContentContextOptions opts) const {
+    return GetPipeline(linear_gradient_two_color_fill_pipelines_, opts);
   }
 
   std::shared_ptr<Pipeline<PipelineDescriptor>> GetRadialGradientFillPipeline(
@@ -414,6 +423,8 @@ class ContentContext {
   // map.
   mutable Variants<SolidFillPipeline> solid_fill_pipelines_;
   mutable Variants<LinearGradientFillPipeline> linear_gradient_fill_pipelines_;
+  mutable Variants<LinearGradientTwoColorFillPipeline>
+      linear_gradient_two_color_fill_pipelines_;
   mutable Variants<RadialGradientFillPipeline> radial_gradient_fill_pipelines_;
   mutable Variants<SweepGradientFillPipeline> sweep_gradient_fill_pipelines_;
   mutable Variants<RRectBlurPipeline> rrect_blur_pipelines_;

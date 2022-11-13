@@ -7,6 +7,7 @@
 #include <memory>
 #include <utility>
 #include <variant>
+#include <iostream>
 
 #include "flutter/fml/logging.h"
 #include "flutter/fml/macros.h"
@@ -217,6 +218,7 @@ bool EntityPass::Render(ContentContext& renderer,
     if (!command_buffer->SubmitCommands()) {
       return false;
     }
+    std::cerr << "Render Pass Size " << render_pass->GetSize() << std::endl;
 
     return true;
   }

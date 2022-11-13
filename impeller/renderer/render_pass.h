@@ -56,6 +56,8 @@ class RenderPass {
   ///
   bool EncodeCommands() const;
 
+  uint32_t GetSize() const;
+
  protected:
   const std::weak_ptr<const Context> context_;
   const RenderTarget render_target_;

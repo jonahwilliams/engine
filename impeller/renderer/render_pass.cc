@@ -26,6 +26,10 @@ HostBuffer& RenderPass::GetTransientsBuffer() {
   return *transients_buffer_;
 }
 
+uint32_t RenderPass::GetSize() const {
+  return commands_.size();
+}
+
 void RenderPass::SetLabel(std::string label) {
   if (label.empty()) {
     return;

@@ -15,6 +15,7 @@
 #include "impeller/geometry/color.h"
 #include "impeller/geometry/path.h"
 #include "impeller/geometry/point.h"
+#include "impeller/geometry/gradient.h"
 
 namespace impeller {
 
@@ -47,6 +48,16 @@ class LinearGradientContents final : public ColorSourceContents {
   std::vector<Color> colors_;
   std::vector<Scalar> stops_;
   Entity::TileMode tile_mode_;
+
+  bool RenderWithTexture(const ContentContext& renderer,
+                         const Entity& entity,
+                         RenderPass& pass,
+                         std::shared_ptr<Texture> gradient_texture) const;
+
+  bool RenderWithTwoColor(const ContentContext& renderer,
+                          const Entity& entity,
+                          RenderPass& pass,
+                          const GradientData& gradient_data) const;
 
   FML_DISALLOW_COPY_AND_ASSIGN(LinearGradientContents);
 };
