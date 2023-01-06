@@ -87,6 +87,10 @@ class Path {
 
   void SetContourClosed(bool is_closed);
 
+  Path& SetCacheKey(uint64_t cache_key);
+
+  uint64_t GetCacheKey() const;
+
   template <class T>
   using Applier = std::function<void(size_t index, const T& component)>;
   void EnumerateComponents(
@@ -142,6 +146,7 @@ class Path {
   std::vector<QuadraticPathComponent> quads_;
   std::vector<CubicPathComponent> cubics_;
   std::vector<ContourComponent> contours_;
+  uint64_t cache_key_ = 0;
 };
 
 }  // namespace impeller

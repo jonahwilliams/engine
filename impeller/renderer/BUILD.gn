@@ -14,6 +14,8 @@ impeller_component("renderer") {
     "blit_pass.h",
     "buffer.cc",
     "buffer.h",
+    "buffer_cache.cc",
+    "buffer_cache.h",
     "buffer_view.cc",
     "buffer_view.h",
     "command.cc",

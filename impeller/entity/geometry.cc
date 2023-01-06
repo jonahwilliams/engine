@@ -2,8 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "impeller/entity/geometry.h"
+#include <iostream>
+
 #include "impeller/entity/contents/content_context.h"
+#include "impeller/entity/geometry.h"
 #include "impeller/entity/position_color.vert.h"
 #include "impeller/geometry/matrix.h"
 #include "impeller/geometry/path_builder.h"
@@ -295,6 +297,7 @@ StrokePathGeometry::CapProc StrokePathGeometry::GetCapProc(Cap stroke_cap) {
 VertexBuffer StrokePathGeometry::CreateSolidStrokeVertices(
     const Path& path,
     HostBuffer& buffer,
+    const ContentContext& renderer,
     Scalar stroke_width,
     Scalar scaled_miter_limit,
     const StrokePathGeometry::JoinProc& join_proc,
@@ -402,7 +405,16 @@ VertexBuffer StrokePathGeometry::CreateSolidStrokeVertices(
     }
   }
 
-  return vtx_builder.CreateVertexBuffer(buffer);
+  auto key = fml::HashCombine(path.GetCacheKey(), 88);
+  if (path.GetCacheKey() == 0) {
+    return vtx_builder.CreateVertexBuffer(buffer);
+  }
+
+  auto vertex_buffer = vtx_builder.CreateVertexBuffer(
+      renderer.GetContext()->GetResourceAllocator());
+  renderer.GetBufferCache()->StoreBuffer(key, vertex_buffer);
+
+  return vertex_buffer;
 }
 
 GeometryResult StrokePathGeometry::GetPositionBuffer(
@@ -417,6 +429,18 @@ GeometryResult StrokePathGeometry::GetPositionBuffer(
     return {};
   }
 
+  auto key = fml::HashCombine(path_.GetCacheKey(), 88);
+  auto cached_value = renderer.GetBufferCache()->GetBuffer(key);
+  if (cached_value.has_value()) {
+    return GeometryResult{
+        .type = PrimitiveType::kTriangleStrip,
+        .vertex_buffer = cached_value.value(),
+        .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
+                     entity.GetTransformation(),
+        .prevent_overdraw = true,
+    };
+  }
+
   Scalar min_size = 1.0f / sqrt(std::abs(determinant));
   Scalar stroke_width = std::max(stroke_width_, min_size);
 
@@ -426,8 +450,9 @@ GeometryResult StrokePathGeometry::GetPositionBuffer(
 
   auto& host_buffer = pass.GetTransientsBuffer();
   auto vertex_buffer = CreateSolidStrokeVertices(
-      path_, host_buffer, stroke_width, miter_limit_ * stroke_width_ * 0.5,
-      GetJoinProc(stroke_join_), GetCapProc(stroke_cap_), tolerance);
+      path_, host_buffer, renderer, stroke_width,
+      miter_limit_ * stroke_width_ * 0.5, GetJoinProc(stroke_join_),
+      GetCapProc(stroke_cap_), tolerance);
 
   return GeometryResult{
       .type = PrimitiveType::kTriangleStrip,

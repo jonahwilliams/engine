@@ -36,6 +36,15 @@ void Path::SetFillType(FillType fill) {
   fill_ = fill;
 }
 
+Path& Path::SetCacheKey(uint64_t cache_key) {
+  cache_key_ = cache_key;
+  return *this;
+}
+
+uint64_t Path::GetCacheKey() const {
+  return cache_key_;
+}
+
 FillType Path::GetFillType() const {
   return fill_;
 }

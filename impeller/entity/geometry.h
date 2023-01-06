@@ -162,6 +162,7 @@ class StrokePathGeometry : public Geometry {
 
   static VertexBuffer CreateSolidStrokeVertices(const Path& path,
                                                 HostBuffer& buffer,
+                                                const ContentContext& renderer,
                                                 Scalar stroke_width,
                                                 Scalar scaled_miter_limit,
                                                 const JoinProc& join_proc,

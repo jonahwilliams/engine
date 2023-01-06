@@ -898,6 +898,9 @@ static PathBuilder::RoundingRadii ToRoundingRadii(const SkRRect& rrect) {
 
 static Path ToPath(const SkPath& path) {
   auto iterator = SkPath::Iter(path, false);
+  // This is totally a hack and not a reasonable way to compute a cache key
+  // but w/e this is just for testing.
+  uint64_t cache_key = 0u;
 
   struct PathData {
     union {
@@ -912,16 +915,31 @@ static Path ToPath(const SkPath& path) {
     verb = iterator.next(data.points);
     switch (verb) {
       case SkPath::kMove_Verb:
+        cache_key = fml::HashCombine(cache_key, data.points[0].fX);
+        cache_key = fml::HashCombine(cache_key, data.points[0].fY);
         builder.MoveTo(ToPoint(data.points[0]));
         break;
       case SkPath::kLine_Verb:
+        cache_key = fml::HashCombine(cache_key, data.points[1].fX);
+        cache_key = fml::HashCombine(cache_key, data.points[1].fY);
         builder.LineTo(ToPoint(data.points[1]));
         break;
       case SkPath::kQuad_Verb:
+        cache_key = fml::HashCombine(cache_key, data.points[0].fX);
+        cache_key = fml::HashCombine(cache_key, data.points[0].fY);
+        cache_key = fml::HashCombine(cache_key, data.points[1].fX);
+        cache_key = fml::HashCombine(cache_key, data.points[1].fY);
         builder.QuadraticCurveTo(ToPoint(data.points[1]),
                                  ToPoint(data.points[2]));
         break;
       case SkPath::kConic_Verb: {
+        cache_key = fml::HashCombine(cache_key, data.points[0].fX);
+        cache_key = fml::HashCombine(cache_key, data.points[0].fY);
+        cache_key = fml::HashCombine(cache_key, data.points[1].fX);
+        cache_key = fml::HashCombine(cache_key, data.points[1].fY);
+        cache_key = fml::HashCombine(cache_key, data.points[2].fX);
+        cache_key = fml::HashCombine(cache_key, data.points[2].fY);
+
         constexpr auto kPow2 = 1;  // Only works for sweeps up to 90 degrees.
         constexpr auto kQuadCount = 1 + (2 * (1 << kPow2));
         SkPoint points[kQuadCount];
@@ -943,10 +961,18 @@ static Path ToPath(const SkPath& path) {
         }
       } break;
       case SkPath::kCubic_Verb:
+        cache_key = fml::HashCombine(cache_key, data.points[1].fX);
+        cache_key = fml::HashCombine(cache_key, data.points[1].fY);
+        cache_key = fml::HashCombine(cache_key, data.points[2].fX);
+        cache_key = fml::HashCombine(cache_key, data.points[2].fY);
+        cache_key = fml::HashCombine(cache_key, data.points[3].fX);
+        cache_key = fml::HashCombine(cache_key, data.points[3].fY);
+
         builder.CubicCurveTo(ToPoint(data.points[1]), ToPoint(data.points[2]),
                              ToPoint(data.points[3]));
         break;
       case SkPath::kClose_Verb:
+        cache_key = fml::HashCombine(cache_key, 23);
         builder.Close();
         break;
       case SkPath::kDone_Verb:
@@ -957,9 +983,11 @@ static Path ToPath(const SkPath& path) {
   FillType fill_type;
   switch (path.getFillType()) {
     case SkPathFillType::kWinding:
+      cache_key = fml::HashCombine(cache_key, 44);
       fill_type = FillType::kNonZero;
       break;
     case SkPathFillType::kEvenOdd:
+      cache_key = fml::HashCombine(cache_key, 55);
       fill_type = FillType::kOdd;
       break;
     case SkPathFillType::kInverseWinding:
@@ -969,7 +997,7 @@ static Path ToPath(const SkPath& path) {
       fill_type = FillType::kNonZero;
       break;
   }
-  return builder.TakePath(fill_type);
+  return builder.TakePath(fill_type).SetCacheKey(cache_key);
 }
 
 static Path ToPath(const SkRRect& rrect) {

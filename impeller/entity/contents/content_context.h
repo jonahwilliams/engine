@@ -66,6 +66,7 @@
 #include "impeller/renderer/formats.h"
 #include "impeller/renderer/pipeline.h"
 #include "impeller/scene/scene_context.h"
+#include "impeller/renderer/buffer_cache.h"
 
 #include "impeller/entity/position.vert.h"
 #include "impeller/entity/position_color.vert.h"
@@ -426,6 +427,8 @@ class ContentContext {
 
   std::shared_ptr<GlyphAtlasContext> GetGlyphAtlasContext() const;
 
+  std::shared_ptr<BufferCache> GetBufferCache() const;
+
   const BackendFeatures& GetBackendFeatures() const;
 
   using SubpassCallback =
@@ -527,6 +530,7 @@ class ContentContext {
   std::shared_ptr<Tessellator> tessellator_;
   std::shared_ptr<GlyphAtlasContext> glyph_atlas_context_;
   std::shared_ptr<scene::SceneContext> scene_context_;
+  std::shared_ptr<BufferCache> buffer_cache_;
 
   FML_DISALLOW_COPY_AND_ASSIGN(ContentContext);
 };

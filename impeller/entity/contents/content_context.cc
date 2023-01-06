@@ -148,7 +148,8 @@ ContentContext::ContentContext(std::shared_ptr<Context> context)
     : context_(std::move(context)),
       tessellator_(std::make_shared<Tessellator>()),
       glyph_atlas_context_(std::make_shared<GlyphAtlasContext>()),
-      scene_context_(std::make_shared<scene::SceneContext>(context_)) {
+      scene_context_(std::make_shared<scene::SceneContext>(context_)),
+      buffer_cache_(std::make_shared<BufferCache>()) {
   if (!context_ || !context_->IsValid()) {
     return;
   }
@@ -311,6 +312,10 @@ std::shared_ptr<Tessellator> ContentContext::GetTessellator() const {
 std::shared_ptr<GlyphAtlasContext> ContentContext::GetGlyphAtlasContext()
     const {
   return glyph_atlas_context_;
+}
+
+std::shared_ptr<BufferCache> ContentContext::GetBufferCache() const {
+  return buffer_cache_;
 }
 
 std::shared_ptr<Context> ContentContext::GetContext() const {

@@ -91,6 +91,17 @@ class VertexBufferBuilder {
     return buffer;
   };
 
+  VertexBuffer CreateVertexBuffer(
+      std::shared_ptr<Allocator> device_allocator) const {
+    VertexBuffer buffer;
+    // This can be merged into a single allocation.
+    buffer.vertex_buffer = CreateVertexBufferView(device_allocator);
+    buffer.index_buffer = CreateIndexBufferView(device_allocator);
+    buffer.index_count = GetIndexCount();
+    buffer.index_type = GetIndexType();
+    return buffer;
+  };
+
  private:
   std::vector<VertexType> vertices_;
   std::vector<IndexType> indices_;
@@ -104,6 +115,20 @@ class VertexBufferBuilder {
 
   BufferView CreateVertexBufferView(Allocator& allocator) const {
     auto buffer = allocator.CreateBufferWithCopy(
+        reinterpret_cast<const uint8_t*>(vertices_.data()),
+        vertices_.size() * sizeof(VertexType));
+    if (!buffer) {
+      return {};
+    }
+    if (!label_.empty()) {
+      buffer->SetLabel(SPrintF("%s Vertices", label_.c_str()));
+    }
+    return buffer->AsBufferView();
+  }
+
+  BufferView CreateVertexBufferView(
+      std::shared_ptr<Allocator> allocator) const {
+    auto buffer = allocator->CreateBufferWithCopy(
         reinterpret_cast<const uint8_t*>(vertices_.data()),
         vertices_.size() * sizeof(VertexType));
     if (!buffer) {
@@ -139,6 +164,20 @@ class VertexBufferBuilder {
   BufferView CreateIndexBufferView(Allocator& allocator) const {
     const auto index_buffer = CreateIndexBuffer();
     auto buffer = allocator.CreateBufferWithCopy(
+        reinterpret_cast<const uint8_t*>(index_buffer.data()),
+        index_buffer.size() * sizeof(IndexType));
+    if (!buffer) {
+      return {};
+    }
+    if (!label_.empty()) {
+      buffer->SetLabel(SPrintF("%s Indices", label_.c_str()));
+    }
+    return buffer->AsBufferView();
+  }
+
+  BufferView CreateIndexBufferView(std::shared_ptr<Allocator> allocator) const {
+    const auto index_buffer = CreateIndexBuffer();
+    auto buffer = allocator->CreateBufferWithCopy(
         reinterpret_cast<const uint8_t*>(index_buffer.data()),
         index_buffer.size() * sizeof(IndexType));
     if (!buffer) {
