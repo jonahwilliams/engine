@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <iostream>
 #include "impeller/display_list/display_list_vertices_geometry.h"
+#include <iostream>
 
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/entity.h"

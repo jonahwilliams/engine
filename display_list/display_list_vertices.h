@@ -114,7 +114,11 @@ class DlVertices {
     /// The caller must provide all data that is promised by the
     /// supplied |flags| and |index_count| parameters before
     /// calling the |build()| method.
-    Builder(DlVertexMode mode, int vertex_count, Flags flags, int index_count, int64_t id = -1);
+    Builder(DlVertexMode mode,
+            int vertex_count,
+            Flags flags,
+            int index_count,
+            int64_t id = -1);
 
     /// Returns true iff the underlying object was successfully allocated.
     bool is_valid() { return vertices_ != nullptr; }
