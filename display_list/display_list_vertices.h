@@ -114,7 +114,7 @@ class DlVertices {
     /// The caller must provide all data that is promised by the
     /// supplied |flags| and |index_count| parameters before
     /// calling the |build()| method.
-    Builder(DlVertexMode mode, int vertex_count, Flags flags, int index_count);
+    Builder(DlVertexMode mode, int vertex_count, Flags flags, int index_count, int64_t id = -1);
 
     /// Returns true iff the underlying object was successfully allocated.
     bool is_valid() { return vertices_ != nullptr; }
@@ -190,7 +190,8 @@ class DlVertices {
                                           const SkPoint texture_coordinates[],
                                           const DlColor colors[],
                                           int index_count = 0,
-                                          const uint16_t indices[] = nullptr);
+                                          const uint16_t indices[] = nullptr,
+                                          int64_t id = -1);
 
   /// Returns the size of the object including all of the inlined data.
   size_t size() const;
@@ -205,6 +206,9 @@ class DlVertices {
   /// Returns the number of vertices, which also applies to the number of
   /// texture coordinate and colors if they are provided.
   int vertex_count() const { return vertex_count_; }
+
+  /// The unique identifier for the DL vertices, or `-1` if none was provided.
+  int64_t id() const { return id_; }
 
   /// Returns a pointer to the vertex information. Should be non-null.
   const SkPoint* vertices() const {
@@ -252,14 +256,16 @@ class DlVertices {
              const DlColor colors[],
              int index_count,
              const uint16_t indices[],
-             const SkRect* bounds = nullptr);
+             const SkRect* bounds = nullptr,
+             int64_t id = -1);
 
   // This constructor is specifically used by the DlVertices::Builder to
   // establish the object before the copying of data is requested.
   DlVertices(DlVertexMode mode,
              int vertex_count,
              Builder::Flags flags,
-             int index_count);
+             int index_count,
+             int64_t i = -1);
 
   // The copy constructor has the same memory pre-allocation requirements
   // as this other constructors. This particular version is used by the
@@ -276,6 +282,7 @@ class DlVertices {
 
   int index_count_;
   size_t indices_offset_;
+  int64_t id_;
 
   SkRect bounds_;
 

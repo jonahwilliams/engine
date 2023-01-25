@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <iostream>
 #include "impeller/display_list/display_list_vertices_geometry.h"
 
 #include "impeller/entity/contents/content_context.h"
@@ -104,6 +105,7 @@ GeometryResult DLVerticesGeometry::GetPositionBuffer(
     const ContentContext& renderer,
     const Entity& entity,
     RenderPass& pass) {
+  std::cerr << "Drawing ID " << vertices_->id() << std::endl;
   auto index_count = normalized_indices_.size() == 0
                          ? vertices_->index_count()
                          : normalized_indices_.size();

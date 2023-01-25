@@ -43,7 +43,8 @@ std::shared_ptr<DlVertices> DlVertices::Make(
     const SkPoint texture_coordinates[],
     const DlColor colors[],
     int index_count,
-    const uint16_t indices[]) {
+    const uint16_t indices[],
+    int64_t id) {
   if (!vertices || vertex_count <= 0) {
     vertex_count = 0;
     texture_coordinates = nullptr;
@@ -63,7 +64,7 @@ std::shared_ptr<DlVertices> DlVertices::Make(
   if (colors) {
     flags |= Builder::kHasColors;
   }
-  Builder builder(mode, vertex_count, flags, index_count);
+  Builder builder(mode, vertex_count, flags, index_count, id);
 
   builder.store_vertices(vertices);
   if (texture_coordinates) {
@@ -100,10 +101,12 @@ DlVertices::DlVertices(DlVertexMode mode,
                        const DlColor* colors,
                        int unchecked_index_count,
                        const uint16_t* indices,
-                       const SkRect* bounds)
+                       const SkRect* bounds,
+                       int64_t id)
     : mode_(mode),
       vertex_count_(std::max(unchecked_vertex_count, 0)),
-      index_count_(indices ? std::max(unchecked_index_count, 0) : 0) {
+      index_count_(indices ? std::max(unchecked_index_count, 0) : 0),
+      id_(id) {
   bounds_ = bounds ? *bounds : compute_bounds(vertices, vertex_count_);
 
   char* pod = reinterpret_cast<char*>(this);
@@ -143,10 +146,12 @@ DlVertices::DlVertices(const DlVertices* other)
 DlVertices::DlVertices(DlVertexMode mode,
                        int unchecked_vertex_count,
                        Flags flags,
-                       int unchecked_index_count)
+                       int unchecked_index_count,
+                       int64_t id)
     : mode_(mode),
       vertex_count_(std::max(unchecked_vertex_count, 0)),
-      index_count_(std::max(unchecked_index_count, 0)) {
+      index_count_(std::max(unchecked_index_count, 0)),
+      id_(id) {
   char* pod = reinterpret_cast<char*>(this);
   size_t offset = sizeof(DlVertices);
 
@@ -209,7 +214,8 @@ bool DlVertices::operator==(DlVertices const& other) const {
 DlVertices::Builder::Builder(DlVertexMode mode,
                              int vertex_count,
                              Flags flags,
-                             int index_count)
+                             int index_count,
+                             int64_t id)
     : needs_vertices_(true),
       needs_texture_coords_(flags.has_texture_coordinates),
       needs_colors_(flags.has_colors),
@@ -219,7 +225,7 @@ DlVertices::Builder::Builder(DlVertexMode mode,
   void* storage =
       ::operator new(bytes_needed(vertex_count, flags, index_count));
   vertices_.reset(new (storage)
-                      DlVertices(mode, vertex_count, flags, index_count),
+                      DlVertices(mode, vertex_count, flags, index_count, id),
                   DlVerticesDeleter);
 }
 

@@ -24,7 +24,8 @@ class Vertices : public RefCountedDartWrappable<Vertices> {
                    Dart_Handle positions_handle,
                    Dart_Handle texture_coordinates_handle,
                    Dart_Handle colors_handle,
-                   Dart_Handle indices_handle);
+                   Dart_Handle indices_handle,
+                   int64_t id);
 
   const DlVertices* vertices() const { return vertices_.get(); }
 

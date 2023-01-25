@@ -23,7 +23,8 @@ bool Vertices::init(Dart_Handle vertices_handle,
                     Dart_Handle positions_handle,
                     Dart_Handle texture_coordinates_handle,
                     Dart_Handle colors_handle,
-                    Dart_Handle indices_handle) {
+                    Dart_Handle indices_handle,
+                    int64_t id) {
   UIDartState::ThrowIfUIOperationsProhibited();
 
   tonic::Float32List positions(positions_handle);
@@ -43,7 +44,7 @@ bool Vertices::init(Dart_Handle vertices_handle,
     flags = flags | DlVertices::Builder::kHasColors;
   }
   DlVertices::Builder builder(vertex_mode, positions.num_elements() / 2, flags,
-                              indices.num_elements());
+                              indices.num_elements(), id);
 
   if (!builder.is_valid()) {
     return false;
@@ -81,6 +82,7 @@ bool Vertices::init(Dart_Handle vertices_handle,
 }
 
 void Vertices::dispose() {
+  // TODO: communicate free to impeller.
   vertices_.reset();
   ClearDartWrapper();
 }

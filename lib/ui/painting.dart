@@ -4618,7 +4618,7 @@ class Vertices extends NativeFieldWrapperClass1 {
       ? Uint16List.fromList(indices)
       : null;
 
-    if (!_init(this, mode.index, encodedPositions, encodedTextureCoordinates, encodedColors, encodedIndices)) {
+    if (!_init(this, mode.index, encodedPositions, encodedTextureCoordinates, encodedColors, encodedIndices, _nextId++)) {
       throw ArgumentError('Invalid configuration for vertices.');
     }
   }
@@ -4695,18 +4695,21 @@ class Vertices extends NativeFieldWrapperClass1 {
         }
       }
     }
-    if (!_init(this, mode.index, positions, textureCoordinates, colors, indices)) {
+    if (!_init(this, mode.index, positions, textureCoordinates, colors, indices, _nextId++)) {
       throw ArgumentError('Invalid configuration for vertices.');
     }
   }
 
-  @Native<Bool Function(Handle, Int32, Handle, Handle, Handle, Handle)>(symbol: 'Vertices::init')
+  @Native<Bool Function(Handle, Int32, Handle, Handle, Handle, Handle, Int64)>(symbol: 'Vertices::init')
   external static bool _init(Vertices outVertices,
                              int mode,
                              Float32List positions,
                              Float32List? textureCoordinates,
                              Int32List? colors,
-                             Uint16List? indices);
+                             Uint16List? indices,
+                             int id);
+
+  static int _nextId = 0;
 
   /// Release the resources used by this object. The object is no longer usable
   /// after this method is called.
