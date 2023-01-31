@@ -466,6 +466,7 @@ void DisplayListDispatcher::setColorSource(
         contents->SetTileModes(x_tile_mode, y_tile_mode);
         contents->SetSamplerDescriptor(desc);
         contents->SetEffectTransform(matrix);
+        contents->SetDeferApplyingOpacity(true); // TEST
         return contents;
       };
       return;

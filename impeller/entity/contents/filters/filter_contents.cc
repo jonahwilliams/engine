@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "flutter/fml/logging.h"
+#include "impeller/entity/entity.h"
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/contents/filters/border_mask_blur_filter_contents.h"
 #include "impeller/entity/contents/filters/gaussian_blur_filter_contents.h"
@@ -22,6 +23,7 @@
 #include "impeller/entity/contents/filters/morphology_filter_contents.h"
 #include "impeller/entity/contents/filters/yuv_to_rgb_filter_contents.h"
 #include "impeller/entity/contents/texture_contents.h"
+#include "impeller/entity/contents/tiled_texture_contents.h"
 #include "impeller/entity/entity.h"
 #include "impeller/geometry/path_builder.h"
 #include "impeller/renderer/command_buffer.h"
@@ -174,18 +176,29 @@ bool FilterContents::Render(const ContentContext& renderer,
   auto& snapshot = maybe_snapshot.value();
 
   // Draw the result texture, respecting the transform and clip stack.
-
-  auto texture_rect = Rect::MakeSize(snapshot.texture->GetSize());
-  auto contents = TextureContents::MakeRect(texture_rect);
-  contents->SetTexture(snapshot.texture);
-  contents->SetSamplerDescriptor(snapshot.sampler_descriptor);
-  contents->SetSourceRect(texture_rect);
-  contents->SetOpacity(snapshot.opacity);
-
   Entity e;
   e.SetBlendMode(entity.GetBlendMode());
   e.SetStencilDepth(entity.GetStencilDepth());
   e.SetTransformation(snapshot.transform);
+
+  auto texture_rect = Rect::MakeSize(snapshot.texture->GetSize());
+  if (!snapshot.destination.has_value()) {
+    auto contents = TextureContents::MakeRect(texture_rect);
+    contents->SetTexture(snapshot.texture);
+    contents->SetSamplerDescriptor(snapshot.sampler_descriptor);
+    contents->SetSourceRect(texture_rect);
+    contents->SetOpacity(snapshot.opacity);
+    return contents->Render(renderer, e, pass);
+  }
+  auto tmx = Entity::TileMode::kRepeat;
+  auto tmy = Entity::TileMode::kRepeat;
+  auto contents = std::make_shared<TiledTextureContents>();
+  contents->SetGeometry(snapshot.destination.value());
+  contents->SetTexture(snapshot.texture);
+  contents->SetSamplerDescriptor(snapshot.sampler_descriptor);
+  //contents->SetSourceRect(texture_rect);
+  contents->SetTileModes(tmx, tmy);
+  contents->SetAlpha(snapshot.opacity);
   return contents->Render(renderer, e, pass);
 }
 

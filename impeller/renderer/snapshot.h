@@ -18,6 +18,7 @@ namespace impeller {
 
 class ContentContext;
 class Entity;
+class Geometry;
 
 /// Represents a texture and its intended draw transform/sampler configuration.
 struct Snapshot {
@@ -28,6 +29,12 @@ struct Snapshot {
   SamplerDescriptor sampler_descriptor;
 
   Scalar opacity = 1.0f;
+
+  size_t tile_mode_x = 0;
+
+  size_t tile_mode_y = 0;
+
+  std::optional<std::shared_ptr<Geometry>> destination;
 
   std::optional<Rect> GetCoverage() const;
 
