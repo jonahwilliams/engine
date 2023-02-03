@@ -1041,7 +1041,6 @@ void DisplayListDispatcher::drawOval(const SkRect& bounds) {
 
 // |flutter::Dispatcher|
 void DisplayListDispatcher::drawCircle(const SkPoint& center, SkScalar radius) {
-  auto path = PathBuilder{}.AddCircle(ToPoint(center), radius).TakePath();
   canvas_.DrawCircle(ToPoint(center), radius, paint_);
 }
 
