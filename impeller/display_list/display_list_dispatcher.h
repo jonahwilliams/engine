@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <optional>
+
 #include "display_list/display_list_path_effect.h"
 #include "flutter/display_list/display_list.h"
 #include "flutter/display_list/display_list_blend_mode.h"
@@ -11,6 +13,7 @@
 #include "flutter/fml/macros.h"
 #include "impeller/aiks/canvas.h"
 #include "impeller/aiks/paint.h"
+#include "impeller/geometry/path_builder.h"
 
 namespace impeller {
 
@@ -236,9 +239,15 @@ class DisplayListDispatcher final : public flutter::Dispatcher {
                   bool transparent_occluder,
                   SkScalar dpr) override;
 
+  void flushLine();
+
  private:
   Paint paint_;
   Canvas canvas_;
+
+  bool pending_ = false;
+  std::vector<Point> pending_dashed_check_;
+  Paint pending_dashed_paint_;
 
   FML_DISALLOW_COPY_AND_ASSIGN(DisplayListDispatcher);
 };

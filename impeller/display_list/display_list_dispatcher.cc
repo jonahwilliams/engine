@@ -772,6 +772,7 @@ void DisplayListDispatcher::setImageFilter(
 
 // |flutter::Dispatcher|
 void DisplayListDispatcher::save() {
+  flushLine();
   canvas_.Save();
 }
 
@@ -794,32 +795,38 @@ static std::vector<Rect> ToRects(const SkRect tex[], int count) {
 void DisplayListDispatcher::saveLayer(const SkRect* bounds,
                                       const flutter::SaveLayerOptions options,
                                       const flutter::DlImageFilter* backdrop) {
+  flushLine();
   auto paint = options.renders_with_attributes() ? paint_ : Paint{};
   canvas_.SaveLayer(paint, ToRect(bounds), ToImageFilterProc(backdrop));
 }
 
 // |flutter::Dispatcher|
 void DisplayListDispatcher::restore() {
+  flushLine();
   canvas_.Restore();
 }
 
 // |flutter::Dispatcher|
 void DisplayListDispatcher::translate(SkScalar tx, SkScalar ty) {
+  flushLine();
   canvas_.Translate({tx, ty, 0.0});
 }
 
 // |flutter::Dispatcher|
 void DisplayListDispatcher::scale(SkScalar sx, SkScalar sy) {
+  flushLine();
   canvas_.Scale({sx, sy, 1.0});
 }
 
 // |flutter::Dispatcher|
 void DisplayListDispatcher::rotate(SkScalar degrees) {
+  flushLine();
   canvas_.Rotate(Degrees{degrees});
 }
 
 // |flutter::Dispatcher|
 void DisplayListDispatcher::skew(SkScalar sx, SkScalar sy) {
+  flushLine();
   canvas_.Skew(sx, sy);
 }
 
@@ -992,6 +999,7 @@ static Path ToPath(const SkRRect& rrect) {
 void DisplayListDispatcher::clipRRect(const SkRRect& rrect,
                                       SkClipOp clip_op,
                                       bool is_aa) {
+  flushLine();
   canvas_.ClipPath(ToPath(rrect), ToClipOperation(clip_op));
 }
 
@@ -999,12 +1007,14 @@ void DisplayListDispatcher::clipRRect(const SkRRect& rrect,
 void DisplayListDispatcher::clipPath(const SkPath& path,
                                      SkClipOp clip_op,
                                      bool is_aa) {
+  flushLine();
   canvas_.ClipPath(ToPath(path), ToClipOperation(clip_op));
 }
 
 // |flutter::Dispatcher|
 void DisplayListDispatcher::drawColor(flutter::DlColor color,
                                       flutter::DlBlendMode dl_mode) {
+  flushLine();
   Paint paint;
   paint.color = ToColor(color);
   paint.blend_mode = ToBlendMode(dl_mode);
@@ -1013,24 +1023,47 @@ void DisplayListDispatcher::drawColor(flutter::DlColor color,
 
 // |flutter::Dispatcher|
 void DisplayListDispatcher::drawPaint() {
+  flushLine();
   canvas_.DrawPaint(paint_);
 }
 
 // |flutter::Dispatcher|
 void DisplayListDispatcher::drawLine(const SkPoint& p0, const SkPoint& p1) {
-  auto path = PathBuilder{}.AddLine(ToPoint(p0), ToPoint(p1)).TakePath();
-  Paint paint = paint_;
-  paint.style = Paint::Style::kStroke;
-  canvas_.DrawPath(path, paint);
+  if (pending_) {
+    pending_dashed_check_.emplace_back(ToPoint(p0));
+    pending_dashed_check_.emplace_back(ToPoint(p1));
+  } else {
+    pending_ = true;
+    pending_dashed_check_.emplace_back(ToPoint(p0));
+    pending_dashed_check_.emplace_back(ToPoint(p1));
+    Paint paint = paint_;
+    paint.style = Paint::Style::kStroke;
+    pending_dashed_paint_ = paint;
+  }
+}
+
+void DisplayListDispatcher::flushLine() {
+  if (pending_) {
+    auto pb = PathBuilder{};
+    for (size_t i = 0u; i < pending_dashed_check_.size(); i+=2) {
+      pb.AddLine(pending_dashed_check_[i], pending_dashed_check_[i+1]);
+    }
+    canvas_.DrawPath(pb.TakePath(), pending_dashed_paint_);
+    pending_dashed_paint_ = {};
+    pending_dashed_check_ = {};
+    pending_ = false;
+  }
 }
 
 // |flutter::Dispatcher|
 void DisplayListDispatcher::drawRect(const SkRect& rect) {
+  flushLine();
   canvas_.DrawRect(ToRect(rect), paint_);
 }
 
 // |flutter::Dispatcher|
 void DisplayListDispatcher::drawOval(const SkRect& bounds) {
+  flushLine();
   if (bounds.width() == bounds.height()) {
     canvas_.DrawCircle(ToPoint(bounds.center()), bounds.width() * 0.5, paint_);
   } else {
@@ -1041,11 +1074,13 @@ void DisplayListDispatcher::drawOval(const SkRect& bounds) {
 
 // |flutter::Dispatcher|
 void DisplayListDispatcher::drawCircle(const SkPoint& center, SkScalar radius) {
+  flushLine();
   canvas_.DrawCircle(ToPoint(center), radius, paint_);
 }
 
 // |flutter::Dispatcher|
 void DisplayListDispatcher::drawRRect(const SkRRect& rrect) {
+  flushLine();
   if (rrect.isSimple()) {
     canvas_.DrawRRect(ToRect(rrect.rect()), rrect.getSimpleRadii().fX, paint_);
   } else {
@@ -1056,6 +1091,7 @@ void DisplayListDispatcher::drawRRect(const SkRRect& rrect) {
 // |flutter::Dispatcher|
 void DisplayListDispatcher::drawDRRect(const SkRRect& outer,
                                        const SkRRect& inner) {
+  flushLine();
   PathBuilder builder;
   builder.AddPath(ToPath(outer));
   builder.AddPath(ToPath(inner));
@@ -1064,6 +1100,7 @@ void DisplayListDispatcher::drawDRRect(const SkRRect& outer,
 
 // |flutter::Dispatcher|
 void DisplayListDispatcher::drawPath(const SkPath& path) {
+  flushLine();
   canvas_.DrawPath(ToPath(path), paint_);
 }
 
@@ -1072,6 +1109,7 @@ void DisplayListDispatcher::drawArc(const SkRect& oval_bounds,
                                     SkScalar start_degrees,
                                     SkScalar sweep_degrees,
                                     bool use_center) {
+  flushLine();
   PathBuilder builder;
   builder.AddArc(ToRect(oval_bounds), Degrees(start_degrees),
                  Degrees(sweep_degrees), use_center);
@@ -1082,6 +1120,7 @@ void DisplayListDispatcher::drawArc(const SkRect& oval_bounds,
 void DisplayListDispatcher::drawPoints(SkCanvas::PointMode mode,
                                        uint32_t count,
                                        const SkPoint points[]) {
+  flushLine();
   Paint paint = paint_;
   paint.style = Paint::Style::kStroke;
   switch (mode) {
@@ -1127,6 +1166,7 @@ void DisplayListDispatcher::drawSkVertices(const sk_sp<SkVertices> vertices,
 // |flutter::Dispatcher|
 void DisplayListDispatcher::drawVertices(const flutter::DlVertices* vertices,
                                          flutter::DlBlendMode dl_mode) {
+  flushLine();
   canvas_.DrawVertices(DLVerticesGeometry::MakeVertices(vertices),
                        ToBlendMode(dl_mode), paint_);
 }
@@ -1136,6 +1176,7 @@ void DisplayListDispatcher::drawImage(const sk_sp<flutter::DlImage> image,
                                       const SkPoint point,
                                       flutter::DlImageSampling sampling,
                                       bool render_with_attributes) {
+  flushLine();
   if (!image) {
     return;
   }
@@ -1168,6 +1209,7 @@ void DisplayListDispatcher::drawImageRect(
     flutter::DlImageSampling sampling,
     bool render_with_attributes,
     SkCanvas::SrcRectConstraint constraint) {
+  flushLine();
   canvas_.DrawImageRect(
       std::make_shared<Image>(image->impeller_texture()),  // image
       ToRect(src),                                         // source rect
@@ -1183,6 +1225,7 @@ void DisplayListDispatcher::drawImageNine(const sk_sp<flutter::DlImage> image,
                                           const SkRect& dst,
                                           flutter::DlFilterMode filter,
                                           bool render_with_attributes) {
+  flushLine();
   NinePatchConverter converter = {};
   converter.DrawNinePatch(
       std::make_shared<Image>(image->impeller_texture()),
@@ -1212,6 +1255,7 @@ void DisplayListDispatcher::drawAtlas(const sk_sp<flutter::DlImage> atlas,
                                       flutter::DlImageSampling sampling,
                                       const SkRect* cull_rect,
                                       bool render_with_attributes) {
+  flushLine();
   canvas_.DrawAtlas(std::make_shared<Image>(atlas->impeller_texture()),
                     ToRSXForms(xform, count), ToRects(tex, count),
                     ToColors(colors, count), ToBlendMode(mode),
@@ -1229,6 +1273,7 @@ void DisplayListDispatcher::drawPicture(const sk_sp<SkPicture> picture,
 // |flutter::Dispatcher|
 void DisplayListDispatcher::drawDisplayList(
     const sk_sp<flutter::DisplayList> display_list) {
+  flushLine();
   int saveCount = canvas_.GetSaveCount();
   Paint savePaint = paint_;
   paint_ = Paint();
@@ -1241,6 +1286,7 @@ void DisplayListDispatcher::drawDisplayList(
 void DisplayListDispatcher::drawTextBlob(const sk_sp<SkTextBlob> blob,
                                          SkScalar x,
                                          SkScalar y) {
+  flushLine();
   Scalar scale = canvas_.GetCurrentTransformation().GetMaxBasisLength();
   canvas_.DrawTextFrame(TextFrameFromTextBlob(blob, scale),  //
                         impeller::Point{x, y},               //
@@ -1254,6 +1300,7 @@ void DisplayListDispatcher::drawShadow(const SkPath& path,
                                        const SkScalar elevation,
                                        bool transparent_occluder,
                                        SkScalar dpr) {
+  flushLine();
   Color spot_color = ToColor(color);
   spot_color.alpha *= 0.25;
 
@@ -1319,6 +1366,7 @@ void DisplayListDispatcher::drawShadow(const SkPath& path,
 }
 
 Picture DisplayListDispatcher::EndRecordingAsPicture() {
+  flushLine();
   TRACE_EVENT0("impeller", "DisplayListDispatcher::EndRecordingAsPicture");
   return canvas_.EndRecordingAsPicture();
 }
