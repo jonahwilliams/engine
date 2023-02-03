@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <iostream>
 #include "impeller/entity/contents/tiled_texture_contents.h"
+#include <iostream>
 
 #include "impeller/entity/contents/clip_contents.h"
 #include "impeller/entity/contents/content_context.h"
@@ -37,7 +37,6 @@ void TiledTextureContents::SetSamplerDescriptor(SamplerDescriptor desc) {
 std::optional<Snapshot> TiledTextureContents::RenderToSnapshot(
     const ContentContext& renderer,
     const Entity& entity) const {
-
   if (GetAlpha() >= 1 - kEhCloseEnough || defer_applying_opacity_) {
     return Snapshot{.texture = texture_,
                     .transform = Matrix(),
@@ -50,7 +49,8 @@ std::optional<Snapshot> TiledTextureContents::RenderToSnapshot(
   return Contents::RenderToSnapshot(renderer, entity);
 }
 
-void TiledTextureContents::SetDeferApplyingOpacity(bool defer_applying_opacity) {
+void TiledTextureContents::SetDeferApplyingOpacity(
+    bool defer_applying_opacity) {
   defer_applying_opacity_ = defer_applying_opacity;
 }
 

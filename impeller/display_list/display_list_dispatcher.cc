@@ -466,7 +466,7 @@ void DisplayListDispatcher::setColorSource(
         contents->SetTileModes(x_tile_mode, y_tile_mode);
         contents->SetSamplerDescriptor(desc);
         contents->SetEffectTransform(matrix);
-        contents->SetDeferApplyingOpacity(true); // TEST
+        contents->SetDeferApplyingOpacity(true);  // TEST
         return contents;
       };
       return;
@@ -1045,8 +1045,8 @@ void DisplayListDispatcher::drawLine(const SkPoint& p0, const SkPoint& p1) {
 void DisplayListDispatcher::flushLine() {
   if (pending_) {
     auto pb = PathBuilder{};
-    for (size_t i = 0u; i < pending_dashed_check_.size(); i+=2) {
-      pb.AddLine(pending_dashed_check_[i], pending_dashed_check_[i+1]);
+    for (size_t i = 0u; i < pending_dashed_check_.size(); i += 2) {
+      pb.AddLine(pending_dashed_check_[i], pending_dashed_check_[i + 1]);
     }
     canvas_.DrawPath(pb.TakePath(), pending_dashed_paint_);
     pending_dashed_paint_ = {};

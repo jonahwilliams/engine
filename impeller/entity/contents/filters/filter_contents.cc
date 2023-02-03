@@ -13,7 +13,6 @@
 #include <utility>
 
 #include "flutter/fml/logging.h"
-#include "impeller/entity/entity.h"
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/contents/filters/border_mask_blur_filter_contents.h"
 #include "impeller/entity/contents/filters/gaussian_blur_filter_contents.h"
@@ -196,7 +195,7 @@ bool FilterContents::Render(const ContentContext& renderer,
   contents->SetGeometry(snapshot.destination.value());
   contents->SetTexture(snapshot.texture);
   contents->SetSamplerDescriptor(snapshot.sampler_descriptor);
-  //contents->SetSourceRect(texture_rect);
+  // contents->SetSourceRect(texture_rect);
   contents->SetTileModes(tmx, tmy);
   contents->SetAlpha(snapshot.opacity);
   return contents->Render(renderer, e, pass);
