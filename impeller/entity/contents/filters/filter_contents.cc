@@ -7,10 +7,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <iostream>
 #include <memory>
 #include <optional>
 #include <tuple>
 #include <utility>
+#include <iostream>
 
 #include "flutter/fml/logging.h"
 #include "impeller/entity/contents/content_context.h"
@@ -22,6 +24,7 @@
 #include "impeller/entity/contents/filters/morphology_filter_contents.h"
 #include "impeller/entity/contents/filters/yuv_to_rgb_filter_contents.h"
 #include "impeller/entity/contents/texture_contents.h"
+#include "impeller/entity/contents/tiled_texture_contents.h"
 #include "impeller/entity/entity.h"
 #include "impeller/geometry/path_builder.h"
 #include "impeller/renderer/command_buffer.h"
@@ -174,9 +177,30 @@ bool FilterContents::Render(const ContentContext& renderer,
   auto& snapshot = maybe_snapshot.value();
 
   // Draw the result texture, respecting the transform and clip stack.
-
+  auto dest_rect = snapshot.dest_rect;
   auto texture_rect = Rect::MakeSize(snapshot.texture->GetSize());
-  auto contents = TextureContents::MakeRect(texture_rect);
+
+  if (dest_rect.has_value()) {
+    auto contents = std::make_shared<TiledTextureContents>();
+    contents->SetTexture(snapshot.texture);
+    contents->SetSamplerDescriptor(snapshot.sampler_descriptor);
+    contents->SetGeometry(Geometry::MakeRect(dest_rect.value()));
+    contents->SetTileModes(
+        TiledTextureContents::FromAddressMode(
+            snapshot.sampler_descriptor.width_address_mode),
+        TiledTextureContents::FromAddressMode(
+            snapshot.sampler_descriptor.height_address_mode));
+    contents->SetAlpha(snapshot.opacity);
+
+    Entity e;
+    e.SetBlendMode(entity.GetBlendMode());
+    e.SetStencilDepth(entity.GetStencilDepth());
+    e.SetTransformation(snapshot.transform);
+    return contents->Render(renderer, e, pass);
+  }
+
+  auto contents = TextureContents::MakeRect(
+      dest_rect.has_value() ? dest_rect.value() : texture_rect);
   contents->SetTexture(snapshot.texture);
   contents->SetSamplerDescriptor(snapshot.sampler_descriptor);
   contents->SetSourceRect(texture_rect);

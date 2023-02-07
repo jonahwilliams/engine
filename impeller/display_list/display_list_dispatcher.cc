@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <iostream>
 
 #include "display_list/display_list_blend_mode.h"
 #include "display_list/display_list_color_filter.h"
@@ -460,12 +461,13 @@ void DisplayListDispatcher::setColorSource(
       auto desc = ToSamplerDescriptor(image_color_source->sampling());
       auto matrix = ToMatrix(image_color_source->matrix());
       paint_.color_source = [texture, x_tile_mode, y_tile_mode, desc,
-                             matrix]() {
+                             matrix, &paint = paint_](){
         auto contents = std::make_shared<TiledTextureContents>();
         contents->SetTexture(texture);
         contents->SetTileModes(x_tile_mode, y_tile_mode);
         contents->SetSamplerDescriptor(desc);
         contents->SetEffectTransform(matrix);
+        contents->SetDeferApplyingOpacity(paint.HasColorFilter());
         return contents;
       };
       return;

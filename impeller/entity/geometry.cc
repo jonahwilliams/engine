@@ -43,6 +43,10 @@ std::unique_ptr<Geometry> Geometry::MakeRect(Rect rect) {
   return std::make_unique<RectGeometry>(rect);
 }
 
+std::optional<Rect> Geometry::AsRect() const {
+  return std::nullopt;
+}
+
 /////// Path Geometry ///////
 
 FillPathGeometry::FillPathGeometry(const Path& path) : path_(path) {}
@@ -552,6 +556,10 @@ GeometryVertexType RectGeometry::GetVertexType() const {
 
 std::optional<Rect> RectGeometry::GetCoverage(const Matrix& transform) const {
   return rect_.TransformBounds(transform);
+}
+
+std::optional<Rect> RectGeometry::AsRect() const {
+  return rect_;
 }
 
 }  // namespace impeller

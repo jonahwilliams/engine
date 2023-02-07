@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "impeller/entity/contents/tiled_texture_contents.h"
+#include <iostream>
 
 #include "impeller/entity/contents/clip_contents.h"
 #include "impeller/entity/contents/content_context.h"
@@ -19,6 +20,32 @@ TiledTextureContents::TiledTextureContents() = default;
 
 TiledTextureContents::~TiledTextureContents() = default;
 
+// static
+SamplerAddressMode TiledTextureContents::ToSupportedAddressMode(Entity::TileMode mode) {
+  switch (mode) {
+    case Entity::TileMode::kClamp:
+      return SamplerAddressMode::kClampToEdge;
+    case Entity::TileMode::kRepeat:
+      return SamplerAddressMode::kRepeat;
+    case Entity::TileMode::kMirror:
+      return SamplerAddressMode::kMirror;
+    case Entity::TileMode::kDecal:
+      return SamplerAddressMode::kMirror;
+  }
+}
+
+// static
+Entity::TileMode TiledTextureContents::FromAddressMode(SamplerAddressMode mode) {
+  switch (mode) {
+    case SamplerAddressMode::kClampToEdge:
+      return Entity::TileMode::kClamp;
+    case SamplerAddressMode::kRepeat:
+      return Entity::TileMode::kMirror;
+    case SamplerAddressMode::kMirror:
+      return Entity::TileMode::kMirror;
+  }
+}
+
 void TiledTextureContents::SetTexture(std::shared_ptr<Texture> texture) {
   texture_ = std::move(texture);
 }
@@ -31,6 +58,34 @@ void TiledTextureContents::SetTileModes(Entity::TileMode x_tile_mode,
 
 void TiledTextureContents::SetSamplerDescriptor(SamplerDescriptor desc) {
   sampler_descriptor_ = std::move(desc);
+}
+
+void TiledTextureContents::SetDeferApplyingOpacity(bool value) {
+  defer_applying_opacity_ = value;
+}
+
+std::optional<Snapshot> TiledTextureContents::RenderToSnapshot(
+    const ContentContext& renderer,
+    const Entity& entity) const {
+  // Only natively supported tile modes can be passed through.
+  auto rect = GetGeometry()->AsRect();
+  if (x_tile_mode_ != Entity::TileMode::kDecal &&
+      y_tile_mode_ != Entity::TileMode::kDecal && rect.has_value() &&
+      (GetAlpha() >= 1 - kEhCloseEnough || defer_applying_opacity_)) {
+    auto bounds = GetGeometry()->GetCoverage(entity.GetTransformation());
+    SamplerDescriptor descriptor = sampler_descriptor_;
+    descriptor.width_address_mode = ToSupportedAddressMode(x_tile_mode_);
+    descriptor.height_address_mode = ToSupportedAddressMode(y_tile_mode_);
+    return Snapshot{
+        .texture = texture_,
+        .transform = Matrix::MakeTranslation(bounds->origin),
+        .sampler_descriptor = descriptor,
+        .opacity = GetAlpha(),
+        .dest_rect = bounds,
+        .coverage_replacement = Rect::MakeSize(texture_->GetSize()),
+    };
+  }
+  return Contents::RenderToSnapshot(renderer, entity);
 }
 
 bool TiledTextureContents::Render(const ContentContext& renderer,

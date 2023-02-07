@@ -29,6 +29,13 @@ struct Snapshot {
 
   Scalar opacity = 1.0f;
 
+  /// A geometry that may be supplied for tiled texture passthrough.
+  std::optional<Rect> dest_rect;
+
+  std::optional<Rect> coverage_replacement;
+
+  bool use_dest = false;
+
   std::optional<Rect> GetCoverage() const;
 
   /// @brief  Get the transform that converts screen space coordinates to the UV

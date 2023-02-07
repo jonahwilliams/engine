@@ -33,11 +33,22 @@ class TiledTextureContents final : public ColorSourceContents {
 
   void SetSamplerDescriptor(SamplerDescriptor desc);
 
+  void SetDeferApplyingOpacity(bool value);
+
+  static Entity::TileMode FromAddressMode(SamplerAddressMode);
+
+  static SamplerAddressMode ToSupportedAddressMode(Entity::TileMode mode);
+
  private:
+  // |Contents|
+  std::optional<Snapshot> RenderToSnapshot(const ContentContext& renderer,
+                                           const Entity& entity) const override;
+
   std::shared_ptr<Texture> texture_;
   SamplerDescriptor sampler_descriptor_ = {};
   Entity::TileMode x_tile_mode_ = Entity::TileMode::kClamp;
   Entity::TileMode y_tile_mode_ = Entity::TileMode::kClamp;
+  bool defer_applying_opacity_ = false;
 
   FML_DISALLOW_COPY_AND_ASSIGN(TiledTextureContents);
 };

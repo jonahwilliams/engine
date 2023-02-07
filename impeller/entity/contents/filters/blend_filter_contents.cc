@@ -7,6 +7,7 @@
 #include <array>
 #include <memory>
 #include <optional>
+#include <iostream>
 
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/contents/contents.h"
@@ -182,7 +183,6 @@ static std::optional<Snapshot> PipelineBlend(
       if (!input_coverage.has_value()) {
         return false;
       }
-
       FS::BindTextureSamplerSrc(cmd, input->texture, sampler);
 
       auto size = input->texture->GetSize();
@@ -256,19 +256,26 @@ static std::optional<Snapshot> PipelineBlend(
     return true;
   };
 
-  auto out_texture = renderer.MakeSubpass(ISize(coverage.size), callback);
+  auto first_snp = inputs[0]->GetSnapshot(renderer, entity);
+  auto subpass_size = first_snp->coverage_replacement.has_value()
+    ? ISize(first_snp->coverage_replacement.value().size)
+    : ISize(coverage.size);
+
+  auto out_texture = renderer.MakeSubpass(subpass_size, callback);
   if (!out_texture) {
     return std::nullopt;
   }
   out_texture->SetLabel("Pipeline Blend Filter Texture");
 
+
   return Snapshot{
       .texture = out_texture,
       .transform = Matrix::MakeTranslation(coverage.origin),
-      .sampler_descriptor =
-          inputs[0]->GetSnapshot(renderer, entity)->sampler_descriptor,
+      .sampler_descriptor = first_snp->sampler_descriptor,
       .opacity = (absorb_opacity ? 1.0f : dst_snapshot->opacity) *
-                 alpha.value_or(1.0)};
+                 alpha.value_or(1.0),
+      .dest_rect = first_snp->dest_rect,
+  };
 }
 
 #define BLEND_CASE(mode)                                                       \
