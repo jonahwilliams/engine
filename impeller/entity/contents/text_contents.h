@@ -35,6 +35,8 @@ class TextContents final : public Contents {
   // |Contents|
   std::optional<Rect> GetCoverage(const Entity& entity) const override;
 
+  std::optional<Rect> GetTextBounds() const;
+
   // |Contents|
   bool Render(const ContentContext& renderer,
               const Entity& entity,

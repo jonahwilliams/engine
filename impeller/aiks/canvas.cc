@@ -13,6 +13,7 @@
 #include "impeller/entity/contents/atlas_contents.h"
 #include "impeller/entity/contents/clip_contents.h"
 #include "impeller/entity/contents/rrect_shadow_contents.h"
+#include "impeller/entity/contents/text_color_contents.h"
 #include "impeller/entity/contents/text_contents.h"
 #include "impeller/entity/contents/texture_contents.h"
 #include "impeller/entity/contents/vertices_contents.h"
@@ -366,14 +367,30 @@ void Canvas::DrawTextFrame(const TextFrame& text_frame,
   auto text_contents = std::make_shared<TextContents>();
   text_contents->SetTextFrame(text_frame);
   text_contents->SetGlyphAtlas(std::move(lazy_glyph_atlas));
-  text_contents->SetColor(paint.color);
 
   Entity entity;
+  if (paint.color_source_type == Paint::ColorSourceType::kColor) {
+    text_contents->SetColor(paint.color);
+    entity.SetContents(paint.WithFilters(std::move(text_contents), true));
+
   entity.SetTransformation(GetCurrentTransformation() *
                            Matrix::MakeTranslation(position));
+  } else {
+    text_contents->SetColor(Color::White());
+    auto& source = paint.color_source.value();
+    auto color_contents = source();
+    color_contents->SetAlpha(paint.color.alpha);
+    auto text_color_contents = std::make_shared<TextColorContents>();
+    text_color_contents->SetTextContents(std::move(text_contents));
+    text_color_contents->SetColorSourceProc(std::move(color_contents));
+    text_color_contents->SetTransform(GetCurrentTransformation() *
+                           Matrix::MakeTranslation(position));
+    entity.SetContents(
+        paint.WithFilters(std::move(text_color_contents), false));
+  }
+
   entity.SetStencilDepth(GetStencilDepth());
   entity.SetBlendMode(paint.blend_mode);
-  entity.SetContents(paint.WithFilters(std::move(text_contents), true));
 
   GetCurrentPass().AddEntity(entity);
 }

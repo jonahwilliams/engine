@@ -33,6 +33,10 @@ void TextContents::SetGlyphAtlas(std::shared_ptr<LazyGlyphAtlas> atlas) {
   lazy_atlas_ = std::move(atlas);
 }
 
+std::optional<Rect> TextContents::GetTextBounds() const {
+  return frame_.GetBounds();
+}
+
 std::shared_ptr<GlyphAtlas> TextContents::ResolveAtlas(
     GlyphAtlas::Type type,
     std::shared_ptr<GlyphAtlasContext> atlas_context,
