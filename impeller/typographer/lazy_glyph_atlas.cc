@@ -8,6 +8,7 @@
 #include "impeller/typographer/text_render_context.h"
 #include "lazy_glyph_atlas.h"
 
+#include <iostream>
 #include <utility>
 
 namespace impeller {

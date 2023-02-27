@@ -356,10 +356,14 @@ void Canvas::SaveLayer(
   }
 }
 
+const std::shared_ptr<LazyGlyphAtlas>& Canvas::GetLazyGlyphAtlas() const {
+  return lazy_glyph_atlas_;
+}
+
 void Canvas::DrawTextFrame(const TextFrame& text_frame,
                            Point position,
                            const Paint& paint) {
-  auto lazy_glyph_atlas = GetCurrentPass().GetLazyGlyphAtlas();
+  auto lazy_glyph_atlas = GetLazyGlyphAtlas();
 
   lazy_glyph_atlas->AddTextFrame(text_frame);
 
