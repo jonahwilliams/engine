@@ -55,6 +55,11 @@ void TiledTextureContents::SetColorFilter(
   color_filter_ = std::move(color_filter);
 }
 
+// src-in blending
+void TiledTextureContents::SetFastBlendColor(std::optional<Color> color) {
+  fast_blend_color_ = color;
+}
+
 std::optional<std::shared_ptr<Texture>>
 TiledTextureContents::CreateFilterTexture(
     const ContentContext& renderer) const {
@@ -124,6 +129,10 @@ bool TiledTextureContents::Render(const ContentContext& renderer,
   frag_info.x_tile_mode = static_cast<Scalar>(x_tile_mode_);
   frag_info.y_tile_mode = static_cast<Scalar>(y_tile_mode_);
   frag_info.alpha = GetAlpha();
+  if (fast_blend_color_.has_value()) {
+    frag_info.use_blend = 1.0;
+    frag_info.blend_color = fast_blend_color_.value().Premultiply();
+  }
 
   Command cmd;
   cmd.label = "TiledTextureFill";
@@ -141,7 +150,7 @@ bool TiledTextureContents::Render(const ContentContext& renderer,
   VS::BindFrameInfo(cmd, host_buffer.EmplaceUniform(frame_info));
   FS::BindFragInfo(cmd, host_buffer.EmplaceUniform(frag_info));
 
-  if (color_filter_.has_value()) {
+  if (color_filter_.has_value() && !fast_blend_color_.has_value()) {
     auto filtered_texture = CreateFilterTexture(renderer);
     if (!filtered_texture.has_value()) {
       return false;
@@ -193,6 +202,11 @@ bool TiledTextureContents::RenderVertices(const ContentContext& renderer,
   frag_info.x_tile_mode = static_cast<Scalar>(x_tile_mode_);
   frag_info.y_tile_mode = static_cast<Scalar>(y_tile_mode_);
   frag_info.alpha = GetAlpha();
+  if (fast_blend_color_.has_value()) {
+    frag_info.use_blend = 1.0;
+    frag_info.blend_color = fast_blend_color_.value().Premultiply();
+  }
+
 
   Command cmd;
   cmd.label = "PositionUV";
@@ -210,7 +224,7 @@ bool TiledTextureContents::RenderVertices(const ContentContext& renderer,
   VS::BindFrameInfo(cmd, host_buffer.EmplaceUniform(frame_info));
   FS::BindFragInfo(cmd, host_buffer.EmplaceUniform(frag_info));
 
-  if (color_filter_.has_value()) {
+  if (color_filter_.has_value() && !fast_blend_color_.has_value()) {
     auto filtered_texture = CreateFilterTexture(renderer);
     if (!filtered_texture.has_value()) {
       return false;

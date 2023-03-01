@@ -484,6 +484,7 @@ void DisplayListDispatcher::setColorSource(
         contents->SetSamplerDescriptor(desc);
         contents->SetEffectTransform(matrix);
         contents->SetColorFilter(paint.color_filter);
+        contents->SetFastBlendColor(paint.fast_blend_color);
         contents->SetColorSourceSize(Size::Ceil(texture->GetSize()));
         return contents;
       };
@@ -593,6 +594,14 @@ void DisplayListDispatcher::setColorFilter(
     const flutter::DlColorFilter* filter) {
   // Needs https://github.com/flutter/flutter/issues/95434
   paint_.color_filter = ToColorFilterProc(filter);
+  if (filter != nullptr && filter->type() == flutter::DlColorFilterType::kBlend) {
+    auto dl_blend = filter->asBlend();
+    auto blend_mode = ToBlendMode(dl_blend->mode());
+    auto color = ToColor(dl_blend->color());
+    if (blend_mode == BlendMode::kSourceIn) {
+      paint_.fast_blend_color = color;
+    }
+  }
 }
 
 // |flutter::Dispatcher|

@@ -11,6 +11,8 @@ uniform FragInfo {
   float x_tile_mode;
   float y_tile_mode;
   float alpha;
+  float use_blend;
+  vec4 blend_color;
 }
 frag_info;
 
@@ -23,6 +25,10 @@ void main() {
                                     v_texture_coords,  // texture coordinates
                                     frag_info.x_tile_mode,  // x tile mode
                                     frag_info.y_tile_mode   // y tile mode
-                                    ) *
-               frag_info.alpha;
+  );
+
+  if (frag_info.use_blend == 1.0) {
+    frag_color = frag_color.aaaa * frag_info.blend_color;
+  }
+  frag_color *= frag_info.alpha;
 }
