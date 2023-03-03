@@ -4,6 +4,7 @@
 
 #include "impeller/entity/entity_pass.h"
 
+#include <iostream>
 #include <memory>
 #include <utility>
 #include <variant>
@@ -294,12 +295,14 @@ EntityPass::EntityResult EntityPass::GetEntityForElement(
       return EntityPass::EntityResult::Skip();
     }
 
-    if (subpass->delegate_->CanCollapseIntoParentPass() &&
-        !subpass->backdrop_filter_proc_.has_value()) {
+    if (!subpass->backdrop_filter_proc_.has_value() &&
+        subpass->delegate_->CanCollapseIntoParentPass(subpass)) {
       // Directly render into the parent target and move on.
+      auto render_pass = pass_context.GetRenderPass(pass_depth);
       if (!subpass->OnRender(renderer, root_pass_size,
                              pass_context.GetRenderTarget(), position, position,
-                             stencil_depth_floor)) {
+                             pass_depth, stencil_depth_, nullptr, true,
+                             render_pass)) {
         return EntityPass::EntityResult::Failure();
       }
       return EntityPass::EntityResult::Skip();
@@ -413,12 +416,14 @@ bool EntityPass::OnRender(
     Point parent_position,
     uint32_t pass_depth,
     size_t stencil_depth_floor,
-    std::shared_ptr<Contents> backdrop_filter_contents) const {
+    std::shared_ptr<Contents> backdrop_filter_contents,
+    bool collapsed_into_parent,
+    std::optional<InlinePassContext::RenderPassResult> parent_pass) const {
   TRACE_EVENT0("impeller", "EntityPass::OnRender");
 
   auto context = renderer.GetContext();
-  InlinePassContext pass_context(context, render_target,
-                                 reads_from_pass_texture_);
+  InlinePassContext pass_context(
+      context, render_target, reads_from_pass_texture_, collapsed_into_parent);
   if (!pass_context.IsValid()) {
     return false;
   }
@@ -427,9 +432,10 @@ bool EntityPass::OnRender(
       .coverage = Rect::MakeSize(render_target.GetRenderTargetSize()),
       .stencil_depth = stencil_depth_floor}};
 
-  auto render_element = [&stencil_depth_floor, &pass_context, &pass_depth,
-                         &renderer, &stencil_stack](Entity& element_entity) {
-    auto result = pass_context.GetRenderPass(pass_depth);
+  auto render_element = [&stencil_depth_floor, &pass_context, &parent_pass,
+                         &pass_depth, &renderer,
+                         &stencil_stack](Entity& element_entity) {
+    auto result = parent_pass.value_or(pass_context.GetRenderPass(pass_depth));
 
     if (!result.pass) {
       return false;
@@ -599,7 +605,6 @@ bool EntityPass::OnRender(
       return false;
     }
   }
-
   return true;
 }
 
@@ -622,6 +627,10 @@ void EntityPass::IterateAllEntities(
     }
     FML_UNREACHABLE();
   }
+}
+
+size_t EntityPass::GetEntityCount() const {
+  return elements_.size();
 }
 
 std::unique_ptr<EntityPass> EntityPass::Clone() const {

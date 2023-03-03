@@ -25,6 +25,10 @@ class MatrixFilterContents final : public FilterContents {
       const Entity& entity,
       const Matrix& effect_transform) const override;
 
+  bool CanApplyOpacity() const override {
+    return false;
+  }
+
  private:
   // |FilterContents|
   std::optional<Entity> RenderFilter(const FilterInput::Vector& input_textures,

@@ -23,6 +23,10 @@ class DirectionalMorphologyFilterContents final : public FilterContents {
 
   void SetMorphType(MorphType morph_type);
 
+  bool CanApplyOpacity() const override {
+    return false;
+  }
+
   // |FilterContents|
   std::optional<Rect> GetFilterCoverage(
       const FilterInput::Vector& inputs,

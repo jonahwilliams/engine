@@ -30,6 +30,12 @@ class RuntimeEffectContents final : public ColorSourceContents {
               const Entity& entity,
               RenderPass& pass) const override;
 
+  bool CanApplyOpacity() const override {
+    return false;
+  }
+
+  void ApplyOpacity(Scalar opacity) override { }
+
  private:
   std::shared_ptr<RuntimeStage> runtime_stage_;
   std::shared_ptr<std::vector<uint8_t>> uniform_data_;

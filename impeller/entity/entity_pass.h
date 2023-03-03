@@ -60,6 +60,8 @@ class EntityPass {
 
   void SetBackdropFilter(std::optional<BackdropFilterProc> proc);
 
+  size_t GetEntityCount() const;
+
   std::optional<Rect> GetSubpassCoverage(
       const EntityPass& subpass,
       std::optional<Rect> coverage_crop) const;
@@ -107,7 +109,9 @@ class EntityPass {
       Point parent_position,
       uint32_t pass_depth,
       size_t stencil_depth_floor = 0,
-      std::shared_ptr<Contents> backdrop_filter_contents = nullptr) const;
+      std::shared_ptr<Contents> backdrop_filter_contents = nullptr,
+      bool collapsed_into_parent = false,
+      std::optional<InlinePassContext::RenderPassResult> parent_pass = std::nullopt) const;
 
   std::vector<Element> elements_;
 

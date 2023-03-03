@@ -61,6 +61,10 @@ class AtlasContents final : public Contents {
 
   const std::vector<Color>& GetColors() const;
 
+  bool CanApplyOpacity() const override { return true; }
+
+  void ApplyOpacity(Scalar opacity) override { SetAlpha(alpha_ * opacity); }
+
   /// @brief Compress a drawAtlas call with blending into a smaller sized atlas.
   ///        This atlas has no overlapping to ensure
   ///        blending behaves as if it were done in the fragment shader.
@@ -114,6 +118,8 @@ class AtlasTextureContents final : public Contents {
 
   void SetSubAtlas(const std::shared_ptr<SubAtlasResult>& subatlas);
 
+  bool CanApplyOpacity() const override { return false; }
+
  private:
   const AtlasContents& parent_;
   Scalar alpha_ = 1.0;
@@ -144,6 +150,8 @@ class AtlasColorContents final : public Contents {
   void SetCoverage(Rect coverage);
 
   void SetSubAtlas(const std::shared_ptr<SubAtlasResult>& subatlas);
+
+  bool CanApplyOpacity() const override { return false; }
 
  private:
   const AtlasContents& parent_;

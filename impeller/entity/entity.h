@@ -80,6 +80,10 @@ class Entity {
 
   bool Render(const ContentContext& renderer, RenderPass& parent_pass) const;
 
+  bool CanApplyOpacity() const;
+
+  void ApplyOpacity(Scalar value);
+
   static bool BlendModeShouldCoverWholeScreen(BlendMode blend_mode);
 
  private:

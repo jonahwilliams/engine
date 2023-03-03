@@ -29,6 +29,10 @@ class FilterContents : public Contents {
     kInner,
   };
 
+  bool CanApplyOpacity() const override {
+    return false;
+  }
+
   // Domain is kRGBA, we may decide to support more color modes later.
   struct ColorMatrix {
     float array[20];

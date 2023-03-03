@@ -5,6 +5,7 @@
 #pragma once
 
 #include <functional>
+#include <iostream>
 #include <memory>
 #include <variant>
 #include <vector>
@@ -44,6 +45,12 @@ class TextContents final : public Contents {
   bool RenderSdf(const ContentContext& renderer,
                  const Entity& entity,
                  RenderPass& pass) const;
+
+  bool CanApplyOpacity() const override { return true; }
+
+  void ApplyOpacity(Scalar opacity) override {
+    SetColor(color_.WithAlpha(color_.alpha * opacity));
+  }
 
  private:
   TextFrame frame_;

@@ -21,6 +21,10 @@ class BorderMaskBlurFilterContents final : public FilterContents {
 
   void SetBlurStyle(BlurStyle blur_style);
 
+  bool CanApplyOpacity() const override {
+    return false;
+  }
+
   // |FilterContents|
   std::optional<Rect> GetFilterCoverage(
       const FilterInput::Vector& inputs,

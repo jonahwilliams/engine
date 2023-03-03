@@ -45,6 +45,14 @@ class VerticesContents final : public Contents {
               const Entity& entity,
               RenderPass& pass) const override;
 
+  bool CanApplyOpacity() const override {
+    return true;
+  }
+
+  void ApplyOpacity(Scalar opacity) override {
+    alpha_ *= opacity;
+  }
+
  private:
   Scalar alpha_;
   std::shared_ptr<VerticesGeometry> geometry_;
@@ -70,6 +78,8 @@ class VerticesColorContents final : public Contents {
 
   void SetAlpha(Scalar alpha);
 
+  bool CanApplyOpacity() const override { return false; }
+
  private:
   const VerticesContents& parent_;
   Scalar alpha_ = 1.0;
@@ -92,6 +102,8 @@ class VerticesUVContents final : public Contents {
               RenderPass& pass) const override;
 
   void SetAlpha(Scalar alpha);
+
+  bool CanApplyOpacity() const override { return false; }
 
  private:
   const VerticesContents& parent_;

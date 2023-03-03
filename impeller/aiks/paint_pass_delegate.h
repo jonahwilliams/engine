@@ -12,6 +12,8 @@
 
 namespace impeller {
 
+class EntityPass;
+
 class PaintPassDelegate final : public EntityPassDelegate {
  public:
   PaintPassDelegate(Paint paint, std::optional<Rect> coverage);
@@ -26,7 +28,7 @@ class PaintPassDelegate final : public EntityPassDelegate {
   bool CanElide() override;
 
   // |EntityPassDelgate|
-  bool CanCollapseIntoParentPass() override;
+  bool CanCollapseIntoParentPass(EntityPass* pass) override;
 
   // |EntityPassDelgate|
   std::shared_ptr<Contents> CreateContentsForSubpassTarget(

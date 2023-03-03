@@ -38,6 +38,16 @@ class RRectShadowContents final : public Contents {
               const Entity& entity,
               RenderPass& pass) const override;
 
+
+  bool CanApplyOpacity() const override {
+    return true;
+  }
+
+  void ApplyOpacity(Scalar opacity) override {
+    auto color = color_;
+    color_ = color.WithAlpha(color.alpha * opacity);
+  }
+
  private:
   std::optional<Rect> rect_;
   Scalar corner_radius_;

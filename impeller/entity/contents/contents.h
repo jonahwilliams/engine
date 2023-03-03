@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <vector>
+#include <iostream>
 
 #include "flutter/fml/macros.h"
 #include "impeller/geometry/color.h"
@@ -82,6 +83,9 @@ class Contents {
   std::optional<Size> ColorSourceSize() const { return color_source_size_; }
 
   void SetColorSourceSize(Size size) { color_source_size_ = size; }
+
+  virtual bool CanApplyOpacity() const = 0;
+  virtual void ApplyOpacity(Scalar opacity) {}
 
  protected:
 

@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <vector>
+#include <iostream>
 
 #include "flutter/fml/macros.h"
 #include "impeller/entity/contents/contents.h"
@@ -41,6 +42,12 @@ class ClipContents final : public Contents {
   bool Render(const ContentContext& renderer,
               const Entity& entity,
               RenderPass& pass) const override;
+
+  bool CanApplyOpacity() const override {
+    return true;
+  }
+
+  void ApplyOpacity(Scalar opacity) override { }
 
  private:
   std::unique_ptr<Geometry> geometry_;
@@ -77,6 +84,14 @@ class ClipRestoreContents final : public Contents {
   bool Render(const ContentContext& renderer,
               const Entity& entity,
               RenderPass& pass) const override;
+
+  bool CanApplyOpacity() const override {
+    return true;
+  }
+
+  void ApplyOpacity(Scalar opacity) override {
+
+  }
 
  private:
   std::optional<Rect> restore_coverage_;

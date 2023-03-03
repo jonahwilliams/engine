@@ -47,6 +47,15 @@ class SolidColorContents final : public Contents {
               const Entity& entity,
               RenderPass& pass) const override;
 
+  bool CanApplyOpacity() const override {
+    return true;
+  }
+
+  void ApplyOpacity(Scalar opacity) override {
+    auto old_color = GetColor();
+    SetColor(old_color.WithAlpha(old_color.alpha * opacity));
+  }
+
  private:
   std::shared_ptr<Geometry> geometry_;
 

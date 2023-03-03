@@ -15,13 +15,17 @@ namespace impeller {
 
 InlinePassContext::InlinePassContext(std::shared_ptr<Context> context,
                                      const RenderTarget& render_target,
-                                     uint32_t pass_texture_reads)
+                                     uint32_t pass_texture_reads,
+                                     bool collapsed_into_parent)
     : context_(std::move(context)),
       render_target_(render_target),
-      total_pass_reads_(pass_texture_reads) {}
+      total_pass_reads_(pass_texture_reads),
+      collapsed_into_parent_(collapsed_into_parent) {}
 
 InlinePassContext::~InlinePassContext() {
-  EndPass();
+  if (!collapsed_into_parent_) {
+    EndPass();
+  }
 }
 
 bool InlinePassContext::IsValid() const {

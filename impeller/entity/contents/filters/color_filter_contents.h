@@ -39,6 +39,16 @@ class ColorFilterContents : public FilterContents {
 
   std::optional<Scalar> GetAlpha() const;
 
+  bool CanApplyOpacity() const override {
+    return true;
+  }
+
+  void ApplyOpacity(Scalar opacity) override {
+    auto value = GetAlpha().value_or(1.0);
+    SetAlpha(value * opacity);
+  }
+
+
  private:
   bool absorb_opacity_ = false;
   std::optional<Scalar> alpha_;

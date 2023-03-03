@@ -25,6 +25,15 @@ class FramebufferBlendContents final : public ColorSourceContents {
 
   void SetChildContents(std::shared_ptr<Contents> child_contents);
 
+  bool CanApplyOpacity() const override {
+    return false;
+  }
+
+  void ApplyOpacity(Scalar opacity) override {
+
+  }
+
+
  private:
   // |Contents|
   std::optional<Rect> GetCoverage(const Entity& entity) const override;

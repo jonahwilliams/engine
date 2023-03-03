@@ -12,6 +12,8 @@
 
 namespace impeller {
 
+class EntityPass;
+
 class EntityPassDelegate {
  public:
   static std::unique_ptr<EntityPassDelegate> MakeDefault();
@@ -24,7 +26,7 @@ class EntityPassDelegate {
 
   virtual bool CanElide() = 0;
 
-  virtual bool CanCollapseIntoParentPass() = 0;
+  virtual bool CanCollapseIntoParentPass(EntityPass* pass) = 0;
 
   virtual std::shared_ptr<Contents> CreateContentsForSubpassTarget(
       std::shared_ptr<Texture> target,

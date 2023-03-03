@@ -7,6 +7,7 @@
 #include <functional>
 #include <memory>
 #include <vector>
+#include <iostream>
 
 #include "flutter/fml/macros.h"
 #include "impeller/entity/contents/contents.h"
@@ -64,6 +65,14 @@ class TextureContents final : public Contents {
               RenderPass& pass) const override;
 
   void SetDeferApplyingOpacity(bool defer_applying_opacity);
+
+  bool CanApplyOpacity() const override {
+    return true;
+  }
+
+  void ApplyOpacity(Scalar opacity) override {
+    SetOpacity(opacity * opacity_);
+  }
 
  private:
   std::string label_;
