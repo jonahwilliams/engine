@@ -482,6 +482,7 @@ void DisplayListDispatcher::setColorSource(
         contents->SetSamplerDescriptor(desc);
         contents->SetEffectTransform(matrix);
         contents->SetColorFilter(paint.color_filter);
+        contents->SetFastSrcInColor(paint.fast_src_in_blend_);
         contents->SetColorSourceSize(Size::Ceil(texture->GetSize()));
         return contents;
       };
@@ -587,6 +588,13 @@ static std::optional<Paint::ColorFilterProc> ToColorFilterProc(
 void DisplayListDispatcher::setColorFilter(
     const flutter::DlColorFilter* filter) {
   // Needs https://github.com/flutter/flutter/issues/95434
+  if (filter != nullptr && filter->type() == flutter::DlColorFilterType::kBlend) {
+    auto dl_blend = filter->asBlend();
+    auto blend_mode = ToBlendMode(dl_blend->mode());
+    if (blend_mode == BlendMode::kSourceIn) {
+      paint_.fast_src_in_blend_ = ToColor(dl_blend->color());
+    }
+  }
   paint_.color_filter = ToColorFilterProc(filter);
 }
 

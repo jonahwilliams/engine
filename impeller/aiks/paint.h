@@ -68,6 +68,7 @@ struct Paint {
   Style style = Style::kFill;
   BlendMode blend_mode = BlendMode::kSourceOver;
   bool invert_colors = false;
+  std::optional<Color> fast_src_in_blend_;
 
   std::optional<ImageFilterProc> image_filter;
   std::optional<ColorFilterProc> color_filter;

@@ -7,6 +7,7 @@
 #include "impeller/entity/contents/clip_contents.h"
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/geometry.h"
+#include "impeller/entity/texture_fill_src_in.frag.h"
 #include "impeller/entity/tiled_texture_fill.frag.h"
 #include "impeller/entity/tiled_texture_fill.vert.h"
 #include "impeller/geometry/path_builder.h"
@@ -55,6 +56,10 @@ void TiledTextureContents::SetColorFilter(
   color_filter_ = std::move(color_filter);
 }
 
+void TiledTextureContents::SetFastSrcInColor(std::optional<Color> color) {
+  fast_src_in_color_ = color;
+}
+
 std::optional<std::shared_ptr<Texture>>
 TiledTextureContents::CreateFilterTexture(
     const ContentContext& renderer) const {
@@ -94,9 +99,6 @@ bool TiledTextureContents::Render(const ContentContext& renderer,
     return RenderVertices(renderer, entity, pass);
   }
 
-  using VS = TiledTextureFillVertexShader;
-  using FS = TiledTextureFillFragmentShader;
-
   const auto texture_size = texture_->GetSize();
   if (texture_size.IsEmpty()) {
     return true;
@@ -106,6 +108,60 @@ bool TiledTextureContents::Render(const ContentContext& renderer,
 
   auto geometry_result =
       GetGeometry()->GetPositionBuffer(renderer, entity, pass);
+
+  if (fast_src_in_color_.has_value()) {
+    using VS = TiledTextureFillVertexShader;
+    using FS = TextureFillSrcInFragmentShader;
+
+    VS::FrameInfo frame_info;
+    frame_info.mvp = geometry_result.transform;
+    frame_info.texture_sampler_y_coord_scale = texture_->GetYCoordScale();
+    frame_info.effect_transform = GetInverseMatrix();
+    frame_info.bounds_origin = geometry->GetCoverage(Matrix())->origin;
+    frame_info.texture_size = Vector2(static_cast<Scalar>(texture_size.width),
+                                      static_cast<Scalar>(texture_size.height));
+
+    FS::FragInfo frag_info;
+    frag_info.x_tile_mode = static_cast<Scalar>(x_tile_mode_);
+    frag_info.y_tile_mode = static_cast<Scalar>(y_tile_mode_);
+    frag_info.alpha = GetAlpha();
+    frag_info.blend_color = fast_src_in_color_.value();
+
+    Command cmd;
+    cmd.label = "TiledTextureFillSrcInBlend";
+    cmd.stencil_reference = entity.GetStencilDepth();
+
+    auto options = OptionsFromPassAndEntity(pass, entity);
+    if (geometry_result.prevent_overdraw) {
+      options.stencil_compare = CompareFunction::kEqual;
+      options.stencil_operation = StencilOperation::kIncrementClamp;
+    }
+    options.primitive_type = geometry_result.type;
+    cmd.pipeline = renderer.GetTextureSrcInPipeline(options);
+
+    cmd.BindVertices(geometry_result.vertex_buffer);
+    VS::BindFrameInfo(cmd, host_buffer.EmplaceUniform(frame_info));
+    FS::BindFragInfo(cmd, host_buffer.EmplaceUniform(frag_info));
+
+    FS::BindTextureSampler(
+        cmd, texture_,
+        renderer.GetContext()->GetSamplerLibrary()->GetSampler(
+            CreateDescriptor()));
+
+    if (!pass.AddCommand(std::move(cmd))) {
+      return false;
+    }
+
+    if (geometry_result.prevent_overdraw) {
+      auto restore = ClipRestoreContents();
+      restore.SetRestoreCoverage(GetCoverage(entity));
+      return restore.Render(renderer, entity, pass);
+    }
+    return true;
+  }
+
+  using VS = TiledTextureFillVertexShader;
+  using FS = TiledTextureFillFragmentShader;
 
   // TODO(bdero): The geometry should be fetched from GetPositionUVBuffer and
   //              contain coverage-mapped UVs, and this should use

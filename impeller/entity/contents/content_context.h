@@ -41,6 +41,7 @@
 #include "impeller/entity/srgb_to_linear_filter.vert.h"
 #include "impeller/entity/sweep_gradient_fill.frag.h"
 #include "impeller/entity/texture_fill.frag.h"
+#include "impeller/entity/texture_fill_src_in.frag.h"
 #include "impeller/entity/texture_fill.vert.h"
 #include "impeller/entity/tiled_texture_fill.frag.h"
 #include "impeller/entity/tiled_texture_fill.vert.h"
@@ -121,6 +122,8 @@ using RRectBlurPipeline =
 using BlendPipeline = RenderPipelineT<BlendVertexShader, BlendFragmentShader>;
 using TexturePipeline =
     RenderPipelineT<TextureFillVertexShader, TextureFillFragmentShader>;
+using TextureSrcInPipeline =
+    RenderPipelineT<TextureFillVertexShader, TextureFillSrcInFragmentShader>;
 using PositionUVPipeline =
     RenderPipelineT<TextureFillVertexShader, TiledTextureFillFragmentShader>;
 using TiledTexturePipeline = RenderPipelineT<TiledTextureFillVertexShader,
@@ -360,6 +363,11 @@ class ContentContext {
   std::shared_ptr<Pipeline<PipelineDescriptor>> GetTexturePipeline(
       ContentContextOptions opts) const {
     return GetPipeline(texture_pipelines_, opts);
+  }
+
+  std::shared_ptr<Pipeline<PipelineDescriptor>> GetTextureSrcInPipeline(
+      ContentContextOptions opts) const {
+    return GetPipeline(texture_src_in_pipelines_, opts);
   }
 
   std::shared_ptr<Pipeline<PipelineDescriptor>> GetPositionUVPipeline(
@@ -648,6 +656,7 @@ class ContentContext {
   mutable Variants<RRectBlurPipeline> rrect_blur_pipelines_;
   mutable Variants<BlendPipeline> texture_blend_pipelines_;
   mutable Variants<TexturePipeline> texture_pipelines_;
+  mutable Variants<TextureSrcInPipeline> texture_src_in_pipelines_;
   mutable Variants<PositionUVPipeline> position_uv_pipelines_;
   mutable Variants<TiledTexturePipeline> tiled_texture_pipelines_;
   mutable Variants<GaussianBlurPipeline> gaussian_blur_pipelines_;
