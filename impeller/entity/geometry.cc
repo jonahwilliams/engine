@@ -551,6 +551,42 @@ GeometryResult RectGeometry::GetPositionBuffer(const ContentContext& renderer,
   };
 }
 
+// |Geometry|
+GeometryResult RectGeometry::GetPositionUVBuffer(Rect texture_coverage,
+                                                 Matrix effect_transform,
+                                                 const ContentContext& renderer,
+                                                 const Entity& entity,
+                                                 RenderPass& pass) {
+  constexpr uint16_t kRectIndicies[4] = {0, 1, 2, 3};
+
+  auto size = texture_coverage.size;
+  auto origin = texture_coverage.origin;
+
+  auto& host_buffer = pass.GetTransientsBuffer();
+
+  auto points = rect_.GetPoints();
+  std::vector<Point> vertex_data(8);
+  for (auto i = 0u, j = 0u; i < 8; i += 2, j += 1) {
+    vertex_data[i] = points[j];
+    vertex_data[i + 1] = effect_transform * (points[j] - origin) / size;
+  }
+  return GeometryResult{
+      .type = PrimitiveType::kTriangleStrip,
+      .vertex_buffer =
+          {
+              .vertex_buffer = host_buffer.Emplace(
+                  vertex_data.data(), 16 * sizeof(float), alignof(float)),
+              .index_buffer = host_buffer.Emplace(
+                  kRectIndicies, 4 * sizeof(uint16_t), alignof(uint16_t)),
+              .index_count = 4,
+              .index_type = IndexType::k16bit,
+          },
+      .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
+                   entity.GetTransformation(),
+      .prevent_overdraw = false,
+  };
+}
+
 GeometryVertexType RectGeometry::GetVertexType() const {
   return GeometryVertexType::kPosition;
 }

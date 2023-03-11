@@ -60,6 +60,10 @@ void TiledTextureContents::SetFastSrcInColor(std::optional<Color> color) {
   fast_src_in_color_ = color;
 }
 
+void TiledTextureContents::SetSourceRect(std::optional<Rect> rect) {
+  src_rect_ = rect;
+}
+
 std::optional<std::shared_ptr<Texture>>
 TiledTextureContents::CreateFilterTexture(
     const ContentContext& renderer) const {
@@ -125,10 +129,10 @@ bool TiledTextureContents::Render(const ContentContext& renderer,
     frag_info.x_tile_mode = static_cast<Scalar>(x_tile_mode_);
     frag_info.y_tile_mode = static_cast<Scalar>(y_tile_mode_);
     frag_info.alpha = GetAlpha();
-    frag_info.blend_color = fast_src_in_color_.value();
+    frag_info.blend_color = fast_src_in_color_.value().Premultiply();
 
     Command cmd;
-    cmd.label = "TiledTextureFillSrcInBlend";
+    cmd.label = "TiledTextureFillSrcIn";
     cmd.stencil_reference = entity.GetStencilDepth();
 
     auto options = OptionsFromPassAndEntity(pass, entity);

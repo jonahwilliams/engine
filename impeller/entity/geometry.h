@@ -224,6 +224,13 @@ class RectGeometry : public Geometry {
                                    RenderPass& pass) override;
 
   // |Geometry|
+  GeometryResult GetPositionUVBuffer(Rect texture_coverage,
+                                     Matrix effect_transform,
+                                     const ContentContext& renderer,
+                                     const Entity& entity,
+                                     RenderPass& pass) override;
+
+  // |Geometry|
   GeometryVertexType GetVertexType() const override;
 
   // |Geometry|

@@ -16,6 +16,7 @@
 #include "impeller/entity/contents/text_contents.h"
 #include "impeller/entity/contents/texture_contents.h"
 #include "impeller/entity/contents/vertices_contents.h"
+#include "impeller/entity/contents/tiled_texture_contents.h"
 #include "impeller/entity/geometry.h"
 #include "impeller/geometry/path_builder.h"
 
@@ -320,18 +321,35 @@ void Canvas::DrawImageRect(const std::shared_ptr<Image>& image,
     return;
   }
 
-  auto contents = TextureContents::MakeRect(dest);
-  contents->SetTexture(image->GetTexture());
-  contents->SetSourceRect(source);
-  contents->SetSamplerDescriptor(std::move(sampler));
-  contents->SetOpacity(paint.color.alpha);
-  contents->SetDeferApplyingOpacity(paint.HasColorFilter());
-
   Entity entity;
   entity.SetBlendMode(paint.blend_mode);
   entity.SetStencilDepth(GetStencilDepth());
-  entity.SetContents(paint.WithFilters(contents, false));
   entity.SetTransformation(GetCurrentTransformation());
+
+  if (paint.fast_src_in_blend_.has_value()) {
+    auto contents = std::make_shared<TiledTextureContents>();
+    contents->SetGeometry(Geometry::MakeRect(dest));
+    contents->SetTexture(image->GetTexture());
+    contents->SetTileModes(Entity::TileMode::kClamp, Entity::TileMode::kClamp);
+    contents->SetSamplerDescriptor(std::move(sampler));
+    contents->SetEffectTransform(Matrix());
+    contents->SetColorFilter(paint.color_filter);
+    contents->SetFastSrcInColor(paint.fast_src_in_blend_);
+    contents->SetColorSourceSize(Size::Ceil(image->GetTexture()->GetSize()));
+    contents->SetAlpha(paint.color.alpha);
+    contents->SetSourceRect(source);
+
+    entity.SetContents(std::move(contents)); // TEMP
+  } else {
+    auto contents = TextureContents::MakeRect(dest);
+    contents->SetTexture(image->GetTexture());
+    contents->SetSourceRect(source);
+    contents->SetSamplerDescriptor(std::move(sampler));
+    contents->SetOpacity(paint.color.alpha);
+    contents->SetDeferApplyingOpacity(paint.HasColorFilter());
+    entity.SetContents(paint.WithFilters(contents, false));
+  }
+
 
   GetCurrentPass().AddEntity(entity);
 }

@@ -37,6 +37,8 @@ class TiledTextureContents final : public ColorSourceContents {
 
   void SetSamplerDescriptor(SamplerDescriptor desc);
 
+  void SetSourceRect(std::optional<Rect> rect);
+
   /// @brief Set a color filter to apply directly to this tiled texture
   /// @param color_filter
   ///
@@ -67,6 +69,7 @@ class TiledTextureContents final : public ColorSourceContents {
   Entity::TileMode y_tile_mode_ = Entity::TileMode::kClamp;
   std::optional<ColorFilterProc> color_filter_;
   std::optional<Color> fast_src_in_color_;
+  std::optional<Rect> src_rect_;
 
   FML_DISALLOW_COPY_AND_ASSIGN(TiledTextureContents);
 };

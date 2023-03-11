@@ -8,9 +8,9 @@
 uniform sampler2D texture_sampler;
 
 uniform FragInfo {
+  vec4 blend_color;
   float x_tile_mode;
   float y_tile_mode;
-  vec4 blend_color;
   float alpha;
 }
 frag_info;
