@@ -105,8 +105,59 @@ bool TiledTextureContents::Render(const ContentContext& renderer,
 
   auto bounds_origin = GetGeometry()->GetCoverage(Matrix())->origin;
   auto geometry_result = GetGeometry()->GetPositionUVBuffer(
-      Rect(bounds_origin, Size(texture_size)), GetInverseMatrix(), renderer,
-      entity, pass);
+      Rect(bounds_origin, Size(texture_size)), src_rect_,
+      src_rect_.has_value() ? Matrix() : GetInverseMatrix(), renderer, entity,
+      pass);
+
+  if (fast_src_in_color_.has_value()) {
+    using VS = TextureSrcInPipeline::VertexShader;
+    using FS = TextureSrcInPipeline::FragmentShader;
+
+    VS::FrameInfo frame_info;
+    frame_info.mvp = geometry_result.transform;
+    frame_info.texture_sampler_y_coord_scale = texture_->GetYCoordScale();
+
+    FS::FragInfo frag_info;
+    frag_info.x_tile_mode = static_cast<Scalar>(x_tile_mode_);
+    frag_info.y_tile_mode = static_cast<Scalar>(y_tile_mode_);
+    frag_info.blend_color = fast_src_in_color_.value();
+    frag_info.alpha = GetAlpha();
+
+    Command cmd;
+    cmd.label = "TiledTextureFill";
+    cmd.stencil_reference = entity.GetStencilDepth();
+
+    auto options = OptionsFromPassAndEntity(pass, entity);
+    if (geometry_result.prevent_overdraw) {
+      options.stencil_compare = CompareFunction::kEqual;
+      options.stencil_operation = StencilOperation::kIncrementClamp;
+    }
+    options.primitive_type = geometry_result.type;
+    cmd.pipeline = renderer.GetTiledTexturePipeline(options);
+
+    cmd.BindVertices(geometry_result.vertex_buffer);
+    VS::BindFrameInfo(cmd, host_buffer.EmplaceUniform(frame_info));
+    FS::BindFragInfo(cmd, host_buffer.EmplaceUniform(frag_info));
+
+    FS::BindTextureSampler(
+        cmd, texture_,
+        renderer.GetContext()->GetSamplerLibrary()->GetSampler(
+            CreateDescriptor()));
+
+    if (!pass.AddCommand(std::move(cmd))) {
+      return false;
+    }
+
+    if (geometry_result.prevent_overdraw) {
+      auto restore = ClipRestoreContents();
+      restore.SetRestoreCoverage(GetCoverage(entity));
+      return restore.Render(renderer, entity, pass);
+    }
+    return true;
+  }
+
+  using VS = TiledTexturePipeline::VertexShader;
+  using FS = TiledTexturePipeline::FragmentShader;
 
   VS::FrameInfo frame_info;
   frame_info.mvp = geometry_result.transform;

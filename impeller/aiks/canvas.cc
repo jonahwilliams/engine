@@ -333,7 +333,6 @@ void Canvas::DrawImageRect(const std::shared_ptr<Image>& image,
     contents->SetTexture(image->GetTexture());
     contents->SetTileModes(Entity::TileMode::kClamp, Entity::TileMode::kClamp);
     contents->SetSamplerDescriptor(std::move(sampler));
-    contents->SetEffectTransform(Matrix());
     contents->SetColorFilter(paint.color_filter);
     contents->SetFastSrcInColor(paint.fast_src_in_blend_);
     contents->SetColorSourceSize(Size::Ceil(image->GetTexture()->GetSize()));

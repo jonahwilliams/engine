@@ -255,6 +255,7 @@ GeometryResult DLVerticesGeometry::GetPositionColorBuffer(
 
 GeometryResult DLVerticesGeometry::GetPositionUVBuffer(
     Rect texture_coverage,
+    std::optional<Rect> source_rect,
     Matrix effect_transform,
     const ContentContext& renderer,
     const Entity& entity,

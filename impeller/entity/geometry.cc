@@ -44,7 +44,8 @@ std::unique_ptr<Geometry> Geometry::MakeRect(Rect rect) {
   return std::make_unique<RectGeometry>(rect);
 }
 
-static GeometryResult ComputeUVGeometryForRect(Rect source_rect,
+static GeometryResult ComputeUVGeometryForRect(Rect rect,
+                                               Rect source_rect,
                                                Rect texture_coverage,
                                                Matrix effect_transform,
                                                const ContentContext& renderer,
@@ -54,11 +55,15 @@ static GeometryResult ComputeUVGeometryForRect(Rect source_rect,
   auto& host_buffer = pass.GetTransientsBuffer();
 
   std::vector<Point> data(8);
-  auto points = source_rect.GetPoints();
+  auto points = rect.GetPoints();
   for (auto i = 0u, j = 0u; i < 8; i += 2, j++) {
     data[i] = points[j];
-    data[i + 1] = effect_transform * ((points[j] - texture_coverage.origin) /
-                                      texture_coverage.size);
+    auto coverage_coords =
+        effect_transform *
+        ((points[j] - texture_coverage.origin) / texture_coverage.size);
+    data[i + 1] =
+        (source_rect.origin + texture_coverage.size * coverage_coords) /
+        texture_coverage.size;
   }
 
   return GeometryResult{
@@ -126,6 +131,7 @@ GeometryResult FillPathGeometry::GetPositionUVBuffer(
     RenderPass& pass) {
   using VS = TextureFillVertexShader;
 
+  //auto src_rect = source_rect.value_or(Rect::MakeSize(texture_coverage.size));
   VertexBufferBuilder<VS::PerVertexData> vertex_builder;
   auto tesselation_result = renderer.GetTessellator()->Tessellate(
       path_.GetFillType(),
@@ -552,6 +558,7 @@ GeometryResult StrokePathGeometry::GetPositionUVBuffer(
       GetJoinProc(stroke_join_), GetCapProc(stroke_cap_),
       entity.GetTransformation().GetMaxBasisLength());
 
+  //auto src_rect = source_rect.value_or(Rect::MakeSize(texture_coverage.size));
   VertexBufferBuilder<TextureFillVertexShader::PerVertexData> vertex_builder;
   stroke_builder.IterateVertices(
       [&vertex_builder, &texture_coverage,
@@ -642,8 +649,9 @@ GeometryResult CoverGeometry::GetPositionUVBuffer(
     const Entity& entity,
     RenderPass& pass) {
   auto rect = Rect(Size(pass.GetRenderTargetSize()));
-  return ComputeUVGeometryForRect(rect, texture_coverage, effect_transform,
-                                  renderer, entity, pass);
+  return ComputeUVGeometryForRect(
+      rect, source_rect.value_or(Rect::MakeSize(texture_coverage.size)),
+      texture_coverage, effect_transform, renderer, entity, pass);
 }
 
 GeometryVertexType CoverGeometry::GetVertexType() const {
@@ -683,14 +691,16 @@ GeometryResult RectGeometry::GetPositionBuffer(const ContentContext& renderer,
 }
 
 // |Geometry|
-GeometryResult RectGeometry::GetPositionUVBuffer(Rect texture_coverage,
-                                                 std::optional<Rect> source_rect,
-                                                 Matrix effect_transform,
-                                                 const ContentContext& renderer,
-                                                 const Entity& entity,
-                                                 RenderPass& pass) {
-  return ComputeUVGeometryForRect(rect_, texture_coverage, effect_transform,
-                                  renderer, entity, pass);
+GeometryResult RectGeometry::GetPositionUVBuffer(
+    Rect texture_coverage,
+    std::optional<Rect> source_rect,
+    Matrix effect_transform,
+    const ContentContext& renderer,
+    const Entity& entity,
+    RenderPass& pass) {
+  return ComputeUVGeometryForRect(
+      rect_, source_rect.value_or(Rect::MakeSize(texture_coverage.size)),
+      texture_coverage, effect_transform, renderer, entity, pass);
 }
 
 GeometryVertexType RectGeometry::GetVertexType() const {
