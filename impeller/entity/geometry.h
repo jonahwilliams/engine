@@ -66,10 +66,11 @@ class Geometry {
                                            RenderPass& pass) = 0;
 
   virtual GeometryResult GetPositionUVBuffer(Rect texture_coverage,
+                                             std::optional<Rect> source_rect,
                                              Matrix effect_transform,
                                              const ContentContext& renderer,
                                              const Entity& entity,
-                                             RenderPass& pass);
+                                             RenderPass& pass) = 0;
 
   virtual GeometryVertexType GetVertexType() const = 0;
 
@@ -108,6 +109,14 @@ class FillPathGeometry : public Geometry {
 
   // |Geometry|
   std::optional<Rect> GetCoverage(const Matrix& transform) const override;
+
+  // |Geometry|
+  GeometryResult GetPositionUVBuffer(Rect texture_coverage,
+                                     std::optional<Rect> source_rect,
+                                     Matrix effect_transform,
+                                     const ContentContext& renderer,
+                                     const Entity& entity,
+                                     RenderPass& pass) override;
 
   Path path_;
 
@@ -155,10 +164,20 @@ class StrokePathGeometry : public Geometry {
                                    RenderPass& pass) override;
 
   // |Geometry|
+  GeometryResult GetPositionUVBuffer(Rect texture_coverage,
+                                     std::optional<Rect> source_rect,
+                                     Matrix effect_transform,
+                                     const ContentContext& renderer,
+                                     const Entity& entity,
+                                     RenderPass& pass) override;
+
+  // |Geometry|
   GeometryVertexType GetVertexType() const override;
 
   // |Geometry|
   std::optional<Rect> GetCoverage(const Matrix& transform) const override;
+
+  bool SkipRendering() const;
 
   static Scalar CreateBevelAndGetDirection(
       VertexBufferBuilder<SolidFillVertexShader::PerVertexData>& vtx_builder,
@@ -166,14 +185,14 @@ class StrokePathGeometry : public Geometry {
       const Point& start_offset,
       const Point& end_offset);
 
-  static VertexBuffer CreateSolidStrokeVertices(const Path& path,
-                                                HostBuffer& buffer,
-                                                Scalar stroke_width,
-                                                Scalar scaled_miter_limit,
-                                                Cap cap,
-                                                const JoinProc& join_proc,
-                                                const CapProc& cap_proc,
-                                                Scalar scale);
+  static VertexBufferBuilder<SolidFillVertexShader::PerVertexData>
+  CreateSolidStrokeVertices(const Path& path,
+                            Scalar stroke_width,
+                            Scalar scaled_miter_limit,
+                            Cap cap,
+                            const JoinProc& join_proc,
+                            const CapProc& cap_proc,
+                            Scalar scale);
 
   static StrokePathGeometry::JoinProc GetJoinProc(Join stroke_join);
 
@@ -208,6 +227,14 @@ class CoverGeometry : public Geometry {
   // |Geometry|
   std::optional<Rect> GetCoverage(const Matrix& transform) const override;
 
+  // |Geometry|
+  GeometryResult GetPositionUVBuffer(Rect texture_coverage,
+                                     std::optional<Rect> source_rect,
+                                     Matrix effect_transform,
+                                     const ContentContext& renderer,
+                                     const Entity& entity,
+                                     RenderPass& pass) override;
+
   FML_DISALLOW_COPY_AND_ASSIGN(CoverGeometry);
 };
 
@@ -225,6 +252,7 @@ class RectGeometry : public Geometry {
 
   // |Geometry|
   GeometryResult GetPositionUVBuffer(Rect texture_coverage,
+                                     std::optional<Rect> source_rect,
                                      Matrix effect_transform,
                                      const ContentContext& renderer,
                                      const Entity& entity,
