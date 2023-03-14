@@ -65,6 +65,8 @@ class TextureContents final : public Contents {
 
   void SetDeferApplyingOpacity(bool defer_applying_opacity);
 
+  void SetFastSrcInColor(std::optional<Color> color);
+
  private:
   std::string label_;
 
@@ -77,6 +79,7 @@ class TextureContents final : public Contents {
   Rect source_rect_;
   Scalar opacity_ = 1.0f;
   bool defer_applying_opacity_ = false;
+  std::optional<Color> fast_src_in_color_;
 
   FML_DISALLOW_COPY_AND_ASSIGN(TextureContents);
 };

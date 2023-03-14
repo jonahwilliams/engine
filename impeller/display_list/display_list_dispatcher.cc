@@ -594,6 +594,8 @@ void DisplayListDispatcher::setColorFilter(
     if (blend_mode == BlendMode::kSourceIn) {
       paint_.fast_src_in_blend_ = ToColor(dl_blend->color());
     }
+  } else {
+    paint_.fast_src_in_blend_  = std::nullopt;
   }
   paint_.color_filter = ToColorFilterProc(filter);
 }

@@ -91,6 +91,11 @@ std::optional<Snapshot> TextureContents::RenderToSnapshot(
       renderer, entity, sampler_descriptor.value_or(sampler_descriptor_));
 }
 
+void TextureContents::SetFastSrcInColor(std::optional<Color> color) {
+  fast_src_in_color_ = color;
+}
+
+
 bool TextureContents::Render(const ContentContext& renderer,
                              const Entity& entity,
                              RenderPass& pass) const {

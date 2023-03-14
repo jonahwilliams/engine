@@ -116,7 +116,7 @@ bool VerticesUVContents::Render(const ContentContext& renderer,
     return false;
   }
   auto geometry_result = geometry->GetPositionUVBuffer(
-      coverage.value(), std::nullopt, Matrix(), renderer, entity, pass);
+      coverage.value(), Matrix(), renderer, entity, pass);
   auto opts = OptionsFromPassAndEntity(pass, entity);
   opts.primitive_type = geometry_result.type;
   cmd.pipeline = renderer.GetTexturePipeline(opts);

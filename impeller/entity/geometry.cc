@@ -5,7 +5,6 @@
 #include "impeller/entity/geometry.h"
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/position_color.vert.h"
-#include "impeller/entity/texture_fill.vert.h"
 #include "impeller/geometry/matrix.h"
 #include "impeller/geometry/path_builder.h"
 #include "impeller/renderer/device_buffer.h"
@@ -17,6 +16,14 @@ namespace impeller {
 Geometry::Geometry() = default;
 
 Geometry::~Geometry() = default;
+
+GeometryResult Geometry::GetPositionUVBuffer(Rect texture_coverage,
+                                             Matrix effect_transform,
+                                             const ContentContext& renderer,
+                                             const Entity& entity,
+                                             RenderPass& pass) {
+  return {};
+}
 
 // static
 std::unique_ptr<Geometry> Geometry::MakeFillPath(const Path& path) {
@@ -42,45 +49,6 @@ std::unique_ptr<Geometry> Geometry::MakeCover() {
 
 std::unique_ptr<Geometry> Geometry::MakeRect(Rect rect) {
   return std::make_unique<RectGeometry>(rect);
-}
-
-static GeometryResult ComputeUVGeometryForRect(Rect rect,
-                                               Rect source_rect,
-                                               Rect texture_coverage,
-                                               Matrix effect_transform,
-                                               const ContentContext& renderer,
-                                               const Entity& entity,
-                                               RenderPass& pass) {
-  constexpr uint16_t kRectIndicies[4] = {0, 1, 2, 3};
-  auto& host_buffer = pass.GetTransientsBuffer();
-
-  std::vector<Point> data(8);
-  auto points = rect.GetPoints();
-  for (auto i = 0u, j = 0u; i < 8; i += 2, j++) {
-    data[i] = points[j];
-    auto coverage_coords =
-        effect_transform *
-        ((points[j] - texture_coverage.origin) / texture_coverage.size);
-    data[i + 1] =
-        (source_rect.origin + texture_coverage.size * coverage_coords) /
-        texture_coverage.size;
-  }
-
-  return GeometryResult{
-      .type = PrimitiveType::kTriangleStrip,
-      .vertex_buffer =
-          {
-              .vertex_buffer = host_buffer.Emplace(
-                  data.data(), 16 * sizeof(float), alignof(float)),
-              .index_buffer = host_buffer.Emplace(
-                  kRectIndicies, 4 * sizeof(uint16_t), alignof(uint16_t)),
-              .index_count = 4,
-              .index_type = IndexType::k16bit,
-          },
-      .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
-                   entity.GetTransformation(),
-      .prevent_overdraw = false,
-  };
 }
 
 /////// Path Geometry ///////
@@ -115,53 +83,6 @@ GeometryResult FillPathGeometry::GetPositionBuffer(
   return GeometryResult{
       .type = PrimitiveType::kTriangle,
       .vertex_buffer = vertex_buffer,
-      .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
-                   entity.GetTransformation(),
-      .prevent_overdraw = false,
-  };
-}
-
-// |Geometry|
-GeometryResult FillPathGeometry::GetPositionUVBuffer(
-    Rect texture_coverage,
-    std::optional<Rect> source_rect,
-    Matrix effect_transform,
-    const ContentContext& renderer,
-    const Entity& entity,
-    RenderPass& pass) {
-  using VS = TextureFillVertexShader;
-
-  //auto src_rect = source_rect.value_or(Rect::MakeSize(texture_coverage.size));
-  VertexBufferBuilder<VS::PerVertexData> vertex_builder;
-  auto tesselation_result = renderer.GetTessellator()->Tessellate(
-      path_.GetFillType(),
-      path_.CreatePolyline(entity.GetTransformation().GetMaxBasisLength()),
-      [&vertex_builder, &texture_coverage, &effect_transform](
-          const float* vertices, size_t vertices_count, const uint16_t* indices,
-          size_t indices_count) {
-        for (auto i = 0u; i < vertices_count; i += 2) {
-          VS::PerVertexData data;
-          Point vtx = {vertices[i], vertices[i + 1]};
-          data.position = vtx;
-          auto coverage_coords =
-              ((vtx - texture_coverage.origin) / texture_coverage.size) /
-              texture_coverage.size;
-          data.texture_coords = effect_transform * coverage_coords;
-          vertex_builder.AppendVertex(data);
-        }
-        FML_DCHECK(vertex_builder.GetVertexCount() == vertices_count / 2);
-        for (auto i = 0u; i < indices_count; i++) {
-          vertex_builder.AppendIndex(indices[i]);
-        }
-        return true;
-      });
-  if (tesselation_result != Tessellator::Result::kSuccess) {
-    return {};
-  }
-  return GeometryResult{
-      .type = PrimitiveType::kTriangle,
-      .vertex_buffer =
-          vertex_builder.CreateVertexBuffer(pass.GetTransientsBuffer()),
       .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
                    entity.GetTransformation(),
       .prevent_overdraw = false,
@@ -379,9 +300,9 @@ StrokePathGeometry::CapProc StrokePathGeometry::GetCapProc(Cap stroke_cap) {
 }
 
 // static
-VertexBufferBuilder<SolidFillVertexShader::PerVertexData>
-StrokePathGeometry::CreateSolidStrokeVertices(
+VertexBuffer StrokePathGeometry::CreateSolidStrokeVertices(
     const Path& path,
+    HostBuffer& buffer,
     Scalar stroke_width,
     Scalar scaled_miter_limit,
     Cap cap,
@@ -501,7 +422,7 @@ StrokePathGeometry::CreateSolidStrokeVertices(
     }
   }
 
-  return vtx_builder;
+  return vtx_builder.CreateVertexBuffer(buffer);
 }
 
 GeometryResult StrokePathGeometry::GetPositionBuffer(
@@ -520,60 +441,14 @@ GeometryResult StrokePathGeometry::GetPositionBuffer(
   Scalar stroke_width = std::max(stroke_width_, min_size);
 
   auto& host_buffer = pass.GetTransientsBuffer();
-  auto vertex_builder = CreateSolidStrokeVertices(
-      path_, stroke_width, miter_limit_ * stroke_width_ * 0.5, stroke_cap_,
-      GetJoinProc(stroke_join_), GetCapProc(stroke_cap_),
+  auto vertex_buffer = CreateSolidStrokeVertices(
+      path_, host_buffer, stroke_width, miter_limit_ * stroke_width_ * 0.5,
+      stroke_cap_, GetJoinProc(stroke_join_), GetCapProc(stroke_cap_),
       entity.GetTransformation().GetMaxBasisLength());
 
   return GeometryResult{
       .type = PrimitiveType::kTriangleStrip,
-      .vertex_buffer = vertex_builder.CreateVertexBuffer(host_buffer),
-      .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
-                   entity.GetTransformation(),
-      .prevent_overdraw = true,
-  };
-}
-
-GeometryResult StrokePathGeometry::GetPositionUVBuffer(
-    Rect texture_coverage,
-    std::optional<Rect> source_rect,
-    Matrix effect_transform,
-    const ContentContext& renderer,
-    const Entity& entity,
-    RenderPass& pass) {
-  if (stroke_width_ < 0.0) {
-    return {};
-  }
-  auto determinant = entity.GetTransformation().GetDeterminant();
-  if (determinant == 0) {
-    return {};
-  }
-
-  Scalar min_size = 1.0f / sqrt(std::abs(determinant));
-  Scalar stroke_width = std::max(stroke_width_, min_size);
-
-  auto& host_buffer = pass.GetTransientsBuffer();
-  auto stroke_builder = CreateSolidStrokeVertices(
-      path_, stroke_width, miter_limit_ * stroke_width_ * 0.5, stroke_cap_,
-      GetJoinProc(stroke_join_), GetCapProc(stroke_cap_),
-      entity.GetTransformation().GetMaxBasisLength());
-
-  //auto src_rect = source_rect.value_or(Rect::MakeSize(texture_coverage.size));
-  VertexBufferBuilder<TextureFillVertexShader::PerVertexData> vertex_builder;
-  stroke_builder.IterateVertices(
-      [&vertex_builder, &texture_coverage,
-       &effect_transform](SolidFillVertexShader::PerVertexData old_vtx) {
-        TextureFillVertexShader::PerVertexData data;
-        data.position = old_vtx.position;
-        auto coverage_coords = (old_vtx.position - texture_coverage.origin) /
-                               texture_coverage.size;
-        data.texture_coords = effect_transform * coverage_coords;
-        vertex_builder.AppendVertex(data);
-      });
-
-  return GeometryResult{
-      .type = PrimitiveType::kTriangleStrip,
-      .vertex_buffer = vertex_builder.CreateVertexBuffer(host_buffer),
+      .vertex_buffer = vertex_buffer,
       .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
                    entity.GetTransformation(),
       .prevent_overdraw = true,
@@ -640,20 +515,6 @@ GeometryResult CoverGeometry::GetPositionBuffer(const ContentContext& renderer,
   };
 }
 
-// |Geometry|
-GeometryResult CoverGeometry::GetPositionUVBuffer(
-    Rect texture_coverage,
-    std::optional<Rect> source_rect,
-    Matrix effect_transform,
-    const ContentContext& renderer,
-    const Entity& entity,
-    RenderPass& pass) {
-  auto rect = Rect(Size(pass.GetRenderTargetSize()));
-  return ComputeUVGeometryForRect(
-      rect, source_rect.value_or(Rect::MakeSize(texture_coverage.size)),
-      texture_coverage, effect_transform, renderer, entity, pass);
-}
-
 GeometryVertexType CoverGeometry::GetVertexType() const {
   return GeometryVertexType::kPosition;
 }
@@ -688,19 +549,6 @@ GeometryResult RectGeometry::GetPositionBuffer(const ContentContext& renderer,
                    entity.GetTransformation(),
       .prevent_overdraw = false,
   };
-}
-
-// |Geometry|
-GeometryResult RectGeometry::GetPositionUVBuffer(
-    Rect texture_coverage,
-    std::optional<Rect> source_rect,
-    Matrix effect_transform,
-    const ContentContext& renderer,
-    const Entity& entity,
-    RenderPass& pass) {
-  return ComputeUVGeometryForRect(
-      rect_, source_rect.value_or(Rect::MakeSize(texture_coverage.size)),
-      texture_coverage, effect_transform, renderer, entity, pass);
 }
 
 GeometryVertexType RectGeometry::GetVertexType() const {
