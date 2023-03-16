@@ -188,7 +188,7 @@ TEST_P(TypographerTest, GlyphAtlasTextureIsRecycledIfUnchanged) {
 
   // now create a new glyph atlas with a nearly identical blob.
 
-  auto blob2 = SkTextBlob::MakeFromString("spooky 2", sk_font);
+  auto blob2 = SkTextBlob::MakeFromString("spooky", sk_font);
   auto next_atlas =
       context->CreateGlyphAtlas(GlyphAtlas::Type::kAlphaBitmap, atlas_context,
                                 TextFrameFromTextBlob(blob2));
