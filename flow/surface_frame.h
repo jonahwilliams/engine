@@ -58,6 +58,7 @@ class SurfaceFrame {
 
   SurfaceFrame(sk_sp<SkSurface> surface,
                FramebufferInfo framebuffer_info,
+               const SubmitCallback& presubmit_callback,
                const SubmitCallback& submit_callback,
                SkISize frame_size,
                std::unique_ptr<GLContextResult> context_result = nullptr,
@@ -82,6 +83,8 @@ class SurfaceFrame {
     std::optional<fml::TimePoint> presentation_time;
   };
 
+  bool Presubmit();
+
   bool Submit();
 
   bool IsSubmitted() const;
@@ -102,6 +105,7 @@ class SurfaceFrame {
   sk_sp<DisplayList> BuildDisplayList();
 
  private:
+  bool presubmitted_ = false;
   bool submitted_ = false;
 
   DlSkCanvasAdapter adapter_;
@@ -110,10 +114,13 @@ class SurfaceFrame {
   DlCanvas* canvas_ = nullptr;
   FramebufferInfo framebuffer_info_;
   SubmitInfo submit_info_;
+  SubmitCallback presubmit_callback_;
   SubmitCallback submit_callback_;
   std::unique_ptr<GLContextResult> context_result_;
 
   bool PerformSubmit();
+
+  bool PerformPresubmit();
 
   FML_DISALLOW_COPY_AND_ASSIGN(SurfaceFrame);
 };

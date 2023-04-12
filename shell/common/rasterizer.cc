@@ -610,6 +610,7 @@ RasterStatus Rasterizer::DrawToSurfaceUnsafe(
       external_view_embedder_->SubmitFrame(surface_->GetContext(),
                                            std::move(frame));
     } else {
+      frame->Presubmit();
       frame->Submit();
     }
 

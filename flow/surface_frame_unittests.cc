@@ -13,6 +13,8 @@ TEST(FlowTest, SurfaceFrameDoesNotSubmitInDtor) {
   SurfaceFrame::FramebufferInfo framebuffer_info;
   auto surface_frame = std::make_unique<SurfaceFrame>(
       /*surface=*/nullptr, framebuffer_info,
+      /*presubmit_callback=*/
+      [](const SurfaceFrame&, DlCanvas*) { return true; },
       /*submit_callback=*/
       [](const SurfaceFrame&, DlCanvas*) {
         EXPECT_FALSE(true);
@@ -26,6 +28,8 @@ TEST(FlowTest, SurfaceFrameDoesNotHaveEmptyCanvas) {
   SurfaceFrame::FramebufferInfo framebuffer_info;
   SurfaceFrame frame(
       /*surface=*/nullptr, framebuffer_info,
+      /*presubmit_callback=*/
+      [](const SurfaceFrame&, DlCanvas*) { return true; },
       /*submit_callback=*/[](const SurfaceFrame&, DlCanvas*) { return true; },
       /*frame_size=*/SkISize::Make(800, 600),
       /*context_result=*/nullptr, /*display_list_fallback=*/true);

@@ -230,6 +230,9 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceGLSkia::AcquireFrame(
         [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
           return true;
         },
+        [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
+          return true;
+        },
         size);
   }
 
@@ -253,9 +256,12 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceGLSkia::AcquireFrame(
   if (!framebuffer_info.existing_damage.has_value()) {
     framebuffer_info.existing_damage = existing_damage_;
   }
-  return std::make_unique<SurfaceFrame>(surface, framebuffer_info,
-                                        submit_callback, size,
-                                        std::move(context_switch));
+  return std::make_unique<SurfaceFrame>(
+      surface, framebuffer_info,
+      [](const SurfaceFrame& surface_frame, DlCanvas* canvas) -> bool {
+        return true;
+      },
+      submit_callback, size, std::move(context_switch));
 }
 
 bool GPUSurfaceGLSkia::PresentSurface(const SurfaceFrame& frame,

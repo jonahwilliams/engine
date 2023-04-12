@@ -270,9 +270,15 @@ TEST(AndroidExternalViewEmbedder, SubmitFrame) {
             [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
               return true;
             },
+            [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
+              return true;
+            },
             /*frame_size=*/SkISize::Make(800, 600));
         auto surface_frame_2 = std::make_unique<SurfaceFrame>(
             SkSurface::MakeNull(1000, 1000), framebuffer_info,
+            [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
+              return true;
+            },
             [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
               return true;
             },
@@ -305,6 +311,9 @@ TEST(AndroidExternalViewEmbedder, SubmitFrame) {
     auto did_submit_frame = false;
     auto surface_frame = std::make_unique<SurfaceFrame>(
         SkSurface::MakeNull(1000, 1000), framebuffer_info,
+        [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
+          return true;
+        },
         [&did_submit_frame](const SurfaceFrame& surface_frame,
                             DlCanvas* canvas) mutable {
           if (canvas != nullptr) {
@@ -373,6 +382,9 @@ TEST(AndroidExternalViewEmbedder, SubmitFrame) {
     auto did_submit_frame = false;
     auto surface_frame = std::make_unique<SurfaceFrame>(
         SkSurface::MakeNull(1000, 1000), framebuffer_info,
+        [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
+          return true;
+        },
         [&did_submit_frame](const SurfaceFrame& surface_frame,
                             DlCanvas* canvas) mutable {
           if (canvas != nullptr) {
@@ -439,6 +451,9 @@ TEST(AndroidExternalViewEmbedder, SubmitFrame) {
     auto did_submit_frame = false;
     auto surface_frame = std::make_unique<SurfaceFrame>(
         SkSurface::MakeNull(1000, 1000), framebuffer_info,
+        [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
+          return true;
+        },
         [&did_submit_frame](const SurfaceFrame& surface_frame,
                             DlCanvas* canvas) mutable {
           if (canvas != nullptr) {
@@ -475,6 +490,9 @@ TEST(AndroidExternalViewEmbedder, OverlayCoverTwoPlatformViews) {
       [&android_context, gr_context, window, frame_size, framebuffer_info]() {
         auto surface_frame_1 = std::make_unique<SurfaceFrame>(
             SkSurface::MakeNull(1000, 1000), framebuffer_info,
+            [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
+              return true;
+            },
             [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
               return true;
             },
@@ -550,6 +568,7 @@ TEST(AndroidExternalViewEmbedder, OverlayCoverTwoPlatformViews) {
 
   auto surface_frame = std::make_unique<SurfaceFrame>(
       SkSurface::MakeNull(1000, 1000), framebuffer_info,
+      [](const SurfaceFrame& surface_frame, DlCanvas* canvas) { return true; },
       [](const SurfaceFrame& surface_frame, DlCanvas* canvas) mutable {
         return true;
       },
@@ -574,6 +593,9 @@ TEST(AndroidExternalViewEmbedder, SubmitFrameOverlayComposition) {
       [&android_context, gr_context, window, frame_size, framebuffer_info]() {
         auto surface_frame_1 = std::make_unique<SurfaceFrame>(
             SkSurface::MakeNull(1000, 1000), framebuffer_info,
+            [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
+              return true;
+            },
             [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
               return true;
             },
@@ -657,6 +679,9 @@ TEST(AndroidExternalViewEmbedder, SubmitFrameOverlayComposition) {
       [](const SurfaceFrame& surface_frame, DlCanvas* canvas) mutable {
         return true;
       },
+      [](const SurfaceFrame& surface_frame, DlCanvas* canvas) mutable {
+        return true;
+      },
       /*frame_size=*/SkISize::Make(800, 600));
 
   embedder->SubmitFrame(gr_context.get(), std::move(surface_frame));
@@ -678,6 +703,9 @@ TEST(AndroidExternalViewEmbedder, SubmitFramePlatformViewWithoutAnyOverlay) {
       [&android_context, gr_context, window, frame_size, framebuffer_info]() {
         auto surface_frame_1 = std::make_unique<SurfaceFrame>(
             SkSurface::MakeNull(1000, 1000), framebuffer_info,
+            [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
+              return true;
+            },
             [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
               return true;
             },
@@ -726,6 +754,9 @@ TEST(AndroidExternalViewEmbedder, SubmitFramePlatformViewWithoutAnyOverlay) {
       [](const SurfaceFrame& surface_frame, DlCanvas* canvas) mutable {
         return true;
       },
+      [](const SurfaceFrame& surface_frame, DlCanvas* canvas) mutable {
+        return true;
+      },
       /*frame_size=*/SkISize::Make(800, 600));
 
   embedder->SubmitFrame(gr_context.get(), std::move(surface_frame));
@@ -767,6 +798,9 @@ TEST(AndroidExternalViewEmbedder, DestroyOverlayLayersOnSizeChange) {
       [&android_context, gr_context, window, frame_size, framebuffer_info]() {
         auto surface_frame_1 = std::make_unique<SurfaceFrame>(
             SkSurface::MakeNull(1000, 1000), framebuffer_info,
+            [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
+              return true;
+            },
             [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
               return true;
             },
@@ -829,6 +863,9 @@ TEST(AndroidExternalViewEmbedder, DestroyOverlayLayersOnSizeChange) {
         [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
           return true;
         },
+        [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
+          return true;
+        },
         /*frame_size=*/SkISize::Make(800, 600));
     embedder->SubmitFrame(gr_context.get(), std::move(surface_frame));
 
@@ -856,6 +893,9 @@ TEST(AndroidExternalViewEmbedder, DoesNotDestroyOverlayLayersOnSizeChange) {
       [&android_context, gr_context, window, frame_size, framebuffer_info]() {
         auto surface_frame_1 = std::make_unique<SurfaceFrame>(
             SkSurface::MakeNull(1000, 1000), framebuffer_info,
+            [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
+              return true;
+            },
             [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
               return true;
             },
@@ -914,6 +954,9 @@ TEST(AndroidExternalViewEmbedder, DoesNotDestroyOverlayLayersOnSizeChange) {
 
     auto surface_frame = std::make_unique<SurfaceFrame>(
         SkSurface::MakeNull(1000, 1000), framebuffer_info,
+        [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
+          return true;
+        },
         [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
           return true;
         },
@@ -985,6 +1028,9 @@ TEST(AndroidExternalViewEmbedder, Teardown) {
             [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
               return true;
             },
+            [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
+              return true;
+            },
             /*frame_size=*/SkISize::Make(800, 600));
 
         auto surface_mock = std::make_unique<SurfaceMock>();
@@ -1028,6 +1074,7 @@ TEST(AndroidExternalViewEmbedder, Teardown) {
   SurfaceFrame::FramebufferInfo framebuffer_info;
   auto surface_frame = std::make_unique<SurfaceFrame>(
       SkSurface::MakeNull(1000, 1000), framebuffer_info,
+      [](const SurfaceFrame& surface_frame, DlCanvas* canvas) { return true; },
       [](const SurfaceFrame& surface_frame, DlCanvas* canvas) { return true; },
       /*frame_size=*/SkISize::Make(800, 600));
   embedder->SubmitFrame(gr_context.get(), std::move(surface_frame));

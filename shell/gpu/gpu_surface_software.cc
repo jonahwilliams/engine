@@ -39,6 +39,9 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceSoftware::AcquireFrame(
         [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
           return true;
         },
+        [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
+          return true;
+        },
         logical_size);
   }
 
@@ -77,8 +80,10 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceSoftware::AcquireFrame(
     return self->delegate_->PresentBackingStore(surface_frame.SkiaSurface());
   };
 
-  return std::make_unique<SurfaceFrame>(backing_store, framebuffer_info,
-                                        on_submit, logical_size);
+  return std::make_unique<SurfaceFrame>(
+      backing_store, framebuffer_info,
+      [](const SurfaceFrame& surface_frame, DlCanvas* canvas) { return true; },
+      on_submit, logical_size);
 }
 
 // |Surface|

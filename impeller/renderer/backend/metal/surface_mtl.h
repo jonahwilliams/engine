@@ -32,7 +32,7 @@ class SurfaceMTL final : public Surface {
   ///
   /// @return     A pointer to the wrapped surface or null.
   ///
-  static std::unique_ptr<SurfaceMTL> WrapCurrentMetalLayerDrawable(
+  static std::shared_ptr<SurfaceMTL> WrapCurrentMetalLayerDrawable(
       const std::shared_ptr<Context>& context,
       CAMetalLayer* layer);
 #pragma GCC diagnostic pop

@@ -17,12 +17,14 @@ namespace flutter {
 
 SurfaceFrame::SurfaceFrame(sk_sp<SkSurface> surface,
                            FramebufferInfo framebuffer_info,
+                           const SubmitCallback& presubmit_callback,
                            const SubmitCallback& submit_callback,
                            SkISize frame_size,
                            std::unique_ptr<GLContextResult> context_result,
                            bool display_list_fallback)
     : surface_(std::move(surface)),
       framebuffer_info_(framebuffer_info),
+      presubmit_callback_(presubmit_callback),
       submit_callback_(submit_callback),
       context_result_(std::move(context_result)) {
   FML_DCHECK(submit_callback_);
@@ -36,9 +38,20 @@ SurfaceFrame::SurfaceFrame(sk_sp<SkSurface> surface,
   }
 }
 
+bool SurfaceFrame::Presubmit() {
+  TRACE_EVENT0("flutter", "SurfaceFrame::Presubmit");
+  if (presubmitted_) {
+    return false;
+  }
+
+  presubmitted_ = PerformPresubmit();
+
+  return presubmitted_;
+}
+
 bool SurfaceFrame::Submit() {
   TRACE_EVENT0("flutter", "SurfaceFrame::Submit");
-  if (submitted_) {
+  if (submitted_ || !presubmitted_) {
     return false;
   }
 
@@ -65,6 +78,18 @@ bool SurfaceFrame::PerformSubmit() {
   }
 
   if (submit_callback_(*this, Canvas())) {
+    return true;
+  }
+
+  return false;
+}
+
+bool SurfaceFrame::PerformPresubmit() {
+  if (presubmit_callback_ == nullptr) {
+    return false;
+  }
+
+  if (presubmit_callback_(*this, Canvas())) {
     return true;
   }
 

@@ -65,10 +65,10 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceMetalImpeller::AcquireFrame(const SkISiz
     last_drawable_.reset([surface->drawable() retain]);
   }
 
-  SurfaceFrame::SubmitCallback submit_callback =
+  SurfaceFrame::SubmitCallback presubmit_callback =
       fml::MakeCopyable([renderer = impeller_renderer_,  //
                          aiks_context = aiks_context_,   //
-                         surface = std::move(surface)    //
+                         &surface                        //
   ](SurfaceFrame& surface_frame, DlCanvas* canvas) mutable -> bool {
         if (!aiks_context) {
           return false;
@@ -85,15 +85,26 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceMetalImpeller::AcquireFrame(const SkISiz
         auto picture = impeller_dispatcher.EndRecordingAsPicture();
 
         return renderer->Render(
-            std::move(surface),
-            fml::MakeCopyable([aiks_context, picture = std::move(picture)](
-                                  impeller::RenderTarget& render_target) -> bool {
+            surface, fml::MakeCopyable([aiks_context, picture = std::move(picture)](
+                                           impeller::RenderTarget& render_target) -> bool {
               return aiks_context->Render(picture, render_target);
             }));
       });
 
+  SurfaceFrame::SubmitCallback submit_callback =
+      fml::MakeCopyable([renderer = impeller_renderer_,  //
+                         aiks_context = aiks_context_,   //
+                         &surface                        //
+  ](SurfaceFrame& surface_frame, DlCanvas* canvas) mutable -> bool {
+        if (!aiks_context) {
+          return false;
+        }
+        return renderer->Present(surface);
+      });
+
   return std::make_unique<SurfaceFrame>(nullptr,                          // surface
                                         SurfaceFrame::FramebufferInfo{},  // framebuffer info
+                                        presubmit_callback,               // presubmit callback
                                         submit_callback,                  // submit callback
                                         frame_info,                       // frame size
                                         nullptr,                          // context result

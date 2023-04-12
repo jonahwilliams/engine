@@ -15,7 +15,7 @@ namespace impeller {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunguarded-availability-new"
 
-std::unique_ptr<SurfaceMTL> SurfaceMTL::WrapCurrentMetalLayerDrawable(
+std::shared_ptr<SurfaceMTL> SurfaceMTL::WrapCurrentMetalLayerDrawable(
     const std::shared_ptr<Context>& context,
     CAMetalLayer* layer) {
   TRACE_EVENT0("impeller", "SurfaceMTL::WrapCurrentMetalLayerDrawable");
@@ -111,7 +111,7 @@ std::unique_ptr<SurfaceMTL> SurfaceMTL::WrapCurrentMetalLayerDrawable(
   render_target_desc.SetStencilAttachment(stencil0);
 
   // The constructor is private. So make_unique may not be used.
-  return std::unique_ptr<SurfaceMTL>(
+  return std::shared_ptr<SurfaceMTL>(
       new SurfaceMTL(render_target_desc, current_drawable));
 }
 
