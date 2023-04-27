@@ -22,6 +22,8 @@ class TypefaceSkia final : public Typeface,
   // |Typeface|
   bool IsValid() const override;
 
+  void* GetCTFont() const override;
+
   // |Comparable<Typeface>|
   std::size_t GetHash() const override;
 

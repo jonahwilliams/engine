@@ -23,7 +23,7 @@ void LazyGlyphAtlas::AddTextFrame(const TextFrame& frame) {
 }
 
 bool LazyGlyphAtlas::HasColor() const {
-  return has_color_;
+  return true;
 }
 
 std::shared_ptr<GlyphAtlas> LazyGlyphAtlas::CreateOrGetGlyphAtlas(

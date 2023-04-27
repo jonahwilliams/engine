@@ -23,6 +23,10 @@ std::size_t TypefaceSkia::GetHash() const {
   return reinterpret_cast<size_t>(typeface_.get());
 }
 
+void* TypefaceSkia::GetCTFont() const {
+  return typeface_->internal_private_getCTFontRef();
+}
+
 bool TypefaceSkia::IsEqual(const Typeface& other) const {
   auto sk_other = reinterpret_cast<const TypefaceSkia*>(&other);
   return sk_other->typeface_ == typeface_;

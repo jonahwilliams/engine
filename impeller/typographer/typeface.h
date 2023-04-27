@@ -22,6 +22,8 @@ class Typeface : public Comparable<Typeface> {
 
   virtual ~Typeface();
 
+  virtual void* GetCTFont() const = 0;
+
   virtual bool IsValid() const = 0;
 
  private:

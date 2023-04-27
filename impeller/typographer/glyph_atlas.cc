@@ -22,9 +22,9 @@ const ISize& GlyphAtlasContext::GetAtlasSize() const {
   return atlas_size_;
 }
 
-std::pair<std::shared_ptr<SkBitmap>, std::shared_ptr<DeviceBuffer>>
+std::pair<CGContextRef, std::shared_ptr<DeviceBuffer>>
 GlyphAtlasContext::GetBitmap() const {
-  return std::make_pair(bitmap_, device_buffer_);
+  return std::make_pair(canvas_, device_buffer_);
 }
 
 std::shared_ptr<skgpu::Rectanizer> GlyphAtlasContext::GetRectPacker() const {
@@ -38,9 +38,9 @@ void GlyphAtlasContext::UpdateGlyphAtlas(std::shared_ptr<GlyphAtlas> atlas,
 }
 
 void GlyphAtlasContext::UpdateBitmap(
-    std::shared_ptr<SkBitmap> bitmap,
+    CGContextRef canvas,
     std::shared_ptr<DeviceBuffer> device_buffer) {
-  bitmap_ = std::move(bitmap);
+  canvas_ = canvas;
   device_buffer_ = std::move(device_buffer);
 }
 

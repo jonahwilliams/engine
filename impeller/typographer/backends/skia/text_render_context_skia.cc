@@ -4,7 +4,11 @@
 
 #include "impeller/typographer/backends/skia/text_render_context_skia.h"
 
+#include <iostream>
 #include <utility>
+
+#include <CoreGraphics/CoreGraphics.h>
+#include <CoreText/CoreText.h>
 
 #include "flutter/fml/logging.h"
 #include "flutter/fml/trace_event.h"
@@ -191,255 +195,167 @@ ISize OptimumAtlasSizeForFontGlyphPairs(
 }
 }  // namespace
 
-/// Compute signed-distance field for an 8-bpp grayscale image (values greater
-/// than 127 are considered "on") For details of this algorithm, see "The 'dead
-/// reckoning' signed distance transform" [Grevera 2004]
-static void ConvertBitmapToSignedDistanceField(uint8_t* pixels,
-                                               uint16_t width,
-                                               uint16_t height) {
-  if (!pixels || width == 0 || height == 0) {
-    return;
-  }
-
-  using ShortPoint = TPoint<uint16_t>;
-
-  // distance to nearest boundary point map
-  std::vector<Scalar> distance_map(width * height);
-  // nearest boundary point map
-  std::vector<ShortPoint> boundary_point_map(width * height);
-
-  // Some helpers for manipulating the above arrays
-#define image(_x, _y) (pixels[(_y)*width + (_x)] > 0x7f)
-#define distance(_x, _y) distance_map[(_y)*width + (_x)]
-#define nearestpt(_x, _y) boundary_point_map[(_y)*width + (_x)]
-
-  const Scalar maxDist = hypot(width, height);
-  const Scalar distUnit = 1;
-  const Scalar distDiag = sqrt(2);
-
-  // Initialization phase: set all distances to "infinity"; zero out nearest
-  // boundary point map
-  for (uint16_t y = 0; y < height; ++y) {
-    for (uint16_t x = 0; x < width; ++x) {
-      distance(x, y) = maxDist;
-      nearestpt(x, y) = ShortPoint{0, 0};
-    }
-  }
-
-  // Immediate interior/exterior phase: mark all points along the boundary as
-  // such
-  for (uint16_t y = 1; y < height - 1; ++y) {
-    for (uint16_t x = 1; x < width - 1; ++x) {
-      bool inside = image(x, y);
-      if (image(x - 1, y) != inside || image(x + 1, y) != inside ||
-          image(x, y - 1) != inside || image(x, y + 1) != inside) {
-        distance(x, y) = 0;
-        nearestpt(x, y) = ShortPoint{x, y};
-      }
-    }
-  }
-
-  // Forward dead-reckoning pass
-  for (uint16_t y = 1; y < height - 2; ++y) {
-    for (uint16_t x = 1; x < width - 2; ++x) {
-      if (distance_map[(y - 1) * width + (x - 1)] + distDiag < distance(x, y)) {
-        nearestpt(x, y) = nearestpt(x - 1, y - 1);
-        distance(x, y) = hypot(x - nearestpt(x, y).x, y - nearestpt(x, y).y);
-      }
-      if (distance(x, y - 1) + distUnit < distance(x, y)) {
-        nearestpt(x, y) = nearestpt(x, y - 1);
-        distance(x, y) = hypot(x - nearestpt(x, y).x, y - nearestpt(x, y).y);
-      }
-      if (distance(x + 1, y - 1) + distDiag < distance(x, y)) {
-        nearestpt(x, y) = nearestpt(x + 1, y - 1);
-        distance(x, y) = hypot(x - nearestpt(x, y).x, y - nearestpt(x, y).y);
-      }
-      if (distance(x - 1, y) + distUnit < distance(x, y)) {
-        nearestpt(x, y) = nearestpt(x - 1, y);
-        distance(x, y) = hypot(x - nearestpt(x, y).x, y - nearestpt(x, y).y);
-      }
-    }
-  }
-
-  // Backward dead-reckoning pass
-  for (uint16_t y = height - 2; y >= 1; --y) {
-    for (uint16_t x = width - 2; x >= 1; --x) {
-      if (distance(x + 1, y) + distUnit < distance(x, y)) {
-        nearestpt(x, y) = nearestpt(x + 1, y);
-        distance(x, y) = hypot(x - nearestpt(x, y).x, y - nearestpt(x, y).y);
-      }
-      if (distance(x - 1, y + 1) + distDiag < distance(x, y)) {
-        nearestpt(x, y) = nearestpt(x - 1, y + 1);
-        distance(x, y) = hypot(x - nearestpt(x, y).x, y - nearestpt(x, y).y);
-      }
-      if (distance(x, y + 1) + distUnit < distance(x, y)) {
-        nearestpt(x, y) = nearestpt(x, y + 1);
-        distance(x, y) = hypot(x - nearestpt(x, y).x, y - nearestpt(x, y).y);
-      }
-      if (distance(x + 1, y + 1) + distDiag < distance(x, y)) {
-        nearestpt(x, y) = nearestpt(x + 1, y + 1);
-        distance(x, y) = hypot(x - nearestpt(x, y).x, y - nearestpt(x, y).y);
-      }
-    }
-  }
-
-  // Interior distance negation pass; distances outside the figure are
-  // considered negative
-  // Also does final quantization.
-  for (uint16_t y = 0; y < height; ++y) {
-    for (uint16_t x = 0; x < width; ++x) {
-      if (!image(x, y)) {
-        distance(x, y) = -distance(x, y);
-      }
-
-      float norm_factor = 13.5;
-      float dist = distance(x, y);
-      float clamped_dist = fmax(-norm_factor, fmin(dist, norm_factor));
-      float scaled_dist = clamped_dist / norm_factor;
-      uint8_t quantized_value = ((scaled_dist + 1) / 2) * UINT8_MAX;
-      pixels[y * width + x] = quantized_value;
-    }
-  }
-
-#undef image
-#undef distance
-#undef nearestpt
-}
-
-static void DrawGlyph(SkCanvas* canvas,
+static void DrawGlyph(CGContextRef canvas,
                       const FontGlyphPair& font_glyph,
                       const Rect& location,
-                      bool has_color) {
+                      ISize size) {
   const auto& metrics = font_glyph.font.GetMetrics();
-  const auto position = SkPoint::Make(location.origin.x / metrics.scale,
-                                      location.origin.y / metrics.scale);
-  SkGlyphID glyph_id = font_glyph.glyph.index;
+  // const auto position = SkPoint::Make(location.origin.x / metrics.scale,
+  //                                     location.origin.y / metrics.scale);
 
-  SkFont sk_font(
-      TypefaceSkia::Cast(*font_glyph.font.GetTypeface()).GetSkiaTypeface(),
-      metrics.point_size, metrics.scaleX, metrics.skewX);
-  sk_font.setEdging(SkFont::Edging::kAntiAlias);
-  sk_font.setHinting(SkFontHinting::kSlight);
-  sk_font.setEmbolden(metrics.embolden);
+  CGGlyph glyph_id = font_glyph.glyph.index;
+  CTFontRef font =
+      static_cast<CTFontRef>(font_glyph.font.GetTypeface()->GetCTFont());
+  CGFontRef cg_font = CTFontCopyGraphicsFont(font, nullptr);
+  // CTFontRef sized_font = CTFontCreateWithFontDescriptor(
+  //     CTFontCopyFontDescriptor(font), metrics.point_size, nullptr);
 
-  auto glyph_color = has_color ? SK_ColorWHITE : SK_ColorBLACK;
 
-  SkPaint glyph_paint;
-  glyph_paint.setColor(glyph_color);
-  canvas->resetMatrix();
-  canvas->scale(metrics.scale, metrics.scale);
-  canvas->drawGlyphs(
-      1u,         // count
-      &glyph_id,  // glyphs
-      &position,  // positions
-      SkPoint::Make(-font_glyph.glyph.bounds.GetLeft(),
-                    -font_glyph.glyph.bounds.GetTop()),  // origin
-      sk_font,                                           // font
-      glyph_paint                                        // paint
-  );
+  CGContextSetFont(canvas, cg_font);
+  CGAffineTransform transform = CGAffineTransformMakeScale(metrics.scale, metrics.scale);
+  CGContextSetTextMatrix(canvas, transform);
+
+  CGContextSetFontSize(canvas, metrics.point_size);
+  CGContextSetTextDrawingMode(canvas, kCGTextFill);
+  CGContextSetRGBFillColor(canvas, 1.0, 1.0, 1.0, 1.0);
+  CGContextShowGlyphsAtPoint(canvas, location.origin.x, size.height - (location.origin.y + location.size.height), &glyph_id, 1);
+
+
+  // CG_EXTERN void CGContextSetFont(CGContextRef cg_nullable c,
+  //   CGFontRef cg_nullable font)
+
+  //   SkFont sk_font(
+  //       TypefaceSkia::Cast(*font_glyph.font.GetTypeface()).GetSkiaTypeface(),
+  //       metrics.point_size, metrics.scaleX, metrics.skewX);
+  //   sk_font.setEdging(SkFont::Edging::kAntiAlias);
+  //   sk_font.setHinting(SkFontHinting::kSlight);
+  //   sk_font.setEmbolden(metrics.embolden);
+
+  //   auto glyph_color = has_color ? SK_ColorWHITE : SK_ColorBLACK;
+
+  //   SkPaint glyph_paint;
+  //   glyph_paint.setColor(glyph_color);
+  //   canvas->resetMatrix();
+  //   canvas->scale(metrics.scale, metrics.scale);
+  //   canvas->drawGlyphs(
+  //       1u,         // count
+  //       &glyph_id,  // glyphs
+  //       &position,  // positions
+  //       SkPoint::Make(-font_glyph.glyph.bounds.GetLeft(),
+  //                     -font_glyph.glyph.bounds.GetTop()),  // origin
+  //       sk_font,                                           // font
+  //       glyph_paint                                        // paint
+  //   );
 }
 
 static bool UpdateAtlasBitmap(const GlyphAtlas& atlas,
-                              const std::shared_ptr<SkBitmap>& bitmap,
-                              const FontGlyphPairRefVector& new_pairs) {
+                              CGContextRef canvas,
+                              const FontGlyphPairRefVector& new_pairs,
+                              ISize size) {
   TRACE_EVENT0("impeller", __FUNCTION__);
-  FML_DCHECK(bitmap != nullptr);
+  FML_DCHECK(canvas != nullptr);
 
-  auto surface = SkSurface::MakeRasterDirect(bitmap->pixmap());
-  if (!surface) {
-    return false;
-  }
-  auto canvas = surface->getCanvas();
-  if (!canvas) {
+  if (canvas == nullptr) {
     return false;
   }
 
-  bool has_color = atlas.GetType() == GlyphAtlas::Type::kColorBitmap;
+  // auto surface = SkSurface::MakeRasterDirect(bitmap->pixmap());
+  // if (!surface) {
+  //   return false;
+  // }
+  // auto canvas = surface->getCanvas();
+  // if (!canvas) {
+  //   return false;
+  // }
 
+  // bool has_color = atlas.GetType() == GlyphAtlas::Type::kColorBitmap;
+
+  CGContextSaveGState(canvas);
   for (const FontGlyphPair& pair : new_pairs) {
     auto pos = atlas.FindFontGlyphBounds(pair);
     if (!pos.has_value()) {
       continue;
     }
-    DrawGlyph(canvas, pair, pos.value(), has_color);
+    DrawGlyph(canvas, pair, pos.value(), size);
   }
+  CGContextRestoreGState(canvas);
   return true;
 }
 
-static std::pair<std::shared_ptr<SkBitmap>, std::shared_ptr<DeviceBuffer>>
-CreateAtlasBitmap(const GlyphAtlas& atlas,
-                  std::shared_ptr<Allocator> allocator,
-                  const ISize& atlas_size) {
+static std::pair<CGContextRef, std::shared_ptr<DeviceBuffer>> CreateAtlasBitmap(
+    const GlyphAtlas& atlas,
+    std::shared_ptr<Allocator> allocator,
+    const ISize& atlas_size) {
   TRACE_EVENT0("impeller", __FUNCTION__);
-  auto font_allocator = FontImpellerAllocator(std::move(allocator));
-  auto bitmap = std::make_shared<SkBitmap>();
-  SkImageInfo image_info;
 
-  switch (atlas.GetType()) {
-    case GlyphAtlas::Type::kSignedDistanceField:
-    case GlyphAtlas::Type::kAlphaBitmap:
-      image_info = SkImageInfo::MakeA8(atlas_size.width, atlas_size.height);
-      break;
-    case GlyphAtlas::Type::kColorBitmap:
-      image_info =
-          SkImageInfo::MakeN32Premul(atlas_size.width, atlas_size.height);
-      break;
-  }
+  DeviceBufferDescriptor descriptor;
+  descriptor.storage_mode = StorageMode::kHostVisible;
+  descriptor.size = atlas_size.width * atlas_size.height * 4;
 
-  bitmap->setInfo(image_info);
-  if (!bitmap->tryAllocPixels(&font_allocator)) {
+  auto device_buffer = allocator->CreateBuffer(descriptor);
+
+  CGColorSpaceRef colorSpace =
+      CGColorSpaceCreateWithName(kCGColorSpaceGenericRGB);
+  size_t width = atlas_size.width;
+  size_t height = atlas_size.height;
+  CGContextRef canvas = CGBitmapContextCreate(
+      device_buffer->OnGetContents(), width, height, 8, atlas_size.width * 4,
+      colorSpace, kCGImageAlphaPremultipliedLast);
+  if (!CGBitmapContextGetData(canvas)) {
     return std::make_pair(nullptr, nullptr);
   }
 
-  auto surface = SkSurface::MakeRasterDirect(bitmap->pixmap());
-  if (!surface) {
-    return std::make_pair(nullptr, nullptr);
-  }
-  auto canvas = surface->getCanvas();
+  // if (!bitmap->tryAllocPixels(&font_allocator)) {
+  //   return std::make_pair(nullptr, nullptr);
+  // }
+
+  // auto surface = SkSurface::MakeRasterDirect(bitmap->pixmap());
   if (!canvas) {
     return std::make_pair(nullptr, nullptr);
   }
+  // auto canvas = surface->getCanvas();
+  // if (!canvas) {
+  //   return std::make_pair(nullptr, nullptr);
+  // }
 
-  bool has_color = atlas.GetType() == GlyphAtlas::Type::kColorBitmap;
+  // bool has_color = atlas.GetType() == GlyphAtlas::Type::kColorBitmap;
 
-  atlas.IterateGlyphs([canvas, has_color](const FontGlyphPair& font_glyph,
-                                          const Rect& location) -> bool {
-    DrawGlyph(canvas, font_glyph, location, has_color);
+  CGContextSaveGState(canvas);
+  atlas.IterateGlyphs([canvas, device_buffer, atlas_size](const FontGlyphPair& font_glyph,
+                                              const Rect& location) -> bool {
+    DrawGlyph(canvas, font_glyph, location, atlas_size);
     return true;
   });
+  CGContextRestoreGState(canvas);
 
-  auto device_buffer = font_allocator.GetDeviceBuffer();
-  if (!device_buffer.has_value()) {
-    return std::make_pair(nullptr, nullptr);
-  }
-  return std::make_pair(bitmap, device_buffer.value());
+  return std::make_pair(canvas, device_buffer);
 }
 
-static bool UpdateGlyphTextureAtlas(std::shared_ptr<SkBitmap> bitmap,
-                                    const std::shared_ptr<Texture>& texture) {
-  TRACE_EVENT0("impeller", __FUNCTION__);
-  FML_DCHECK(bitmap != nullptr);
-  auto texture_descriptor = texture->GetTextureDescriptor();
+// static bool UpdateGlyphTextureAtlas(std::shared_ptr<SkBitmap> bitmap,
+//                                     const std::shared_ptr<Texture>& texture)
+//                                     {
+//   TRACE_EVENT0("impeller", __FUNCTION__);
+//   FML_DCHECK(bitmap != nullptr);
+//   auto texture_descriptor = texture->GetTextureDescriptor();
 
-  auto mapping = std::make_shared<fml::NonOwnedMapping>(
-      reinterpret_cast<const uint8_t*>(bitmap->getAddr(0, 0)),  // data
-      texture_descriptor.GetByteSizeOfBaseMipLevel(),           // size
-      [bitmap](auto, auto) mutable { bitmap.reset(); }          // proc
-  );
+//   auto mapping = std::make_shared<fml::NonOwnedMapping>(
+//       reinterpret_cast<const uint8_t*>(bitmap->getAddr(0, 0)),  // data
+//       texture_descriptor.GetByteSizeOfBaseMipLevel(),           // size
+//       [bitmap](auto, auto) mutable { bitmap.reset(); }          // proc
+//   );
 
-  return texture->SetContents(mapping);
-}
+//   return texture->SetContents(mapping);
+// }
 
 static std::shared_ptr<Texture> UploadGlyphTextureAtlas(
     Allocator& allocator,
     const std::shared_ptr<DeviceBuffer>& device_buffer,
-    const std::shared_ptr<SkBitmap>& bitmap,
     const ISize& atlas_size,
     PixelFormat format) {
   TRACE_EVENT0("impeller", __FUNCTION__);
 
-  FML_DCHECK(bitmap != nullptr);
-  const auto& pixmap = bitmap->pixmap();
+  // FML_DCHECK(bitmap != nullptr);
+  // const auto& pixmap = bitmap->pixmap();
 
   TextureDescriptor texture_descriptor;
   texture_descriptor.storage_mode = StorageMode::kHostVisible;
@@ -448,12 +364,12 @@ static std::shared_ptr<Texture> UploadGlyphTextureAtlas(
 
   // If the alignment isn't a multiple of the pixel format, we cannot use
   // a linear texture and instead must blit to a new texture.
-  if (pixmap.rowBytes() * pixmap.height() !=
-      texture_descriptor.GetByteSizeOfBaseMipLevel()) {
-    return nullptr;
-  }
+  // if (pixmap.rowBytes() * pixmap.height() !=
+  //     texture_descriptor.GetByteSizeOfBaseMipLevel()) {
+  //   return nullptr;
+  // }
 
-  FML_DCHECK(allocator.MinimumBytesPerRow(format) <= pixmap.rowBytes());
+  // FML_DCHECK(allocator.MinimumBytesPerRow(format) <= pixmap.rowBytes());
   auto texture = device_buffer->AsTexture(allocator, texture_descriptor,
                                           texture_descriptor.GetBytesPerRow());
   if (!texture || !texture->IsValid()) {
@@ -522,8 +438,8 @@ std::shared_ptr<GlyphAtlas> TextRenderContextSkia::CreateGlyphAtlas(
     // ---------------------------------------------------------------------------
     // Step 5: Draw new font-glyph pairs into the existing bitmap.
     // ---------------------------------------------------------------------------
-    auto [bitmap, device_buffer] = atlas_context->GetBitmap();
-    if (!UpdateAtlasBitmap(*last_atlas, bitmap, new_glyphs)) {
+    auto [canvas, device_buffer] = atlas_context->GetBitmap();
+    if (!UpdateAtlasBitmap(*last_atlas, canvas, new_glyphs, atlas_context->GetAtlasSize())) {
       return nullptr;
     }
 
@@ -532,10 +448,10 @@ std::shared_ptr<GlyphAtlas> TextRenderContextSkia::CreateGlyphAtlas(
     //         This is only necessary on backends that don't support creating
     //         a texture that shares memory with the underlying device buffer.
     // ---------------------------------------------------------------------------
-    if (!capabilities->SupportsSharedDeviceBufferTextureMemory() &&
-        !UpdateGlyphTextureAtlas(bitmap, last_atlas->GetTexture())) {
-      return nullptr;
-    }
+    // if (!capabilities->SupportsSharedDeviceBufferTextureMemory() &&
+    //     !UpdateGlyphTextureAtlas(canvas, last_atlas->GetTexture())) {
+    //   return nullptr;
+    // }
     return last_atlas;
   }
   // A new glyph atlas must be created.
@@ -587,24 +503,24 @@ std::shared_ptr<GlyphAtlas> TextRenderContextSkia::CreateGlyphAtlas(
   // ---------------------------------------------------------------------------
   // Step 7: Draw font-glyph pairs in the correct spot in the atlas.
   // ---------------------------------------------------------------------------
-  auto [bitmap, device_buffer] = CreateAtlasBitmap(
+  auto [canvas, device_buffer] = CreateAtlasBitmap(
       *glyph_atlas, GetContext()->GetResourceAllocator(), atlas_size);
-  if (!bitmap) {
-    return nullptr;
-  }
-  atlas_context->UpdateBitmap(bitmap, device_buffer);
+  // if (!bitmap) {
+  //   return nullptr;
+  // }
+  atlas_context->UpdateBitmap(canvas, device_buffer);
 
   // ---------------------------------------------------------------------------
   // Step 8: Upload the atlas as a texture.
   // ---------------------------------------------------------------------------
-  if (type == GlyphAtlas::Type::kSignedDistanceField) {
-    ConvertBitmapToSignedDistanceField(
-        reinterpret_cast<uint8_t*>(bitmap->getPixels()), atlas_size.width,
-        atlas_size.height);
-  }
+  // if (type == GlyphAtlas::Type::kSignedDistanceField) {
+  //   ConvertBitmapToSignedDistanceField(
+  //       reinterpret_cast<uint8_t*>(bitmap->getPixels()), atlas_size.width,
+  //       atlas_size.height);
+  // }
   auto texture =
       UploadGlyphTextureAtlas(*GetContext()->GetResourceAllocator().get(),
-                              device_buffer, bitmap, atlas_size, format);
+                              device_buffer, atlas_size, format);
   if (!texture) {
     return nullptr;
   }
