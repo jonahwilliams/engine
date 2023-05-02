@@ -129,6 +129,10 @@ ContextMTL::ContextMTL(id<MTLDevice> device,
   is_valid_ = true;
 }
 
+id<MTLDevice> ContextMTL::GetDevice() const {
+  return device_;
+}
+
 static NSArray<id<MTLLibrary>>* MTLShaderLibraryFromFilePaths(
     id<MTLDevice> device,
     const std::vector<std::string>& libraries_paths) {

@@ -65,6 +65,8 @@ class ContextMTL final : public Context,
 
   id<MTLCommandBuffer> CreateMTLCommandBuffer() const;
 
+  id<MTLDevice> GetDevice() const;
+
  private:
   id<MTLDevice> device_ = nullptr;
   id<MTLCommandQueue> command_queue_ = nullptr;

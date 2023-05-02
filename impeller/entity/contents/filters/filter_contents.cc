@@ -14,6 +14,7 @@
 
 #include "flutter/fml/logging.h"
 #include "impeller/core/formats.h"
+#include "impeller/entity/contents/filters/apple_filter_kernel.h"
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/contents/filters/border_mask_blur_filter_contents.h"
 #include "impeller/entity/contents/filters/gaussian_blur_filter_contents.h"
@@ -58,13 +59,18 @@ std::shared_ptr<FilterContents> FilterContents::MakeGaussianBlur(
     BlurStyle blur_style,
     Entity::TileMode tile_mode,
     const Matrix& effect_transform) {
-  auto x_blur = MakeDirectionalGaussianBlur(input, sigma_x, Point(1, 0),
-                                            BlurStyle::kNormal, tile_mode,
-                                            nullptr, {}, effect_transform);
-  auto y_blur = MakeDirectionalGaussianBlur(FilterInput::Make(x_blur), sigma_y,
-                                            Point(0, 1), blur_style, tile_mode,
-                                            input, sigma_x, effect_transform);
-  return y_blur;
+  auto filter = std::make_shared<AppleGaussianBlurFilterContents>();
+  filter->SetSigma(sigma_x, sigma_y);
+  filter->SetTileMode(tile_mode);
+  filter->SetInputs({std::move(input)});
+  filter->SetEffectTransform(effect_transform);
+  // auto x_blur = MakeDirectionalGaussianBlur(input, sigma_x, Point(1, 0),
+  //                                           BlurStyle::kNormal, tile_mode,
+  //                                           nullptr, {}, effect_transform);
+  // auto y_blur = MakeDirectionalGaussianBlur(FilterInput::Make(x_blur), sigma_y,
+  //                                           Point(0, 1), blur_style, tile_mode,
+  //                                           input, sigma_x, effect_transform);
+  return filter;
 }
 
 std::shared_ptr<FilterContents> FilterContents::MakeBorderMaskBlur(
