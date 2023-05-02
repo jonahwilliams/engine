@@ -83,9 +83,8 @@ std::optional<Entity> AppleGaussianBlurFilterContents::RenderFilter(
   [command_buffer commit];
 
   return Entity::FromSnapshot(
-      Snapshot{
-          .texture = destination,
-      },
+      Snapshot{.texture = destination,
+               .transform = Matrix::MakeTranslation(coverage.origin)},
       entity.GetBlendMode(), entity.GetStencilDepth());
 }
 
