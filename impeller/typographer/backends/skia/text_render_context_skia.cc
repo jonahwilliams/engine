@@ -200,26 +200,41 @@ static void DrawGlyph(CGContextRef canvas,
                       const Rect& location,
                       ISize size) {
   const auto& metrics = font_glyph.font.GetMetrics();
-  // const auto position = SkPoint::Make(location.origin.x / metrics.scale,
-  //                                     location.origin.y / metrics.scale);
+  // const CGPoint position = {location.origin.x / metrics.scale -
+  // location.origin.x,
+  //                           location.origin.y / metrics.scale  -
+  //                           location.origin.y};
 
   CGGlyph glyph_id = font_glyph.glyph.index;
   CTFontRef font =
       static_cast<CTFontRef>(font_glyph.font.GetTypeface()->GetCTFont());
   CGFontRef cg_font = CTFontCopyGraphicsFont(font, nullptr);
-  // CTFontRef sized_font = CTFontCreateWithFontDescriptor(
-  //     CTFontCopyFontDescriptor(font), metrics.point_size, nullptr);
 
+  CGSize translation;
+  CTFontGetVerticalTranslationsForGlyphs(font, &glyph_id, &translation, 1);
+
+  CGRect boundingRects;
+  CTFontGetBoundingRectsForGlyphs(font, kCTFontOrientationHorizontal, &glyph_id,
+                                  &boundingRects, 1);
+
+  auto approx_zero = (size.height - boundingRects.size.height) / metrics.scale;
+
+  const CGPoint position = {
+      location.origin.x / metrics.scale - font_glyph.glyph.bounds.GetLeft(),
+      approx_zero - (location.origin.y / metrics.scale),
+  };
 
   CGContextSetFont(canvas, cg_font);
-  CGAffineTransform transform = CGAffineTransformMakeScale(metrics.scale, metrics.scale);
-  CGContextSetTextMatrix(canvas, transform);
-
+  CGContextSetShouldAntialias(canvas, true);
   CGContextSetFontSize(canvas, metrics.point_size);
   CGContextSetTextDrawingMode(canvas, kCGTextFill);
   CGContextSetRGBFillColor(canvas, 1.0, 1.0, 1.0, 1.0);
-  CGContextShowGlyphsAtPoint(canvas, location.origin.x, size.height - (location.origin.y + location.size.height), &glyph_id, 1);
 
+  // CGContextSetTextPosition(canvas, 0, size.height);
+  CGAffineTransform transform =
+      CGAffineTransformMakeScale(metrics.scale, metrics.scale);
+  CGContextSetTextMatrix(canvas, transform);
+  CGContextShowGlyphsAtPositions(canvas, &glyph_id, &position, 1);
 
   // CG_EXTERN void CGContextSetFont(CGContextRef cg_nullable c,
   //   CGFontRef cg_nullable font)
@@ -321,11 +336,12 @@ static std::pair<CGContextRef, std::shared_ptr<DeviceBuffer>> CreateAtlasBitmap(
   // bool has_color = atlas.GetType() == GlyphAtlas::Type::kColorBitmap;
 
   CGContextSaveGState(canvas);
-  atlas.IterateGlyphs([canvas, device_buffer, atlas_size](const FontGlyphPair& font_glyph,
-                                              const Rect& location) -> bool {
-    DrawGlyph(canvas, font_glyph, location, atlas_size);
-    return true;
-  });
+  atlas.IterateGlyphs(
+      [canvas, device_buffer, atlas_size](const FontGlyphPair& font_glyph,
+                                          const Rect& location) -> bool {
+        DrawGlyph(canvas, font_glyph, location, atlas_size);
+        return true;
+      });
   CGContextRestoreGState(canvas);
 
   return std::make_pair(canvas, device_buffer);
@@ -439,7 +455,8 @@ std::shared_ptr<GlyphAtlas> TextRenderContextSkia::CreateGlyphAtlas(
     // Step 5: Draw new font-glyph pairs into the existing bitmap.
     // ---------------------------------------------------------------------------
     auto [canvas, device_buffer] = atlas_context->GetBitmap();
-    if (!UpdateAtlasBitmap(*last_atlas, canvas, new_glyphs, atlas_context->GetAtlasSize())) {
+    if (!UpdateAtlasBitmap(*last_atlas, canvas, new_glyphs,
+                           atlas_context->GetAtlasSize())) {
       return nullptr;
     }
 
