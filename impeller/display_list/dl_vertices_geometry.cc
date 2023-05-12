@@ -77,16 +77,6 @@ void DlVerticesGeometry::NormalizeIndices() {
     normalized_indices_ = fromFanIndices(vertices_);
     return;
   }
-
-  auto index_count = vertices_->index_count();
-  auto vertex_count = vertices_->vertex_count();
-  if (index_count != 0 || vertex_count == 0) {
-    return;
-  }
-  normalized_indices_.reserve(vertex_count);
-  for (auto i = 0; i < vertex_count; i++) {
-    normalized_indices_.push_back(i);
-  }
 }
 
 static PrimitiveType GetPrimitiveType(const flutter::DlVertices* vertices) {
@@ -160,11 +150,17 @@ GeometryResult DlVerticesGeometry::GetPositionBuffer(
                               Range{0, total_vtx_bytes}, 0)) {
     return {};
   }
-  if (!buffer->CopyHostBuffer(
+  if (index_count != 0 &&
+      !buffer->CopyHostBuffer(
           reinterpret_cast<uint8_t*>(const_cast<uint16_t*>(dl_indices)),
           Range{0, total_idx_bytes}, total_vtx_bytes)) {
     return {};
   }
+
+  auto index_buffer = index_count == 0
+                          ? {}
+                          : {.buffer = buffer,
+                             .range = Range{total_vtx_bytes, total_idx_bytes}};
 
   return GeometryResult{
       .type = GetPrimitiveType(vertices_),
@@ -172,11 +168,10 @@ GeometryResult DlVerticesGeometry::GetPositionBuffer(
           {
               .vertex_buffer = {.buffer = buffer,
                                 .range = Range{0, total_vtx_bytes}},
-              .index_buffer = {.buffer = buffer,
-                               .range =
-                                   Range{total_vtx_bytes, total_idx_bytes}},
-              .vertex_count = index_count,
-              .index_type = IndexType::k16bit,
+              .index_buffer = index_buffer,
+              .vertex_count = index_count == 0 ? vertex_count : index_count,
+              .index_type =
+                  index_count == 0 ? IndexType::kNone : IndexType::k16bit,
           },
       .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
                    entity.GetTransformation(),
@@ -229,11 +224,17 @@ GeometryResult DlVerticesGeometry::GetPositionColorBuffer(
                               Range{0, total_vtx_bytes}, 0)) {
     return {};
   }
-  if (!buffer->CopyHostBuffer(
+  if (index_count != 0 &&
+      !buffer->CopyHostBuffer(
           reinterpret_cast<uint8_t*>(const_cast<uint16_t*>(dl_indices)),
           Range{0, total_idx_bytes}, total_vtx_bytes)) {
     return {};
   }
+
+  auto index_buffer = index_count == 0
+                          ? {}
+                          : {.buffer = buffer,
+                             .range = Range{total_vtx_bytes, total_idx_bytes}};
 
   return GeometryResult{
       .type = GetPrimitiveType(vertices_),
@@ -241,11 +242,10 @@ GeometryResult DlVerticesGeometry::GetPositionColorBuffer(
           {
               .vertex_buffer = {.buffer = buffer,
                                 .range = Range{0, total_vtx_bytes}},
-              .index_buffer = {.buffer = buffer,
-                               .range =
-                                   Range{total_vtx_bytes, total_idx_bytes}},
-              .vertex_count = index_count,
-              .index_type = IndexType::k16bit,
+              .index_buffer = index_buffer,
+              .vertex_count = index_count == 0 ? vertex_count : index_count,
+              .index_type =
+                  index_count == 0 ? IndexType::kNone : IndexType::k16bit,
           },
       .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
                    entity.GetTransformation(),
@@ -306,11 +306,17 @@ GeometryResult DlVerticesGeometry::GetPositionUVBuffer(
                               Range{0, total_vtx_bytes}, 0)) {
     return {};
   }
-  if (!buffer->CopyHostBuffer(
+  if (index_count != 0 &&
+      !buffer->CopyHostBuffer(
           reinterpret_cast<uint8_t*>(const_cast<uint16_t*>(dl_indices)),
           Range{0, total_idx_bytes}, total_vtx_bytes)) {
     return {};
   }
+
+  auto index_buffer = index_count == 0
+                          ? {}
+                          : {.buffer = buffer,
+                             .range = Range{total_vtx_bytes, total_idx_bytes}};
 
   return GeometryResult{
       .type = GetPrimitiveType(vertices_),
@@ -318,11 +324,10 @@ GeometryResult DlVerticesGeometry::GetPositionUVBuffer(
           {
               .vertex_buffer = {.buffer = buffer,
                                 .range = Range{0, total_vtx_bytes}},
-              .index_buffer = {.buffer = buffer,
-                               .range =
-                                   Range{total_vtx_bytes, total_idx_bytes}},
-              .vertex_count = index_count,
-              .index_type = IndexType::k16bit,
+              .index_buffer = index_buffer,
+              .vertex_count = index_count == 0 ? vertex_count : index_count,
+              .index_type =
+                  index_count == 0 ? IndexType::kNone : IndexType::k16bit,
           },
       .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
                    entity.GetTransformation(),
