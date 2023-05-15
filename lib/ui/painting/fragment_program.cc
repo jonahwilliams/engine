@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <iostream>
 #include <memory>
 #include <sstream>
 
@@ -9,7 +10,11 @@
 #include "flutter/lib/ui/painting/fragment_program.h"
 
 #include "flutter/assets/asset_manager.h"
+#include "flutter/fml/make_copyable.h"
 #include "flutter/fml/trace_event.h"
+#include "flutter/impeller/renderer/context.h"
+#include "flutter/impeller/renderer/pipeline_library.h"
+#include "flutter/impeller/renderer/shader_library.h"
 #include "flutter/impeller/runtime_stage/runtime_stage.h"
 #include "flutter/lib/ui/dart_wrapper.h"
 #include "flutter/lib/ui/ui_dart_state.h"
@@ -29,10 +34,9 @@ IMPLEMENT_WRAPPERTYPEINFO(ui, FragmentProgram);
 std::string FragmentProgram::initFromAsset(const std::string& asset_name) {
   FML_TRACE_EVENT("flutter", "FragmentProgram::initFromAsset", "asset",
                   asset_name);
-  std::shared_ptr<AssetManager> asset_manager = UIDartState::Current()
-                                                    ->platform_configuration()
-                                                    ->client()
-                                                    ->GetAssetManager();
+  auto* ui_dart_state = UIDartState::Current();
+  std::shared_ptr<AssetManager> asset_manager =
+      ui_dart_state->platform_configuration()->client()->GetAssetManager();
   std::unique_ptr<fml::Mapping> data = asset_manager->GetAsMapping(asset_name);
   if (data == nullptr) {
     return std::string("Asset '") + asset_name + std::string("' not found");
@@ -55,7 +59,51 @@ std::string FragmentProgram::initFromAsset(const std::string& asset_name) {
     }
   }
 
-  if (UIDartState::Current()->IsImpellerEnabled()) {
+  if (ui_dart_state->IsImpellerEnabled()) {
+    auto impeller_context = ui_dart_state->GetIOManager()->GetImpellerContext();
+    auto pipeline_library = impeller_context->GetPipelineLibrary();
+    auto library = impeller_context->GetShaderLibrary();
+
+    auto function = library->GetFunction(runtime_stage.GetEntrypoint(),
+                                         impeller::ShaderStage::kFragment);
+    if (function && runtime_stage.IsDirty()) {
+      pipeline_library->RemovePipelinesWithEntryPoint(function);
+      library->UnregisterFunction(runtime_stage.GetEntrypoint(),
+                                  impeller::ShaderStage::kFragment);
+      function = nullptr;
+    }
+
+    if (!function) {
+      auto impeller_runtime_stage =
+          std::make_shared<impeller::RuntimeStage>(std::move(runtime_stage));
+      library->RegisterFunction(
+          runtime_stage.GetEntrypoint(),
+          ToShaderStage(runtime_stage.GetShaderStage()),
+          runtime_stage.GetCodeMapping(),
+          fml::MakeCopyable(
+              [promise = std::move(promise)](bool result) mutable {
+
+              }));
+
+      // if (!future.get()) {
+      //   VALIDATION_LOG << "Failed to build runtime effect (entry point: "
+      //                  << runtime_stage.GetEntrypoint() << ")";
+      //   return false;
+      // }
+
+      // function = library->GetFunction(runtime_stage.GetEntrypoint(),
+      //                                 impeller::ShaderStage::kFragment);
+      // if (!function) {
+      //   VALIDATION_LOG
+      //       << "Failed to fetch runtime effect function immediately after "
+      //          "registering it (entry point: "
+      //       << runtime_stage.GetEntrypoint() << ")";
+      //   return false;
+      // }
+
+      runtime_stage.SetClean();
+    }
+
     runtime_effect_ = DlRuntimeEffect::MakeImpeller(
         std::make_unique<impeller::RuntimeStage>(std::move(runtime_stage)));
   } else {

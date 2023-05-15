@@ -4365,6 +4365,10 @@ class FragmentProgram extends NativeFieldWrapperClass1 {
   // cache.
   static final Map<String, WeakReference<FragmentProgram>> _shaderRegistry =
       <String, WeakReference<FragmentProgram>>{};
+  // This map holds strong references to pending compilations, but these are
+  // always removed at the end of compilation.
+  static final Map<String, Future<FragmentProgram>> _pendingShaderRegistry =
+      <String, Future<FragmentProgram>>{};
 
   static void _reinitializeShader(String assetKey) {
     // If a shader for the asset isn't already registered, then there's no

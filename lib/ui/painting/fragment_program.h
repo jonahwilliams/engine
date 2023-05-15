@@ -26,6 +26,7 @@ class FragmentProgram : public RefCountedDartWrappable<FragmentProgram> {
 
  public:
   ~FragmentProgram() override;
+
   static void Create(Dart_Handle wrapper);
 
   std::string initFromAsset(const std::string& asset_name);
@@ -40,6 +41,7 @@ class FragmentProgram : public RefCountedDartWrappable<FragmentProgram> {
 
  private:
   FragmentProgram();
+
   sk_sp<DlRuntimeEffect> runtime_effect_;
 };
 

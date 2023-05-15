@@ -56,44 +56,45 @@ bool RuntimeEffectContents::Render(const ContentContext& renderer,
   std::shared_ptr<const ShaderFunction> function = library->GetFunction(
       runtime_stage_->GetEntrypoint(), ShaderStage::kFragment);
 
-  if (function && runtime_stage_->IsDirty()) {
-    context->GetPipelineLibrary()->RemovePipelinesWithEntryPoint(function);
-    library->UnregisterFunction(runtime_stage_->GetEntrypoint(),
-                                ShaderStage::kFragment);
+  // if (function && runtime_stage_->IsDirty()) {
+  //   context->GetPipelineLibrary()->RemovePipelinesWithEntryPoint(function);
+  //   library->UnregisterFunction(runtime_stage_->GetEntrypoint(),
+  //                               ShaderStage::kFragment);
 
-    function = nullptr;
-  }
+  //   function = nullptr;
+  // }
 
-  if (!function) {
-    std::promise<bool> promise;
-    auto future = promise.get_future();
+  // if (!function) {
+  //   std::promise<bool> promise;
+  //   auto future = promise.get_future();
 
-    library->RegisterFunction(
-        runtime_stage_->GetEntrypoint(),
-        ToShaderStage(runtime_stage_->GetShaderStage()),
-        runtime_stage_->GetCodeMapping(),
-        fml::MakeCopyable([promise = std::move(promise)](bool result) mutable {
-          promise.set_value(result);
-        }));
+  //   library->RegisterFunction(
+  //       runtime_stage_->GetEntrypoint(),
+  //       ToShaderStage(runtime_stage_->GetShaderStage()),
+  //       runtime_stage_->GetCodeMapping(),
+  //       fml::MakeCopyable([promise = std::move(promise)](bool result) mutable
+  //       {
+  //         promise.set_value(result);
+  //       }));
 
-    if (!future.get()) {
-      VALIDATION_LOG << "Failed to build runtime effect (entry point: "
-                     << runtime_stage_->GetEntrypoint() << ")";
-      return false;
-    }
+  //   if (!future.get()) {
+  //     VALIDATION_LOG << "Failed to build runtime effect (entry point: "
+  //                    << runtime_stage_->GetEntrypoint() << ")";
+  //     return false;
+  //   }
 
-    function = library->GetFunction(runtime_stage_->GetEntrypoint(),
-                                    ShaderStage::kFragment);
-    if (!function) {
-      VALIDATION_LOG
-          << "Failed to fetch runtime effect function immediately after "
-             "registering it (entry point: "
-          << runtime_stage_->GetEntrypoint() << ")";
-      return false;
-    }
+  //   function = library->GetFunction(runtime_stage_->GetEntrypoint(),
+  //                                   ShaderStage::kFragment);
+  //   if (!function) {
+  //     VALIDATION_LOG
+  //         << "Failed to fetch runtime effect function immediately after "
+  //            "registering it (entry point: "
+  //         << runtime_stage_->GetEntrypoint() << ")";
+  //     return false;
+  //   }
 
-    runtime_stage_->SetClean();
-  }
+  //   runtime_stage_->SetClean();
+  // }
 
   //--------------------------------------------------------------------------
   /// Resolve geometry.
