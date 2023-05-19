@@ -1,0 +1,102 @@
+// Copyright 2013 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+layout(local_size_x = 256, local_size_y = 1) in;
+layout(std430) buffer;
+
+#include <impeller/path.glsl>
+
+#define BLOCK_SIZE 256
+#define MAX_OUTPUT_SIZE 4096
+
+layout(binding = 0) readonly buffer Quads {
+  uint count;
+  QuadData data[];
+}
+quads;
+
+layout(binding = 1) writeonly buffer Lines {
+  uint count;
+  LineData data[];
+}
+lines;
+
+uniform Config {
+  float quad_tolerance;
+}
+config;
+
+shared uint shared_count[BLOCK_SIZE];
+
+// A compute shader that decomposes a set of quads into one or more
+// linear components.
+void main() {
+  uint ident = gl_GlobalInvocationID.x;
+
+  // Determine number of lines this quad will decompose into.
+  uint line_count = 0;
+  QuadDecomposition decomposition;
+  QuadData quad;
+
+  if (ident < quads.count) {
+    quad = quads.data[ident];
+    decomposition = DecomposeQuad(quad, config.quad_tolerance);
+    line_count = decomposition.line_count;
+  }
+
+  shared_count[ident] = line_count;
+  barrier();
+
+  // Perform parallel prefix sum.
+  uint offset = 1;
+  for (uint n = BLOCK_SIZE / 2; n > 0; n /= 2) {
+    if (ident < n) {
+      const uint ai = offset * (2 * ident + 1) - 1;
+      const uint bi = offset * (2 * ident + 2) - 1;
+      shared_count[bi] += shared_count[ai];
+    }
+    offset *= 2;
+    barrier();
+  }
+
+  if (ident == 0) {
+    shared_count[BLOCK_SIZE - 1] = 0;
+  }
+  barrier();
+
+  for (uint n = 1; n < BLOCK_SIZE; n *= 2) {
+    offset /= 2;
+    barrier();
+    if (ident < n) {
+      const uint ai = offset * (2 * ident + 1) - 1;
+      const uint bi = offset * (2 * ident + 2) - 1;
+      uint temp = shared_count[ai];
+      shared_count[ai] = shared_count[bi];
+      shared_count[bi] += temp;
+    }
+  }
+  barrier();
+
+  if (line_count == 0) {
+    return;
+  }
+
+  // Write line data to output buffer.
+  uint output_offset = shared_count[ident];
+
+  // Bounds check output data.
+  if (output_offset + line_count > MAX_OUTPUT_SIZE) {
+    return;
+  }
+
+  vec2 last_point = quad.p1;
+  for (uint i = 0; i < line_count; i++) {
+    LineData line_data =
+        LineData(last_point, GenerateLineFromQuad(quad, i, decomposition));
+    last_point = line_data.p2;
+    lines.data[output_offset + i] = line_data;
+  }
+
+  atomicAdd(lines.count, line_count);
+}

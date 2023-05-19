@@ -1,0 +1,95 @@
+// Copyright 2013 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+layout(local_size_x = 256, local_size_y = 1) in;
+layout(std430) buffer;
+
+#include <impeller/path.glsl>
+
+#define BLOCK_SIZE 256
+#define MAX_OUTPUT_SIZE 4096
+
+layout(binding = 0) readonly buffer Cubics {
+  uint count;
+  CubicData data[];
+}
+cubics;
+
+layout(binding = 1) buffer Quads {
+  uint count;
+  QuadData data[];
+}
+quads;
+
+uniform Config {
+  float cubic_accuracy;
+}
+config;
+
+shared uint shared_count[BLOCK_SIZE];
+
+// A compute shader that decomposes a set of cubics into one or more
+// quadradic components.
+void main() {
+  uint ident = gl_GlobalInvocationID.x;
+
+  // Determine number of quadradics this cubic will decompose into.
+  uint quad_count = 0;
+  CubicData data;
+  if (ident < cubics.count) {
+    data = cubics.data[ident];
+    quad_count = EstimateQuadraticCount(data, config.cubic_accuracy);
+  }
+
+  shared_count[ident] = quad_count;
+  barrier();
+
+  // Perform parallel prefix sum.
+  uint offset = 1;
+  for (uint n = BLOCK_SIZE / 2; n > 0; n /= 2) {
+    if (ident < n) {
+      uint ai = offset * (2 * ident + 1) - 1;
+      uint bi = offset * (2 * ident + 2) - 1;
+      shared_count[bi] += shared_count[ai];
+    }
+    offset *= 2;
+    barrier();
+  }
+
+  if (ident == 0) {
+    shared_count[BLOCK_SIZE - 1] = 0;
+  }
+  barrier();
+
+  for (uint n = 1; n < BLOCK_SIZE; n *= 2) {
+    offset /= 2;
+    barrier();
+    if (ident < n) {
+      uint ai = offset * (2 * ident + 1) - 1;
+      uint bi = offset * (2 * ident + 2) - 1;
+      uint temp = shared_count[ai];
+      shared_count[ai] = shared_count[bi];
+      shared_count[bi] += temp;
+    }
+  }
+  barrier();
+
+  if (quad_count == 0) {
+    return;
+  }
+
+  // Write quad data to output buffer.
+  uint output_offset = shared_count[ident];
+
+  // Bounds check output data.
+  if (output_offset + quad_count > MAX_OUTPUT_SIZE) {
+    return;
+  }
+
+  for (uint i = 0; i < quad_count; i++) {
+    QuadData quad_data = GenerateQuadraticFromCubic(data, i, quad_count);
+    quads.data[output_offset + i] = quad_data;
+  }
+  atomicAdd(quads.count, quad_count);
+}
