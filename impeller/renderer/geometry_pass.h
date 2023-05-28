@@ -7,7 +7,7 @@
 #include <string>
 #include <variant>
 
-#include "impeller/core/device_buffer.h"
+#include "impeller/core/device_private_buffer.h"
 #include "impeller/core/texture.h"
 #include "impeller/renderer/compute_command.h"
 #include "impeller/renderer/compute_pass.h"
@@ -22,40 +22,18 @@ struct GeometryPassResult {
   BufferView output_geometry;
 };
 
-class DevicePrivateBuffer final
-    : public std::enable_shared_from_this<DevicePrivateBuffer>,
-      public Buffer {
- public:
-  static std::shared_ptr<DevicePrivateBuffer> Create();
-
-  // |Buffer|
-  virtual ~DevicePrivateBuffer();
-
-  void SetLabel(std::string label);
-
-  [[nodiscard]] BufferView AsBufferView();
-
-  [[nodiscard]] BufferView Reserve(size_t length);
-
- private:
-  mutable std::shared_ptr<DeviceBuffer> device_buffer_;
-  size_t size_ = 0u;
-  mutable size_t device_buffer_generation_ = 0u;
-  size_t generation_ = 1u;
-  std::string label_;
-
-  // |Buffer|
-  std::shared_ptr<const DeviceBuffer> GetDeviceBuffer(
-      Allocator& allocator) const override;
-
-  DevicePrivateBuffer();
-
-  FML_DISALLOW_COPY_AND_ASSIGN(DevicePrivateBuffer);
+struct IndirectCommandArguments {
+  uint32_t vertex_count;
+  uint32_t instance_count;
+  uint32_t vertex_start;
+  uint32_t base_instance;
 };
 
 class GeometryPass {
  public:
   GeometryPass();
+
+  GeometryPassResult AddPath(Path path, const ContentContext& renderer);
 
   /// Add a polyline to the current geometry pass.
   ///
@@ -77,11 +55,30 @@ class GeometryPass {
     std::shared_ptr<DevicePrivateBuffer> output_buffer;
   };
 
+  struct AccumulatedPolylineCommand {
+    uint32_t count;
+    uint32_t size;
+    uint32_t line_offset;
+    uint32_t quad_offset;
+    std::shared_ptr<HostBuffer> line_buffer;
+    std::shared_ptr<HostBuffer> quad_buffer;
+    std::shared_ptr<HostBuffer> index_buffer;
+    std::shared_ptr<HostBuffer> component_buffer;
+    std::shared_ptr<DevicePrivateBuffer> output_buffer;
+    std::shared_ptr<DevicePrivateBuffer> output_index_buffer;
+    std::shared_ptr<DevicePrivateBuffer> indirect_command_buffer;
+    std::shared_ptr<DevicePrivateBuffer> geometry_buffer;
+  };
+
   AccumulatedConvexCommand& GetOrCreateConvex(size_t count);
 
+  AccumulatedPolylineCommand& GetOrCreatePolyline(size_t count);
+
   std::vector<AccumulatedConvexCommand> convex_commands_;
+  std::vector<AccumulatedPolylineCommand> polyline_commands_;
 
   std::shared_ptr<Pipeline<ComputePipelineDescriptor>> convex_pipeline_;
+  std::shared_ptr<Pipeline<ComputePipelineDescriptor>> polyline_pipeline_;
 
   FML_DISALLOW_COPY_AND_ASSIGN(GeometryPass);
 };

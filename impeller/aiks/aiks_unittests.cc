@@ -2558,5 +2558,18 @@ TEST_P(AiksTest, TextForegroundShaderWithTransform) {
   ASSERT_TRUE(OpenPlaygroundHere(canvas.EndRecordingAsPicture()));
 }
 
+TEST_P(AiksTest, DrawManyCirclesAnimated) {
+  Canvas canvas;
+  for (auto i = 0u; i < 40; i++) {
+    auto size = static_cast<Scalar>(std::rand() % 50);
+    auto width = static_cast<Scalar>(std::rand() % 500);
+    auto height = static_cast<Scalar>(std::rand() % 500);
+    canvas.DrawCircle({width, height}, size, {.color = Color::Random()});
+  }
+
+  ASSERT_TRUE(OpenPlaygroundHere(canvas.EndRecordingAsPicture()));
+}
+
+
 }  // namespace testing
 }  // namespace impeller

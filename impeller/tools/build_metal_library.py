@@ -90,6 +90,7 @@ def main():
       '-frecord-sources=flat',
       '-MF',
       args.depfile,
+      '-g',
       '-o',
       args.output,
   ]
@@ -99,12 +100,12 @@ def main():
   if args.platform == 'mac':
     command += [
         '--std=macos-metal%s' % args.metal_version,
-        '-mmacos-version-min=10.14',
+        '-mmacos-version-min=15.0',
     ]
   elif args.platform == 'ios':
     command += [
         '--std=ios-metal%s' % args.metal_version,
-        '-mios-version-min=11.0',
+        '-mios-version-min=15.0',
     ]
   elif args.platform == 'ios-simulator':
     command += [

@@ -75,4 +75,10 @@ void main() {
     geometry.data[index_offset + 1] = a;
     geometry.data[index_offset + 2] = b;
   }
+
+  indirect_command_data.data[data.indirect_offset].instance_count = 1;
+  indirect_command_data.data[data.indirect_offset].vertex_start =
+      data.first_offset * 3;
+
+  atomicAdd(indirect_command_data.data[data.indirect_offset].vertex_count, 3);
 }

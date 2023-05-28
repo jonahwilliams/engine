@@ -89,9 +89,28 @@ class Path {
         size_t contour_index) const;
   };
 
+  struct ComponentIndexPair {
+    ComponentType type = ComponentType::kLinear;
+    size_t index = 0;
+
+    ComponentIndexPair() {}
+
+    ComponentIndexPair(ComponentType a_type, size_t a_index)
+        : type(a_type), index(a_index) {}
+  };
+
   Path();
 
   ~Path();
+
+  const std::vector<ComponentIndexPair>& GetComponents() const {
+    return components_;
+  }
+  const std::vector<LinearPathComponent>& GetLinears() const {
+    return linears_;
+  }
+  const std::vector<QuadraticPathComponent>& GetQuads() const { return quads_; }
+  const std::vector<CubicPathComponent>& GetCubics() const { return cubics_; }
 
   size_t GetComponentCount(std::optional<ComponentType> type = {}) const;
 
@@ -158,16 +177,6 @@ class Path {
   friend class PathBuilder;
 
   void SetConvexity(Convexity value);
-
-  struct ComponentIndexPair {
-    ComponentType type = ComponentType::kLinear;
-    size_t index = 0;
-
-    ComponentIndexPair() {}
-
-    ComponentIndexPair(ComponentType a_type, size_t a_index)
-        : type(a_type), index(a_index) {}
-  };
 
   FillType fill_ = FillType::kNonZero;
   Convexity convexity_ = Convexity::kUnknown;

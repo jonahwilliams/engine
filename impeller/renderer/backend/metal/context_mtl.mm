@@ -45,6 +45,18 @@ static bool DeviceSupportsComputeSubgroups(id<MTLDevice> device) {
   return supports_subgroups;
 }
 
+static bool SupportsCompute() {
+  // Tecnically iOS simulators do support compute, but they don't support
+  // indirect command arguments. These are a requirement for any non-trivial
+  // compute usage, so for simplicity compute is disabled.
+  // This decision should be revisited if significant compute functionality is
+  // built out that does not depend on indirect command arguments.
+#if FML_OS_IOS_SIMULATOR
+  return false;
+#endif  // FML_OS_IOS_SIMULATOR
+  return true;
+}
+
 static std::unique_ptr<Capabilities> InferMetalCapabilities(
     id<MTLDevice> device,
     PixelFormat color_format) {
@@ -58,7 +70,7 @@ static std::unique_ptr<Capabilities> InferMetalCapabilities(
       .SetSupportsFramebufferFetch(DeviceSupportsFramebufferFetch(device))
       .SetDefaultColorFormat(color_format)
       .SetDefaultStencilFormat(PixelFormat::kS8UInt)
-      .SetSupportsCompute(true)
+      .SetSupportsCompute(SupportsCompute())
       .SetSupportsComputeSubgroups(DeviceSupportsComputeSubgroups(device))
       .SetSupportsReadFromResolve(true)
       .SetSupportsReadFromOnscreenTexture(true)

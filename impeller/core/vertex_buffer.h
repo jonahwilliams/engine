@@ -17,6 +17,8 @@ struct VertexBuffer {
   size_t vertex_count = 0u;
   IndexType index_type = IndexType::kUnknown;
 
+  BufferView indirect_command_arguments;
+
   constexpr operator bool() const {
     return static_cast<bool>(vertex_buffer) &&
            (index_type == IndexType::kNone || static_cast<bool>(index_buffer));

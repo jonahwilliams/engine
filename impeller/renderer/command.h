@@ -101,6 +101,9 @@ struct Command : public ResourceBinder {
   /// @see         `BindVertices`
   ///
   BufferView index_buffer;
+
+  BufferView indirect_command_arguments;
+
   //----------------------------------------------------------------------------
   /// The number of vertices to draw.
   ///

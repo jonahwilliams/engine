@@ -74,8 +74,13 @@ Path& Path::AddQuadraticComponent(Point p1, Point cp, Point p2) {
 }
 
 Path& Path::AddCubicComponent(Point p1, Point cp1, Point cp2, Point p2) {
-  cubics_.emplace_back(p1, cp1, cp2, p2);
-  components_.emplace_back(ComponentType::kCubic, cubics_.size() - 1);
+  CubicPathComponent component(p1, cp1, cp2, p2);
+
+  auto quads = component.ToQuadraticPathComponents(0.1);
+  for (const auto& quad: quads) {
+    AddQuadraticComponent(quad.p1, quad.cp, quad.p2);
+  }
+
   return *this;
 }
 

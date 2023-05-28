@@ -42,18 +42,21 @@ layout(binding = 3) readonly buffer Components {
 components;
 
 layout(binding = 4) writeonly buffer Polyline {
-  uint count;
   vec2 data[];
 }
 polyline;
 
-layout(binding = 5) writeonly buffer IndirectCommandData {
-  IndirectCommandArguments data[];
+layout(binding = 5) writeonly buffer OutputIndexData {
+  IndexDataItem data[];
 }
-indirect_command_data;
+index_output_data;
+
+layout(binding = 6) writeonly buffer OutputConfig {
+  uint count;
+}
+output_config;
 
 uniform Config {
-  float quad_tolerance;
   uint input_count;
 }
 config;
@@ -70,41 +73,68 @@ void main() {
 
   if (ident < config.input_count) {
     PathComponent component = components.data[ident];
+
     if (component.count == 2) {
       line = lines.data[component.index];
-      count = 1;
+      count = 2;
     } else {
       quad = quads.data[component.index];
-      decomposition = DecomposeQuad(quad, config.quad_tolerance);
-      count = decomposition.line_count;
-      if (count == 1) {
+      decomposition = DecomposeQuad(quad, 0.1);
+
+      if (decomposition.line_count == 1) {
+        count = 2;
         line = LineData(quad.p1, quad.p2);
+      } else {
+        count = 2 + decomposition.line_count;
       }
     }
   }
 
-  if (count > 0) {
-    storage[ident] = count + 1;
-  }
+  storage[ident] = count;
   barrier();
 
   ExclusivePrefixSum(ident, storage, MEMORY_SIZE);
   uint idx = storage[ident];
 
-  if (count <= 1) {
+  if (count == 0) {
     return;
   }
 
-  if (count == 1) {
+  IndexDataItem index_data = index_data.data[ident];
+  IndexDataItem output_index_data = IndexDataItem(
+      storage[index_data.first_offset], index_data.indirect_offset);
+
+
+  if (count == 2) {
     polyline.data[idx] = line.p1;
     polyline.data[idx + 1] = line.p2;
 
+    index_output_data.data[idx] = output_index_data;
+    index_output_data.data[idx + 1] = output_index_data;
   } else {
     polyline.data[idx] = quad.p1;
-    for (uint i = 1; i < decomposition.line_count - 1; i++) {
-      polyline.data[idx + i] = GenerateLineFromQuad(quad, i, decomposition);
+    index_output_data.data[idx] = output_index_data;
+
+    for (uint i = 0; i <= decomposition.line_count; i++) {
+      polyline.data[idx + i + 1] = GenerateLineFromQuad(quad, i, decomposition);
+      index_output_data.data[idx + i + 1] = output_index_data;
     }
-    polyline.data[idx + count] = quad.p2;
+
+    polyline.data[idx + count + 1] = quad.p2;
+    index_output_data.data[idx + count + 1] = output_index_data;
   }
-  atomicAdd(polyline.count, count);
+  atomicAdd(output_config.count, count);
 }
+
+//
+//
+// Line Segment
+// p1         p2      | count = 2
+//
+//
+// Quad Segment
+//
+// p1          p2      | count = 2
+//    s1 s2 sn         |   + N subdivisions
+//
+// As long as we're on the same contour, then P2 == P1 of the next line segment.

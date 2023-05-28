@@ -167,7 +167,10 @@ ContentContext::ContentContext(std::shared_ptr<Context> context)
       tessellator_(std::make_shared<Tessellator>()),
       alpha_glyph_atlas_context_(std::make_shared<GlyphAtlasContext>()),
       color_glyph_atlas_context_(std::make_shared<GlyphAtlasContext>()),
-      scene_context_(std::make_shared<scene::SceneContext>(context_)) {
+      scene_context_(std::make_shared<scene::SceneContext>(context_)),
+      buffer_a_(BufferSwapper::Create(1024 * 200)),
+      buffer_b_(BufferSwapper::Create(1024 * 200)),
+      buffer_c_(BufferSwapper::Create(1024 * 200)) {
   if (!context_ || !context_->IsValid()) {
     return;
   }

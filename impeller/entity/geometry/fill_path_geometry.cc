@@ -22,16 +22,18 @@ GeometryResult FillPathGeometry::GetPositionBuffer(
   if (path_.GetFillType() == FillType::kNonZero &&  //
       path_.IsConvex()) {
     if (renderer.GetDeviceCapabilities().SupportsCompute()) {
-      auto polyline =
-          path_.CreatePolyline(entity.GetTransformation().GetMaxBasisLength());
+      // auto polyline =
+      //     path_.CreatePolyline(entity.GetTransformation().GetMaxBasisLength());
       auto geometry_pass = pass.GetGeometryPass();
-      auto pass_result = geometry_pass->AddPolyline(polyline, renderer);
+      auto pass_result = geometry_pass->AddPath(path_, renderer);
 
       return GeometryResult{
           .type = PrimitiveType::kTriangle,
           .vertex_buffer = {.vertex_buffer = pass_result.output_geometry,
-                            .vertex_count = polyline.points.size() * 3,
-                            .index_type = IndexType::kNone},
+                            .vertex_count = 1,
+                            .index_type = IndexType::kNone,
+                            .indirect_command_arguments = pass_result.indirect_command_arguments
+                            },
           .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
                        entity.GetTransformation(),
           .prevent_overdraw = false,

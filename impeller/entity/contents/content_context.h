@@ -23,6 +23,7 @@
 #include "impeller/entity/checkerboard.vert.h"
 #endif  // IMPELLER_DEBUG
 
+#include "impeller/core/device_private_buffer.h"
 #include "impeller/entity/blend.frag.h"
 #include "impeller/entity/blend.vert.h"
 #include "impeller/entity/border_mask_blur.frag.h"
@@ -697,6 +698,12 @@ class ContentContext {
 
   std::shared_ptr<Context> GetContext() const;
 
+  std::shared_ptr<BufferSwapper> GetBufferA() const { return buffer_a_; }
+
+  std::shared_ptr<BufferSwapper> GetBufferB() const { return buffer_b_; }
+
+  std::shared_ptr<BufferSwapper> GetBufferC() const { return buffer_c_; }
+
   std::shared_ptr<GlyphAtlasContext> GetGlyphAtlasContext(
       GlyphAtlas::Type type) const;
 
@@ -872,6 +879,9 @@ class ContentContext {
   std::shared_ptr<GlyphAtlasContext> color_glyph_atlas_context_;
   std::shared_ptr<scene::SceneContext> scene_context_;
   bool wireframe_ = false;
+  std::shared_ptr<BufferSwapper> buffer_a_;
+  std::shared_ptr<BufferSwapper> buffer_b_;
+  std::shared_ptr<BufferSwapper> buffer_c_;
 
   FML_DISALLOW_COPY_AND_ASSIGN(ContentContext);
 };

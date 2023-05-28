@@ -109,7 +109,11 @@ uint EstimateQuadraticCount(CubicData cubic, float accuracy) {
 
   vec2 err_v = (3.0 * cubic.cp2 - cubic.p2) - (3.0 * cubic.cp1 - cubic.p1);
   float err = dot(err_v, err_v);
-  return uint(max(1., ceil(pow(err * (1.0 / max_hypot2), 1. / 6.0))));
+  uint result = uint(max(1., ceil(pow(err * (1.0 / max_hypot2), 1. / 6.0))));
+  if (result > 20) {
+    result =  20;
+  }
+  return result;
 }
 
 QuadDecomposition DecomposeQuad(QuadData quad, float tolerance) {
