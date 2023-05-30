@@ -175,16 +175,15 @@ bool GeometryPass::Encode(ComputePass& pass) {
     using PS = PolylineComputeShader;
     using CS = ConvexComputeShader;
 
-    // Size estimate: 1 * linears + 20 * quads. Make this reliable by capping the
-    // number of linear segments in the buffer? Right now, just a guess. Note
-    // that this has implications for how we write output data in the shader, as
-    // we can't assume that the correct offset is just computed from the prefix
-    // sum. Instead, we must essential apply a ceil to the prefix sum from
-    // previous components. Or maybe it doesn't matter? and we just track this
-    // with a bump allocator
-    // polyline_command.output_buffer->Reserve(1024 * 40);
-    // polyline_command.output_index_buffer->Reserve(1024 * 40);
-    // 3 points for each input vertex, so *3 the previous size.
+    // Size estimate: 1 * linears + 20 * quads. Make this reliable by capping
+    // the number of linear segments in the buffer? Right now, just a guess.
+    // Note that this has implications for how we write output data in the
+    // shader, as we can't assume that the correct offset is just computed from
+    // the prefix sum. Instead, we must essential apply a ceil to the prefix sum
+    // from previous components. Or maybe it doesn't matter? and we just track
+    // this with a bump allocator polyline_command.output_buffer->Reserve(1024 *
+    // 40); polyline_command.output_index_buffer->Reserve(1024 * 40); 3 points
+    // for each input vertex, so *3 the previous size.
     // polyline_command.geometry_buffer->Reserve(1024 * 40);
 
     // Output Config will contain count for convex stage.

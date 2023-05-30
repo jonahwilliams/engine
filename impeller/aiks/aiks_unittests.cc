@@ -2570,6 +2570,5 @@ TEST_P(AiksTest, DrawManyCirclesAnimated) {
   ASSERT_TRUE(OpenPlaygroundHere(canvas.EndRecordingAsPicture()));
 }
 
-
 }  // namespace testing
 }  // namespace impeller

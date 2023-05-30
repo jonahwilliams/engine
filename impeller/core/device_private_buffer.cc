@@ -6,7 +6,7 @@
 
 namespace impeller {
 
- std::shared_ptr<BufferSwapper> BufferSwapper::Create(size_t size) {
+std::shared_ptr<BufferSwapper> BufferSwapper::Create(size_t size) {
   auto a = DevicePrivateBuffer::Create();
   a->Reserve(size);
   auto b = DevicePrivateBuffer::Create();

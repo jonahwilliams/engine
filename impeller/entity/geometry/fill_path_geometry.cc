@@ -32,8 +32,8 @@ GeometryResult FillPathGeometry::GetPositionBuffer(
           .vertex_buffer = {.vertex_buffer = pass_result.output_geometry,
                             .vertex_count = 1,
                             .index_type = IndexType::kNone,
-                            .indirect_command_arguments = pass_result.indirect_command_arguments
-                            },
+                            .indirect_command_arguments =
+                                pass_result.indirect_command_arguments},
           .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
                        entity.GetTransformation(),
           .prevent_overdraw = false,

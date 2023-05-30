@@ -111,7 +111,7 @@ uint EstimateQuadraticCount(CubicData cubic, float accuracy) {
   float err = dot(err_v, err_v);
   uint result = uint(max(1., ceil(pow(err * (1.0 / max_hypot2), 1. / 6.0))));
   if (result > 20) {
-    result =  20;
+    result = 20;
   }
   return result;
 }

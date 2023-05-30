@@ -57,7 +57,6 @@ class BufferSwapper {
   ~BufferSwapper() = default;
 
  private:
-
   std::shared_ptr<DevicePrivateBuffer> a_;
   std::shared_ptr<DevicePrivateBuffer> b_;
   mutable bool switch_ = false;

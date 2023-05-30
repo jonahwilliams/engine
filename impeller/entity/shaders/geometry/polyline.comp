@@ -104,7 +104,6 @@ void main() {
   IndexDataItem output_index_data = IndexDataItem(
       storage[index_data.first_offset], index_data.indirect_offset);
 
-
   if (count == 2) {
     polyline.data[idx] = line.p1;
     polyline.data[idx + 1] = line.p2;
