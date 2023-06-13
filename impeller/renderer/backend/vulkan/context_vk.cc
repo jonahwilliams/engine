@@ -126,6 +126,7 @@ void ContextVK::Setup(Settings settings) {
     return;
   }
   worker_task_runner_ = settings.worker_task_runner;
+  encoding_loop_ = fml::ConcurrentMessageLoop::Create(1u);
 
   auto& dispatcher = VULKAN_HPP_DEFAULT_DISPATCHER;
   dispatcher.init(settings.proc_address_callback);
@@ -517,6 +518,11 @@ vk::PhysicalDevice ContextVK::GetPhysicalDevice() const {
 
 std::shared_ptr<FenceWaiterVK> ContextVK::GetFenceWaiter() const {
   return fence_waiter_;
+}
+
+const std::shared_ptr<fml::ConcurrentTaskRunner>
+ContextVK::GetEncodingTaskRunner() const {
+  return encoding_loop_->GetTaskRunner();
 }
 
 std::unique_ptr<CommandEncoderVK> ContextVK::CreateGraphicsCommandEncoder()

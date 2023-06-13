@@ -120,6 +120,9 @@ class ContextVK final : public Context,
   const std::shared_ptr<fml::ConcurrentTaskRunner>
   GetConcurrentWorkerTaskRunner() const;
 
+  const std::shared_ptr<fml::ConcurrentTaskRunner> GetEncodingTaskRunner()
+      const;
+
   [[nodiscard]] bool SetWindowSurface(vk::UniqueSurfaceKHR surface);
 
   std::unique_ptr<Surface> AcquireNextSurface();
@@ -160,6 +163,7 @@ class ContextVK final : public Context,
   std::shared_ptr<FenceWaiterVK> fence_waiter_;
   std::string device_name_;
   std::shared_ptr<fml::ConcurrentTaskRunner> worker_task_runner_;
+  std::shared_ptr<fml::ConcurrentMessageLoop> encoding_loop_;
   const uint64_t hash_;
 
   bool is_valid_ = false;

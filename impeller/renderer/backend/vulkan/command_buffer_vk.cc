@@ -8,6 +8,8 @@
 #include <utility>
 
 #include "flutter/fml/logging.h"
+#include "flutter/fml/make_copyable.h"
+#include "flutter/fml/trace_event.h"
 #include "impeller/base/validation.h"
 #include "impeller/renderer/backend/vulkan/blit_pass_vk.h"
 #include "impeller/renderer/backend/vulkan/command_encoder_vk.h"
@@ -101,6 +103,66 @@ std::shared_ptr<ComputePass> CommandBufferVK::OnCreateComputePass() const {
     return nullptr;
   }
   return pass;
+}
+
+bool CommandBufferVK::SubmitBlitAsync(std::shared_ptr<BlitPass> blit_pass) {
+  TRACE_EVENT0("impeller", "CommandBufferVK::SubmitBlitAsync");
+  if (!blit_pass->IsValid() || !IsValid()) {
+    return false;
+  }
+  auto context = context_.lock();
+  if (!context) {
+    return false;
+  }
+  auto& context_vk = ContextVK::Cast(*context);
+  auto worker_task_runner = context_vk.GetEncodingTaskRunner();
+  auto task = fml::MakeCopyable(
+      [blit_pass, encoder = encoder_, weak_context = context_]() {
+        TRACE_EVENT0("impeller", "CommandBufferVK::AsyncTask");
+        auto context = weak_context.lock();
+        if (!context) {
+          return;
+        }
+        if (!blit_pass->EncodeCommands(context->GetResourceAllocator())) {
+          return;
+        }
+        if (!encoder->Submit({})) {
+          return;
+        }
+      });
+  worker_task_runner->PostTask(task);
+  return true;
+}
+
+bool CommandBufferVK::SubmitCommandsAsync(
+    std::shared_ptr<RenderPass> render_pass) {
+  TRACE_EVENT0("impeller", "CommandBufferVK::SubmitCommandsAsync");
+
+  if (!render_pass->IsValid() || !IsValid()) {
+    return false;
+  }
+  auto context = context_.lock();
+  if (!context) {
+    return false;
+  }
+  auto& context_vk = ContextVK::Cast(*context);
+  auto worker_task_runner = context_vk.GetEncodingTaskRunner();
+  auto task = fml::MakeCopyable(
+      [render_pass, encoder = encoder_, weak_context = context_]() {
+        TRACE_EVENT0("impeller", "CommandBufferVK::AsyncTask");
+        auto context = weak_context.lock();
+        if (!context) {
+          return;
+        }
+        if (!render_pass->EncodeCommands()) {
+          return;
+        }
+        if (!encoder->Submit({})) {
+          return;
+        }
+      });
+  worker_task_runner->PostTask(task);
+  return true;
 }
 
 }  // namespace impeller

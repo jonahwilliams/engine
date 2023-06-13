@@ -36,6 +36,22 @@ void CommandBuffer::WaitUntilScheduled() {
   return OnWaitUntilScheduled();
 }
 
+bool CommandBuffer::SubmitBlitAsync(std::shared_ptr<BlitPass> blit_pass) {
+  TRACE_EVENT0("impeller", "CommandBuffer::SubmitBlitAsync");
+  if (!blit_pass->IsValid() || !IsValid()) {
+    return false;
+  }
+  auto context = context_.lock();
+  if (!context) {
+    return false;
+  }
+  if (!blit_pass->EncodeCommands(context->GetResourceAllocator())) {
+    return false;
+  }
+
+  return SubmitCommands(nullptr);
+}
+
 bool CommandBuffer::SubmitCommandsAsync(
     std::shared_ptr<RenderPass>
         render_pass  // NOLINT(performance-unnecessary-value-param)
