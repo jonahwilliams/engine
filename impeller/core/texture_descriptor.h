@@ -32,6 +32,11 @@ constexpr const char* CompressionTypeToString(CompressionType type) {
   FML_UNREACHABLE();
 }
 
+enum class TexturePriorityHint {
+  kBackground,
+  kGraphics,
+};
+
 //------------------------------------------------------------------------------
 /// @brief      A lightweight object that describes the attributes of a texture
 ///             that can then used an allocator to create that texture.
@@ -46,6 +51,7 @@ struct TextureDescriptor {
       static_cast<TextureUsageMask>(TextureUsage::kShaderRead);
   SampleCount sample_count = SampleCount::kCount1;
   CompressionType compression_type = CompressionType::kLossless;
+  TexturePriorityHint priority_hint = TexturePriorityHint::kGraphics;
 
   constexpr size_t GetByteSizeOfBaseMipLevel() const {
     if (!IsValid()) {

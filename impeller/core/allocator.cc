@@ -16,10 +16,12 @@ Allocator::~Allocator() = default;
 
 std::shared_ptr<DeviceBuffer> Allocator::CreateBufferWithCopy(
     const uint8_t* buffer,
-    size_t length) {
+    size_t length,
+    bool background ) {
   DeviceBufferDescriptor desc;
   desc.size = length;
   desc.storage_mode = StorageMode::kHostVisible;
+  desc.priority_hint = background ? PriorityHint::kBackground : PriorityHint::kGraphics;
   auto new_buffer = CreateBuffer(desc);
 
   if (!new_buffer) {

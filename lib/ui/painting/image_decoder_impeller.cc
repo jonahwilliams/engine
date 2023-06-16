@@ -268,6 +268,7 @@ static std::pair<sk_sp<DlImage>, std::string> UnsafeUploadTextureToPrivate(
   texture_descriptor.size = {image_info.width(), image_info.height()};
   texture_descriptor.mip_count = texture_descriptor.size.MipCount();
   texture_descriptor.compression_type = impeller::CompressionType::kLossy;
+  texture_descriptor.priority_hint = impeller::TexturePriorityHint::kBackground;
 
   auto dest_texture =
       context->GetResourceAllocator()->CreateTexture(texture_descriptor);
@@ -371,6 +372,7 @@ ImageDecoderImpeller::UploadTextureToShared(
   texture_descriptor.size = {image_info.width(), image_info.height()};
   texture_descriptor.mip_count =
       create_mips ? texture_descriptor.size.MipCount() : 1;
+  texture_descriptor.priority_hint = impeller::TexturePriorityHint::kBackground;
 
   auto texture =
       context->GetResourceAllocator()->CreateTexture(texture_descriptor);
@@ -456,11 +458,10 @@ void ImageDecoderImpeller::Decode(fml::RefPtr<ImageDescriptor> descriptor,
     });
   };
 
-  concurrent_task_runner_->PostTask(
+  runners_.GetIOTaskRunner()->PostTask(
       [raw_descriptor,                                            //
        context = context_.get(),                                  //
        target_size = SkISize::Make(target_width, target_height),  //
-       io_runner = runners_.GetIOTaskRunner(),                    //
        result,
        supports_wide_gamut = supports_wide_gamut_,  //
        gpu_disabled_switch = gpu_disabled_switch_]() {
@@ -500,7 +501,8 @@ void ImageDecoderImpeller::Decode(fml::RefPtr<ImageDescriptor> descriptor,
         // don't need to post tasks to the io runner, but without this
         // forced serialization we can end up overloading the GPU and/or
         // competing with raster workloads.
-        io_runner->PostTask(upload_texture_and_invoke_result);
+        upload_texture_and_invoke_result();
+        // io_runner->PostTask(upload_texture_and_invoke_result);
       });
 }
 
@@ -521,6 +523,7 @@ bool ImpellerAllocator::allocPixelRef(SkBitmap* bitmap) {
   }
 
   impeller::DeviceBufferDescriptor descriptor;
+  descriptor.priority_hint = impeller::PriorityHint::kBackground;
   descriptor.storage_mode = impeller::StorageMode::kHostVisible;
   descriptor.size = ((bitmap->height() - 1) * bitmap->rowBytes()) +
                     (bitmap->width() * bitmap->bytesPerPixel());

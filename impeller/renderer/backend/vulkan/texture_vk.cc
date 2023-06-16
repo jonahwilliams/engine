@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "impeller/renderer/backend/vulkan/texture_vk.h"
+#include "flutter/fml/trace_event.h"
 
 #include "impeller/renderer/backend/vulkan/command_buffer_vk.h"
 #include "impeller/renderer/backend/vulkan/command_encoder_vk.h"
@@ -31,6 +32,7 @@ void TextureVK::SetLabel(std::string_view label) {
 bool TextureVK::OnSetContents(const uint8_t* contents,
                               size_t length,
                               size_t slice) {
+  TRACE_EVENT0("impeller", "TextureVK::1");
   if (!IsValid() || !contents) {
     return false;
   }
@@ -49,9 +51,9 @@ bool TextureVK::OnSetContents(const uint8_t* contents,
     return false;
   }
 
-  auto staging_buffer =
-      context->GetResourceAllocator()->CreateBufferWithCopy(contents, length);
-
+  auto staging_buffer = context->GetResourceAllocator()->CreateBufferWithCopy(
+      contents, length, desc.priority_hint == TexturePriorityHint::kBackground);
+  TRACE_EVENT0("impeller", "StagingGet");
   if (!staging_buffer) {
     VALIDATION_LOG << "Could not create staging buffer.";
     return false;
@@ -64,6 +66,7 @@ bool TextureVK::OnSetContents(const uint8_t* contents,
   }
 
   const auto encoder = CommandBufferVK::Cast(*cmd_buffer).GetEncoder();
+  TRACE_EVENT0("impeller", "TextureVK::EncoderGet");
 
   if (!encoder->Track(staging_buffer) || !encoder->Track(source_)) {
     return false;
@@ -82,6 +85,7 @@ bool TextureVK::OnSetContents(const uint8_t* contents,
   if (!SetLayout(transition)) {
     return false;
   }
+  TRACE_EVENT0("impeller", "SetLayoutDone");
 
   vk::BufferImageCopy copy;
   copy.bufferOffset = 0u;
@@ -105,6 +109,7 @@ bool TextureVK::OnSetContents(const uint8_t* contents,
       1u,                                                 // region count
       &copy                                               // regions
   );
+  TRACE_EVENT0("impeller", "copyBufferToImage");
 
   return cmd_buffer->SubmitCommands();
 }

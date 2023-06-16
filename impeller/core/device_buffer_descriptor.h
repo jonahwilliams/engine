@@ -10,9 +10,15 @@
 
 namespace impeller {
 
+enum PriorityHint {
+  kBackground,
+  kGraphics,
+};
+
 struct DeviceBufferDescriptor {
   StorageMode storage_mode = StorageMode::kDeviceTransient;
   size_t size = 0u;
+  PriorityHint priority_hint = PriorityHint::kGraphics;
 };
 
 }  // namespace impeller

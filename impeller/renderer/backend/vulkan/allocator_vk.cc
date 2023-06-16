@@ -7,6 +7,7 @@
 #include <memory>
 
 #include "flutter/fml/memory/ref_ptr.h"
+#include "flutter/fml/trace_event.h"
 #include "impeller/core/formats.h"
 #include "impeller/renderer/backend/vulkan/device_buffer_vk.h"
 #include "impeller/renderer/backend/vulkan/formats_vk.h"
@@ -90,6 +91,15 @@ AllocatorVK::AllocatorVK(std::weak_ptr<Context> context,
     return;
   }
   allocator_ = allocator;
+  {
+    VmaAllocator allocator = {};
+    auto result = vk::Result{::vmaCreateAllocator(&allocator_info, &allocator)};
+    if (result != vk::Result::eSuccess) {
+      VALIDATION_LOG << "Could not create memory allocator";
+      return;
+    }
+    background_allocator_ = allocator;
+  }
   is_valid_ = true;
 }
 
@@ -327,16 +337,22 @@ class AllocatedTextureSourceVK final : public TextureSourceVK {
 // |Allocator|
 std::shared_ptr<Texture> AllocatorVK::OnCreateTexture(
     const TextureDescriptor& desc) {
+  TRACE_EVENT0("impeller", "AllocatorVK::OnCreateTexture");
   if (!IsValid()) {
     return nullptr;
   }
+
+  const auto& allocator = desc.priority_hint == TexturePriorityHint::kGraphics
+                              ? allocator_
+                              : background_allocator_;
+
   auto device_holder = device_holder_.lock();
   if (!device_holder) {
     return nullptr;
   }
   auto source =
       std::make_shared<AllocatedTextureSourceVK>(desc,                       //
-                                                 allocator_,                 //
+                                                 allocator,                  //
                                                  device_holder->GetDevice()  //
       );
   if (!source->IsValid()) {
@@ -348,6 +364,7 @@ std::shared_ptr<Texture> AllocatorVK::OnCreateTexture(
 // |Allocator|
 std::shared_ptr<DeviceBuffer> AllocatorVK::OnCreateBuffer(
     const DeviceBufferDescriptor& desc) {
+  TRACE_EVENT0("impeller", "AllocatorVK::OnCreateBuffer");
   vk::BufferCreateInfo buffer_info;
   buffer_info.usage = vk::BufferUsageFlagBits::eVertexBuffer |
                       vk::BufferUsageFlagBits::eIndexBuffer |
@@ -365,10 +382,14 @@ std::shared_ptr<DeviceBuffer> AllocatorVK::OnCreateBuffer(
   allocation_info.preferredFlags = ToVKMemoryPropertyFlags(desc.storage_mode);
   allocation_info.flags = ToVmaAllocationCreateFlags(desc.storage_mode, false);
 
+  const auto& allocator = desc.priority_hint == PriorityHint::kGraphics
+                              ? allocator_
+                              : background_allocator_;
+
   VkBuffer buffer = {};
   VmaAllocation buffer_allocation = {};
   VmaAllocationInfo buffer_allocation_info = {};
-  auto result = vk::Result{::vmaCreateBuffer(allocator_,              //
+  auto result = vk::Result{::vmaCreateBuffer(allocator,               //
                                              &buffer_info_native,     //
                                              &allocation_info,        //
                                              &buffer,                 //
@@ -384,7 +405,7 @@ std::shared_ptr<DeviceBuffer> AllocatorVK::OnCreateBuffer(
 
   return std::make_shared<DeviceBufferVK>(desc,                    //
                                           context_,                //
-                                          allocator_,              //
+                                          allocator,               //
                                           buffer_allocation,       //
                                           buffer_allocation_info,  //
                                           vk::Buffer{buffer}       //

@@ -38,7 +38,8 @@ class Allocator {
   virtual uint16_t MinimumBytesPerRow(PixelFormat format) const;
 
   std::shared_ptr<DeviceBuffer> CreateBufferWithCopy(const uint8_t* buffer,
-                                                     size_t length);
+                                                     size_t length,
+                                                     bool background = false);
 
   std::shared_ptr<DeviceBuffer> CreateBufferWithCopy(
       const fml::Mapping& mapping);

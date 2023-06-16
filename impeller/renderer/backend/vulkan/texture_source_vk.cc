@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "impeller/renderer/backend/vulkan/texture_source_vk.h"
+#include "flutter/fml/trace_event.h"
 
 namespace impeller {
 
@@ -28,6 +29,7 @@ vk::ImageLayout TextureSourceVK::SetLayoutWithoutEncoding(
 }
 
 bool TextureSourceVK::SetLayout(const LayoutTransition& transition) const {
+  TRACE_EVENT0("impeller", "TextureSourceVK::SetLayout");
   const auto old_layout = SetLayoutWithoutEncoding(transition.new_layout);
   if (transition.new_layout == old_layout) {
     return true;
