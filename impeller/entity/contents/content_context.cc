@@ -30,7 +30,7 @@ void ContentContextOptions::ApplyToPipelineDescriptor(
   desc.SetSampleCount(sample_count);
 
   ColorAttachmentDescriptor color0 = *desc.GetColorAttachmentDescriptor(0u);
-  color0.format = color_attachment_pixel_format.value_or(PixelFormat::kUnknown);
+  color0.format = color_attachment_pixel_format;
   color0.alpha_blend_op = BlendOperation::kAdd;
   color0.color_blend_op = BlendOperation::kAdd;
 
@@ -156,6 +156,79 @@ static std::unique_ptr<PipelineT> CreateDefaultPipeline(
   return std::make_unique<PipelineT>(context, desc);
 }
 
+template <typename PipelineT>
+static std::unique_ptr<PipelineT> CreatePipeline(const Context& context,
+                                                 ContentContextOptions opts) {
+  auto desc = PipelineT::Builder::MakeDefaultPipelineDescriptor(context);
+  if (!desc.has_value()) {
+    return nullptr;
+  }
+  opts.ApplyToPipelineDescriptor(*desc);
+  return std::make_unique<PipelineT>(context, desc);
+}
+
+constexpr std::array<BlendMode, 2> blend_modes = {BlendMode::kSource,
+                                                  BlendMode::kSourceOver};
+constexpr std::array<PrimitiveType, 2> primitive_types = {
+    PrimitiveType::kTriangle, PrimitiveType::kTriangleStrip};
+constexpr std::array<StencilOperation, 2> stencil_operations = {
+    StencilOperation::kKeep, StencilOperation::kIncrementClamp};
+
+using ClipCombo = std::pair<CompareFunction, StencilOperation>;
+constexpr std::array<ClipCombo, 4> clip_combos = {
+    // Restore
+    std::make_pair(CompareFunction::kLess,
+                   StencilOperation::kSetToReferenceValue),
+    // Intersect // // Difference (Increment)
+    std::make_pair(CompareFunction::kEqual, StencilOperation::kIncrementClamp),
+    // Difference (Punch)
+    std::make_pair(CompareFunction::kEqual, StencilOperation::kDecrementClamp),
+};
+
+/// A macro for initializing common combinations for shaders that are used as
+/// color sources.
+#define INIT_COLOR_SRC_PIPELINES(storage, name)                      \
+  for (auto blend_mode : blend_modes) {                              \
+    for (auto primitive_type : primitive_types) {                    \
+      for (auto stencil_op : stencil_operations) {                   \
+        ContentContextOptions options = default_options;             \
+        options.blend_mode = blend_mode;                             \
+        options.primitive_type = primitive_type;                     \
+        options.stencil_operation = stencil_op;                      \
+        storage[options] = CreatePipeline<name>(*context_, options); \
+      }                                                              \
+    }                                                                \
+  }
+
+/// A macro for initializing common combinations for shaders that are used as
+/// color sources.
+#define INIT_FILTER_PIPELINES(storage, name)                       \
+  for (auto blend_mode : blend_modes) {                            \
+    for (auto primitive_type : primitive_types) {                  \
+      ContentContextOptions options = default_options;             \
+      options.blend_mode = blend_mode;                             \
+      options.primitive_type = primitive_type;                     \
+      storage[options] = CreatePipeline<name>(*context_, options); \
+    }                                                              \
+  }
+
+constexpr std::array<BlendMode, 14> kPipelineBlends = {
+    BlendMode::kClear,
+    BlendMode::kSource,
+    BlendMode::kDestination,
+    BlendMode::kSourceOver,
+    BlendMode::kDestinationOver,
+    BlendMode::kSourceIn,
+    BlendMode::kDestinationIn,
+    BlendMode::kSourceOut,
+    BlendMode::kDestinationOut,
+    BlendMode::kSourceATop,
+    BlendMode::kDestinationATop,
+    BlendMode::kXor,
+    BlendMode::kPlus,
+    BlendMode::kModulate,
+};
+
 ContentContext::ContentContext(std::shared_ptr<Context> context)
     : context_(std::move(context)),
       tessellator_(std::make_shared<Tessellator>()),
@@ -165,130 +238,144 @@ ContentContext::ContentContext(std::shared_ptr<Context> context)
   if (!context_ || !context_->IsValid()) {
     return;
   }
+  auto default_options = ContentContextOptions{
+      .color_attachment_pixel_format =
+          context_->GetCapabilities()->GetDefaultColorFormat()};
 
 #ifdef IMPELLER_DEBUG
-  checkerboard_pipelines_[{}] =
+  checkerboard_pipelines_[default_options] =
       CreateDefaultPipeline<CheckerboardPipeline>(*context_);
 #endif  // IMPELLER_DEBUG
 
-  solid_fill_pipelines_[{}] =
-      CreateDefaultPipeline<SolidFillPipeline>(*context_);
-  linear_gradient_fill_pipelines_[{}] =
-      CreateDefaultPipeline<LinearGradientFillPipeline>(*context_);
-  radial_gradient_fill_pipelines_[{}] =
-      CreateDefaultPipeline<RadialGradientFillPipeline>(*context_);
-  conical_gradient_fill_pipelines_[{}] =
-      CreateDefaultPipeline<ConicalGradientFillPipeline>(*context_);
+  INIT_COLOR_SRC_PIPELINES(solid_fill_pipelines_, SolidFillPipeline);
+
   if (context_->GetCapabilities()->SupportsSSBO()) {
-    linear_gradient_ssbo_fill_pipelines_[{}] =
-        CreateDefaultPipeline<LinearGradientSSBOFillPipeline>(*context_);
-    radial_gradient_ssbo_fill_pipelines_[{}] =
-        CreateDefaultPipeline<RadialGradientSSBOFillPipeline>(*context_);
-    conical_gradient_ssbo_fill_pipelines_[{}] =
-        CreateDefaultPipeline<ConicalGradientSSBOFillPipeline>(*context_);
-    sweep_gradient_ssbo_fill_pipelines_[{}] =
-        CreateDefaultPipeline<SweepGradientSSBOFillPipeline>(*context_);
+    INIT_COLOR_SRC_PIPELINES(linear_gradient_ssbo_fill_pipelines_,
+                             LinearGradientSSBOFillPipeline);
+    INIT_COLOR_SRC_PIPELINES(radial_gradient_ssbo_fill_pipelines_,
+                             RadialGradientSSBOFillPipeline);
+    INIT_COLOR_SRC_PIPELINES(conical_gradient_ssbo_fill_pipelines_,
+                             ConicalGradientSSBOFillPipeline);
+    INIT_COLOR_SRC_PIPELINES(sweep_gradient_ssbo_fill_pipelines_,
+                             SweepGradientSSBOFillPipeline);
+  } else {
+    // GLES Only.
+    linear_gradient_fill_pipelines_[default_options] =
+        CreateDefaultPipeline<LinearGradientFillPipeline>(*context_);
+    radial_gradient_fill_pipelines_[default_options] =
+        CreateDefaultPipeline<RadialGradientFillPipeline>(*context_);
+    conical_gradient_fill_pipelines_[default_options] =
+        CreateDefaultPipeline<ConicalGradientFillPipeline>(*context_);
+    sweep_gradient_fill_pipelines_[default_options] =
+        CreateDefaultPipeline<SweepGradientFillPipeline>(*context_);
   }
+
   if (context_->GetCapabilities()->SupportsFramebufferFetch()) {
-    framebuffer_blend_color_pipelines_[{}] =
+    framebuffer_blend_color_pipelines_[default_options] =
         CreateDefaultPipeline<FramebufferBlendColorPipeline>(*context_);
-    framebuffer_blend_colorburn_pipelines_[{}] =
+    framebuffer_blend_colorburn_pipelines_[default_options] =
         CreateDefaultPipeline<FramebufferBlendColorBurnPipeline>(*context_);
-    framebuffer_blend_colordodge_pipelines_[{}] =
+    framebuffer_blend_colordodge_pipelines_[default_options] =
         CreateDefaultPipeline<FramebufferBlendColorDodgePipeline>(*context_);
-    framebuffer_blend_darken_pipelines_[{}] =
+    framebuffer_blend_darken_pipelines_[default_options] =
         CreateDefaultPipeline<FramebufferBlendDarkenPipeline>(*context_);
-    framebuffer_blend_difference_pipelines_[{}] =
+    framebuffer_blend_difference_pipelines_[default_options] =
         CreateDefaultPipeline<FramebufferBlendDifferencePipeline>(*context_);
-    framebuffer_blend_exclusion_pipelines_[{}] =
+    framebuffer_blend_exclusion_pipelines_[default_options] =
         CreateDefaultPipeline<FramebufferBlendExclusionPipeline>(*context_);
-    framebuffer_blend_hardlight_pipelines_[{}] =
+    framebuffer_blend_hardlight_pipelines_[default_options] =
         CreateDefaultPipeline<FramebufferBlendHardLightPipeline>(*context_);
-    framebuffer_blend_hue_pipelines_[{}] =
+    framebuffer_blend_hue_pipelines_[default_options] =
         CreateDefaultPipeline<FramebufferBlendHuePipeline>(*context_);
-    framebuffer_blend_lighten_pipelines_[{}] =
+    framebuffer_blend_lighten_pipelines_[default_options] =
         CreateDefaultPipeline<FramebufferBlendLightenPipeline>(*context_);
-    framebuffer_blend_luminosity_pipelines_[{}] =
+    framebuffer_blend_luminosity_pipelines_[default_options] =
         CreateDefaultPipeline<FramebufferBlendLuminosityPipeline>(*context_);
-    framebuffer_blend_multiply_pipelines_[{}] =
+    framebuffer_blend_multiply_pipelines_[default_options] =
         CreateDefaultPipeline<FramebufferBlendMultiplyPipeline>(*context_);
-    framebuffer_blend_overlay_pipelines_[{}] =
+    framebuffer_blend_overlay_pipelines_[default_options] =
         CreateDefaultPipeline<FramebufferBlendOverlayPipeline>(*context_);
-    framebuffer_blend_saturation_pipelines_[{}] =
+    framebuffer_blend_saturation_pipelines_[default_options] =
         CreateDefaultPipeline<FramebufferBlendSaturationPipeline>(*context_);
-    framebuffer_blend_screen_pipelines_[{}] =
+    framebuffer_blend_screen_pipelines_[default_options] =
         CreateDefaultPipeline<FramebufferBlendScreenPipeline>(*context_);
-    framebuffer_blend_softlight_pipelines_[{}] =
+    framebuffer_blend_softlight_pipelines_[default_options] =
         CreateDefaultPipeline<FramebufferBlendSoftLightPipeline>(*context_);
   }
 
-  blend_color_pipelines_[{}] =
+  blend_color_pipelines_[default_options] =
       CreateDefaultPipeline<BlendColorPipeline>(*context_);
-  blend_colorburn_pipelines_[{}] =
+  blend_colorburn_pipelines_[default_options] =
       CreateDefaultPipeline<BlendColorBurnPipeline>(*context_);
-  blend_colordodge_pipelines_[{}] =
+  blend_colordodge_pipelines_[default_options] =
       CreateDefaultPipeline<BlendColorDodgePipeline>(*context_);
-  blend_darken_pipelines_[{}] =
+  blend_darken_pipelines_[default_options] =
       CreateDefaultPipeline<BlendDarkenPipeline>(*context_);
-  blend_difference_pipelines_[{}] =
+  blend_difference_pipelines_[default_options] =
       CreateDefaultPipeline<BlendDifferencePipeline>(*context_);
-  blend_exclusion_pipelines_[{}] =
+  blend_exclusion_pipelines_[default_options] =
       CreateDefaultPipeline<BlendExclusionPipeline>(*context_);
-  blend_hardlight_pipelines_[{}] =
+  blend_hardlight_pipelines_[default_options] =
       CreateDefaultPipeline<BlendHardLightPipeline>(*context_);
-  blend_hue_pipelines_[{}] = CreateDefaultPipeline<BlendHuePipeline>(*context_);
-  blend_lighten_pipelines_[{}] =
+  blend_hue_pipelines_[default_options] =
+      CreateDefaultPipeline<BlendHuePipeline>(*context_);
+  blend_lighten_pipelines_[default_options] =
       CreateDefaultPipeline<BlendLightenPipeline>(*context_);
-  blend_luminosity_pipelines_[{}] =
+  blend_luminosity_pipelines_[default_options] =
       CreateDefaultPipeline<BlendLuminosityPipeline>(*context_);
-  blend_multiply_pipelines_[{}] =
+  blend_multiply_pipelines_[default_options] =
       CreateDefaultPipeline<BlendMultiplyPipeline>(*context_);
-  blend_overlay_pipelines_[{}] =
+  blend_overlay_pipelines_[default_options] =
       CreateDefaultPipeline<BlendOverlayPipeline>(*context_);
-  blend_saturation_pipelines_[{}] =
+  blend_saturation_pipelines_[default_options] =
       CreateDefaultPipeline<BlendSaturationPipeline>(*context_);
-  blend_screen_pipelines_[{}] =
+  blend_screen_pipelines_[default_options] =
       CreateDefaultPipeline<BlendScreenPipeline>(*context_);
-  blend_softlight_pipelines_[{}] =
+  blend_softlight_pipelines_[default_options] =
       CreateDefaultPipeline<BlendSoftLightPipeline>(*context_);
-  sweep_gradient_fill_pipelines_[{}] =
-      CreateDefaultPipeline<SweepGradientFillPipeline>(*context_);
-  rrect_blur_pipelines_[{}] =
+  rrect_blur_pipelines_[default_options] =
       CreateDefaultPipeline<RRectBlurPipeline>(*context_);
-  texture_blend_pipelines_[{}] =
-      CreateDefaultPipeline<BlendPipeline>(*context_);
-  texture_pipelines_[{}] = CreateDefaultPipeline<TexturePipeline>(*context_);
-  position_uv_pipelines_[{}] =
-      CreateDefaultPipeline<PositionUVPipeline>(*context_);
-  tiled_texture_pipelines_[{}] =
-      CreateDefaultPipeline<TiledTexturePipeline>(*context_);
-  gaussian_blur_alpha_decal_pipelines_[{}] =
-      CreateDefaultPipeline<GaussianBlurAlphaDecalPipeline>(*context_);
-  gaussian_blur_alpha_nodecal_pipelines_[{}] =
-      CreateDefaultPipeline<GaussianBlurAlphaPipeline>(*context_);
-  gaussian_blur_noalpha_decal_pipelines_[{}] =
-      CreateDefaultPipeline<GaussianBlurDecalPipeline>(*context_);
-  gaussian_blur_noalpha_nodecal_pipelines_[{}] =
-      CreateDefaultPipeline<GaussianBlurPipeline>(*context_);
-  border_mask_blur_pipelines_[{}] =
+
+  for (auto blend_mode : kPipelineBlends) {
+    ContentContextOptions options = default_options;
+    options.blend_mode = blend_mode;
+    texture_blend_pipelines_[options] =
+        CreatePipeline<BlendPipeline>(*context_, options);
+  }
+
+  INIT_COLOR_SRC_PIPELINES(texture_pipelines_, TexturePipeline);
+  INIT_COLOR_SRC_PIPELINES(tiled_texture_pipelines_, TiledTexturePipeline);
+  INIT_COLOR_SRC_PIPELINES(position_uv_pipelines_, PositionUVPipeline);
+
+  INIT_FILTER_PIPELINES(gaussian_blur_alpha_decal_pipelines_,
+                        GaussianBlurAlphaDecalPipeline);
+  INIT_FILTER_PIPELINES(gaussian_blur_alpha_nodecal_pipelines_,
+                        GaussianBlurAlphaPipeline);
+  INIT_FILTER_PIPELINES(gaussian_blur_noalpha_decal_pipelines_,
+                        GaussianBlurDecalPipeline);
+  INIT_FILTER_PIPELINES(gaussian_blur_noalpha_nodecal_pipelines_,
+                        GaussianBlurPipeline);
+
+  border_mask_blur_pipelines_[default_options] =
       CreateDefaultPipeline<BorderMaskBlurPipeline>(*context_);
-  morphology_filter_pipelines_[{}] =
-      CreateDefaultPipeline<MorphologyFilterPipeline>(*context_);
-  color_matrix_color_filter_pipelines_[{}] =
-      CreateDefaultPipeline<ColorMatrixColorFilterPipeline>(*context_);
-  linear_to_srgb_filter_pipelines_[{}] =
-      CreateDefaultPipeline<LinearToSrgbFilterPipeline>(*context_);
-  srgb_to_linear_filter_pipelines_[{}] =
-      CreateDefaultPipeline<SrgbToLinearFilterPipeline>(*context_);
-  glyph_atlas_pipelines_[{}] =
+
+  INIT_FILTER_PIPELINES(morphology_filter_pipelines_, MorphologyFilterPipeline);
+  INIT_FILTER_PIPELINES(color_matrix_color_filter_pipelines_,
+                        ColorMatrixColorFilterPipeline);
+  INIT_FILTER_PIPELINES(linear_to_srgb_filter_pipelines_,
+                        LinearToSrgbFilterPipeline);
+  INIT_FILTER_PIPELINES(srgb_to_linear_filter_pipelines_,
+                        SrgbToLinearFilterPipeline);
+  INIT_FILTER_PIPELINES(yuv_to_rgb_filter_pipelines_, YUVToRGBFilterPipeline);
+
+  glyph_atlas_pipelines_[default_options] =
       CreateDefaultPipeline<GlyphAtlasPipeline>(*context_);
-  glyph_atlas_color_pipelines_[{}] =
+  glyph_atlas_color_pipelines_[default_options] =
       CreateDefaultPipeline<GlyphAtlasColorPipeline>(*context_);
-  geometry_color_pipelines_[{}] =
+
+  geometry_color_pipelines_[default_options] =
       CreateDefaultPipeline<GeometryColorPipeline>(*context_);
-  yuv_to_rgb_filter_pipelines_[{}] =
-      CreateDefaultPipeline<YUVToRGBFilterPipeline>(*context_);
-  porter_duff_blend_pipelines_[{}] =
+  porter_duff_blend_pipelines_[default_options] =
       CreateDefaultPipeline<PorterDuffBlendPipeline>(*context_);
 
   if (context_->GetCapabilities()->SupportsCompute()) {
@@ -303,7 +390,8 @@ ContentContext::ContentContext(std::shared_ptr<Context> context)
         context_->GetPipelineLibrary()->GetPipeline(uv_pipeline_desc).Get();
   }
 
-  auto maybe_pipeline_desc = solid_fill_pipelines_[{}]->GetDescriptor();
+  auto maybe_pipeline_desc =
+      solid_fill_pipelines_[default_options]->GetDescriptor();
   if (maybe_pipeline_desc.has_value()) {
     auto clip_pipeline_descriptor = maybe_pipeline_desc.value();
     clip_pipeline_descriptor.SetLabel("Clip Pipeline");
@@ -316,8 +404,26 @@ ContentContext::ContentContext(std::shared_ptr<Context> context)
     }
     clip_pipeline_descriptor.SetColorAttachmentDescriptors(
         std::move(color_attachments));
-    clip_pipelines_[{}] =
-        std::make_unique<ClipPipeline>(*context_, clip_pipeline_descriptor);
+    for (auto clip_combo : clip_combos) {
+      for (auto primitive_type : primitive_types) {
+        ContentContextOptions options = default_options;
+        options.primitive_type = primitive_type;
+        options.stencil_compare = clip_combo.first;
+        options.stencil_operation = clip_combo.second;
+
+        auto maybe_stencil =
+            clip_pipeline_descriptor.GetFrontStencilAttachmentDescriptor();
+        if (maybe_stencil.has_value()) {
+          StencilAttachmentDescriptor stencil = maybe_stencil.value();
+          stencil.stencil_compare = options.stencil_compare;
+          stencil.depth_stencil_pass = options.stencil_operation;
+          clip_pipeline_descriptor.SetStencilAttachmentDescriptors(stencil);
+        }
+        clip_pipeline_descriptor.SetPrimitiveType(primitive_type);
+        clip_pipelines_[options] =
+            std::make_unique<ClipPipeline>(*context_, clip_pipeline_descriptor);
+      }
+    }
   } else {
     return;
   }
@@ -342,11 +448,11 @@ std::shared_ptr<Texture> ContentContext::MakeSubpass(
   if (context->GetCapabilities()->SupportsOffscreenMSAA() && msaa_enabled) {
     subpass_target = RenderTarget::CreateOffscreenMSAA(
         *context, texture_size, SPrintF("%s Offscreen", label.c_str()),
-        RenderTarget::kDefaultColorAttachmentConfigMSAA, std::nullopt);
+        RenderTarget::kDefaultColorAttachmentConfigMSAA);
   } else {
     subpass_target = RenderTarget::CreateOffscreen(
         *context, texture_size, SPrintF("%s Offscreen", label.c_str()),
-        RenderTarget::kDefaultColorAttachmentConfig, std::nullopt);
+        RenderTarget::kDefaultColorAttachmentConfig);
   }
   auto subpass_texture = subpass_target.GetRenderTargetTexture();
   if (!subpass_texture) {
