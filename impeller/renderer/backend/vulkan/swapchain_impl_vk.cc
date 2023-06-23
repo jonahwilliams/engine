@@ -434,11 +434,11 @@ bool SwapchainImplVK::Present(const std::shared_ptr<SwapchainImageVK>& image,
   ///
   context.GetConcurrentWorkerTaskRunner()->PostTask(
       [&, index, current_frame = current_frame_] {
-      auto context_strong = context_.lock();
-      if (!context_strong) {
-        return false;
-      }
-      const auto& sync = synchronizers_[current_frame];
+        auto context_strong = context_.lock();
+        if (!context_strong) {
+          return false;
+        }
+        const auto& sync = synchronizers_[current_frame];
 
         uint32_t indices[] = {static_cast<uint32_t>(index)};
 
