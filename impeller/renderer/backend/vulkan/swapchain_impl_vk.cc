@@ -432,29 +432,40 @@ bool SwapchainImplVK::Present(const std::shared_ptr<SwapchainImageVK>& image,
   //----------------------------------------------------------------------------
   /// Present the image.
   ///
-  uint32_t indices[] = {static_cast<uint32_t>(index)};
+  context.GetConcurrentWorkerTaskRunner()->PostTask(
+      [&, index, current_frame = current_frame_] {
+      auto context_strong = context_.lock();
+      if (!context_strong) {
+        return false;
+      }
+      const auto& sync = synchronizers_[current_frame];
 
-  vk::PresentInfoKHR present_info;
-  present_info.setSwapchains(*swapchain_);
-  present_info.setImageIndices(indices);
-  present_info.setWaitSemaphores(*sync->present_ready);
+        uint32_t indices[] = {static_cast<uint32_t>(index)};
 
-  switch (auto result = present_queue_.presentKHR(present_info)) {
-    case vk::Result::eErrorOutOfDateKHR:
-      // Caller will recreate the impl on acquisition, not submission.
-      [[fallthrough]];
-    case vk::Result::eErrorSurfaceLostKHR:
-      // Vulkan guarantees that the set of queue operations will still complete
-      // successfully.
-      [[fallthrough]];
-    case vk::Result::eSuccess:
-      return true;
-    default:
-      VALIDATION_LOG << "Could not present queue: " << vk::to_string(result);
-      return false;
-  }
-  FML_UNREACHABLE();
-  return false;
+        vk::PresentInfoKHR present_info;
+        present_info.setSwapchains(*swapchain_);
+        present_info.setImageIndices(indices);
+        present_info.setWaitSemaphores(*sync->present_ready);
+
+        switch (auto result = present_queue_.presentKHR(present_info)) {
+          case vk::Result::eErrorOutOfDateKHR:
+            // Caller will recreate the impl on acquisition, not submission.
+            [[fallthrough]];
+          case vk::Result::eErrorSurfaceLostKHR:
+            // Vulkan guarantees that the set of queue operations will still
+            // complete successfully.
+            [[fallthrough]];
+          case vk::Result::eSuccess:
+            return true;
+          default:
+            VALIDATION_LOG << "Could not present queue: "
+                           << vk::to_string(result);
+            return false;
+        }
+        FML_UNREACHABLE();
+        return false;
+      });
+  return true;
 }
 
 }  // namespace impeller
