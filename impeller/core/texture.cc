@@ -46,6 +46,19 @@ bool Texture::SetContents(std::shared_ptr<const fml::Mapping> mapping,
   return true;
 }
 
+bool Texture::SetContents(std::shared_ptr<const DeviceBuffer> device_buffer,
+                          bool is_opaque) {
+  if (!device_buffer) {
+    return false;
+  }
+  if (!OnSetContents(std::move(device_buffer))) {
+    return false;
+  }
+  intent_ = TextureIntent::kUploadFromHost;
+  is_opaque_ = is_opaque;
+  return true;
+}
+
 bool Texture::IsOpaque() const {
   return is_opaque_;
 }

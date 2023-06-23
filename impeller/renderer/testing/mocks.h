@@ -118,6 +118,8 @@ class MockTexture : public Texture {
                bool(const uint8_t* contents, size_t length, size_t slice));
   MOCK_METHOD2(OnSetContents,
                bool(std::shared_ptr<const fml::Mapping> mapping, size_t slice));
+  MOCK_METHOD1(OnSetContents,
+               bool(std::shared_ptr<const DeviceBuffer> device_buffer));
 };
 
 }  // namespace testing

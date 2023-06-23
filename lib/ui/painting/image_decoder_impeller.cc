@@ -336,7 +336,8 @@ ImageDecoderImpeller::UploadTextureToPrivate(
           })
           .SetIfTrue([&result, context, bitmap, gpu_disabled_switch] {
             // create_mips is false because we already know the GPU is disabled.
-            result = UploadTextureToShared(context, bitmap, gpu_disabled_switch,
+            result = UploadTextureToShared(context, buffer, bitmap,
+                                           gpu_disabled_switch,
                                            /*create_mips=*/false);
           }));
   return result;
@@ -345,6 +346,7 @@ ImageDecoderImpeller::UploadTextureToPrivate(
 std::pair<sk_sp<DlImage>, std::string>
 ImageDecoderImpeller::UploadTextureToShared(
     const std::shared_ptr<impeller::Context>& context,
+    const std::shared_ptr<impeller::DeviceBuffer>& buffer,
     std::shared_ptr<SkBitmap> bitmap,
     const std::shared_ptr<fml::SyncSwitch>& gpu_disabled_switch,
     bool create_mips) {
@@ -380,13 +382,7 @@ ImageDecoderImpeller::UploadTextureToShared(
     return std::make_pair(nullptr, decode_error);
   }
 
-  auto mapping = std::make_shared<fml::NonOwnedMapping>(
-      reinterpret_cast<const uint8_t*>(bitmap->getAddr(0, 0)),  // data
-      texture_descriptor.GetByteSizeOfBaseMipLevel(),           // size
-      [bitmap](auto, auto) mutable { bitmap.reset(); }          // proc
-  );
-
-  if (!texture->SetContents(mapping)) {
+  if (!texture->SetContents(std::move(buffer))) {
     std::string decode_error("Could not copy contents into Impeller texture.");
     FML_DLOG(ERROR) << decode_error;
     return std::make_pair(nullptr, decode_error);
@@ -490,7 +486,8 @@ void ImageDecoderImpeller::Decode(fml::RefPtr<ImageDescriptor> descriptor,
             result(image, decode_error);
           } else {
             std::tie(image, decode_error) = UploadTextureToShared(
-                context, bitmap_result.sk_bitmap, gpu_disabled_switch,
+                context, bitmap_result.device_buffer, bitmap_result.sk_bitmap,
+                gpu_disabled_switch,
                 /*create_mips=*/true);
             result(image, decode_error);
           }

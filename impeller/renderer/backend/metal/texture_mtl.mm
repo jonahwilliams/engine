@@ -64,6 +64,13 @@ bool TextureMTL::OnSetContents(std::shared_ptr<const fml::Mapping> mapping,
 }
 
 // |Texture|
+bool TextureMTL::OnSetContents(
+    std::shared_ptr<const DeviceBuffer> device_buffer) {
+  const auto& view = device_buffer->AsBufferView();
+  return OnSetContents(device_buffer->OnGetContents(), view.range.length, 0u);
+}
+
+// |Texture|
 bool TextureMTL::OnSetContents(const uint8_t* contents,
                                size_t length,
                                size_t slice) {

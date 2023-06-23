@@ -8,6 +8,7 @@
 
 #include "flutter/fml/macros.h"
 #include "flutter/fml/mapping.h"
+#include "impeller/core/device_buffer.h"
 #include "impeller/core/formats.h"
 #include "impeller/core/texture_descriptor.h"
 #include "impeller/geometry/size.h"
@@ -28,6 +29,10 @@ class Texture {
   [[nodiscard]] bool SetContents(std::shared_ptr<const fml::Mapping> mapping,
                                  size_t slice = 0,
                                  bool is_opaque = false);
+
+  [[nodiscard]] bool SetContents(
+      std::shared_ptr<const DeviceBuffer> device_buffer,
+      bool is_opaque = false);
 
   virtual bool IsValid() const = 0;
 
@@ -57,6 +62,9 @@ class Texture {
   [[nodiscard]] virtual bool OnSetContents(
       std::shared_ptr<const fml::Mapping> mapping,
       size_t slice) = 0;
+
+  [[nodiscard]] virtual bool OnSetContents(
+      std::shared_ptr<const DeviceBuffer> device_buffer) = 0;
 
   bool mipmap_generated_ = false;
 

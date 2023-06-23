@@ -44,6 +44,9 @@ class TextureVK final : public Texture, public BackendCast<TextureVK, Texture> {
   mutable vk::ImageLayout layout_ IPLR_GUARDED_BY(layout_mutex_) =
       vk::ImageLayout::eUndefined;
 
+  bool SetContentsInternal(std::shared_ptr<const DeviceBuffer> staging_buffer,
+                           const std::shared_ptr<const Context> context);
+
   // |Texture|
   void SetLabel(std::string_view label) override;
 
@@ -55,6 +58,10 @@ class TextureVK final : public Texture, public BackendCast<TextureVK, Texture> {
   // |Texture|
   bool OnSetContents(std::shared_ptr<const fml::Mapping> mapping,
                      size_t slice) override;
+
+  // |Texture|
+  bool OnSetContents(
+      std::shared_ptr<const DeviceBuffer> device_buffer) override;
 
   // |Texture|
   bool IsValid() const override;

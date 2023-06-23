@@ -51,6 +51,10 @@ class TextureMTL final : public Texture,
                      size_t slice) override;
 
   // |Texture|
+  bool OnSetContents(
+      std::shared_ptr<const DeviceBuffer> device_buffer) override;
+
+  // |Texture|
   bool IsValid() const override;
 
   // |Texture|

@@ -78,6 +78,9 @@ class TextureGLES final : public Texture,
   bool OnSetContents(std::shared_ptr<const fml::Mapping> mapping,
                      size_t slice) override;
 
+  bool OnSetContents(
+      std::shared_ptr<const DeviceBuffer> device_buffer) override;
+
   // |Texture|
   bool IsValid() const override;
 

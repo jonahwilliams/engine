@@ -28,36 +28,11 @@ void TextureVK::SetLabel(std::string_view label) {
   ContextVK::Cast(*context).SetDebugName(GetImageView(), label);
 }
 
-bool TextureVK::OnSetContents(const uint8_t* contents,
-                              size_t length,
-                              size_t slice) {
-  if (!IsValid() || !contents) {
-    return false;
-  }
-
-  const auto& desc = GetTextureDescriptor();
-
-  // Out of bounds access.
-  if (length != desc.GetByteSizeOfBaseMipLevel()) {
-    VALIDATION_LOG << "Illegal to set contents for invalid size.";
-    return false;
-  }
-
-  auto context = context_.lock();
-  if (!context) {
-    VALIDATION_LOG << "Context died before setting contents on texture.";
-    return false;
-  }
-
-  auto staging_buffer =
-      context->GetResourceAllocator()->CreateBufferWithCopy(contents, length);
-
-  if (!staging_buffer) {
-    VALIDATION_LOG << "Could not create staging buffer.";
-    return false;
-  }
-
+bool TextureVK::SetContentsInternal(
+    std::shared_ptr<const DeviceBuffer> staging_buffer,
+    const std::shared_ptr<const Context> context) {
   auto cmd_buffer = context->CreateCommandBuffer();
+  const auto& desc = GetTextureDescriptor();
 
   if (!cmd_buffer) {
     return false;
@@ -95,7 +70,7 @@ bool TextureVK::OnSetContents(const uint8_t* contents,
   copy.imageExtent.depth = 1u;
   copy.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
   copy.imageSubresource.mipLevel = 0u;
-  copy.imageSubresource.baseArrayLayer = slice;
+  copy.imageSubresource.baseArrayLayer = 0u;
   copy.imageSubresource.layerCount = 1u;
 
   vk_cmd_buffer.copyBufferToImage(
@@ -107,6 +82,62 @@ bool TextureVK::OnSetContents(const uint8_t* contents,
   );
 
   return cmd_buffer->SubmitCommands();
+}
+
+// |Texture|
+bool TextureVK::OnSetContents(
+    std::shared_ptr<const DeviceBuffer> device_buffer) {
+  if (!IsValid() || !device_buffer) {
+    return false;
+  }
+
+  const auto& desc = GetTextureDescriptor();
+  const auto& buffer_view = device_buffer->AsBufferView();
+
+  // Out of bounds access.
+  if (buffer_view.range.length != desc.GetByteSizeOfBaseMipLevel()) {
+    VALIDATION_LOG << "Illegal to set contents for invalid size.";
+    return false;
+  }
+
+  auto context = context_.lock();
+  if (!context) {
+    VALIDATION_LOG << "Context died before setting contents on texture.";
+    return false;
+  }
+  return SetContentsInternal(device_buffer, context);
+}
+
+bool TextureVK::OnSetContents(const uint8_t* contents,
+                              size_t length,
+                              size_t slice) {
+  if (!IsValid() || !contents) {
+    return false;
+  }
+
+  const auto& desc = GetTextureDescriptor();
+
+  // Out of bounds access.
+  if (length != desc.GetByteSizeOfBaseMipLevel()) {
+    VALIDATION_LOG << "Illegal to set contents for invalid size.";
+    return false;
+  }
+
+  auto context = context_.lock();
+  if (!context) {
+    VALIDATION_LOG << "Context died before setting contents on texture.";
+    return false;
+  }
+
+  auto staging_buffer =
+      context->GetResourceAllocator()->CreateBufferWithCopy(contents, length);
+
+  if (!staging_buffer) {
+    VALIDATION_LOG << "Could not create staging buffer.";
+    return false;
+  }
+
+  return SetContentsInternal(staging_buffer, context);
 }
 
 bool TextureVK::OnSetContents(std::shared_ptr<const fml::Mapping> mapping,

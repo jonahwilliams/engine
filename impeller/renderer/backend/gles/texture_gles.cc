@@ -192,6 +192,15 @@ bool TextureGLES::OnSetContents(const uint8_t* contents,
 }
 
 // |Texture|
+bool TextureGLES::OnSetContents(
+    std::shared_ptr<const DeviceBuffer> device_buffer) {
+  const auto view = device_buffer->AsBufferView();
+  return OnSetContents(
+      CreateMappingWithCopy(device_buffer->OnGetContents(), view.range.length),
+      0u);
+}
+
+// |Texture|
 bool TextureGLES::OnSetContents(std::shared_ptr<const fml::Mapping> mapping,
                                 size_t slice) {
   if (!mapping) {

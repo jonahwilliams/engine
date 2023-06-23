@@ -85,6 +85,7 @@ class ImageDecoderImpeller final : public ImageDecoder {
 
   /// @brief Create a host visible texture from the provided bitmap.
   /// @param context     The Impeller graphics context.
+  /// @param buffer     A host buffer containing the image to be uploaded.
   /// @param bitmap      A bitmap containg the image to be uploaded.
   /// @param create_mips Whether mipmaps should be generated for the given
   /// image.
@@ -93,7 +94,8 @@ class ImageDecoderImpeller final : public ImageDecoder {
   /// @return            A DlImage.
   static std::pair<sk_sp<DlImage>, std::string> UploadTextureToShared(
       const std::shared_ptr<impeller::Context>& context,
-      std::shared_ptr<SkBitmap> bitmap,
+      const std::shared_ptr<impeller::DeviceBuffer>& buffer,
+      const std::shared_ptr<SkBitmap>& bitmap,
       const std::shared_ptr<fml::SyncSwitch>& gpu_disabled_switch,
       bool create_mips = true);
 
