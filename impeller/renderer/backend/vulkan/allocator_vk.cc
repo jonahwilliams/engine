@@ -14,6 +14,48 @@
 
 namespace impeller {
 
+static constexpr VmaMemoryUsage ToVMAMemoryUsage() {
+  return VMA_MEMORY_USAGE_AUTO;
+}
+
+static constexpr VkMemoryPropertyFlags ToVKMemoryPropertyFlags(
+    StorageMode mode) {
+  switch (mode) {
+    case StorageMode::kHostVisible:
+      // See https://github.com/flutter/flutter/issues/128556 . Some devices do
+      // not have support for coherent host memory so we don't request it here.
+      return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+    case StorageMode::kDevicePrivate:
+      return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    case StorageMode::kDeviceTransient:
+      return VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT;
+  }
+  FML_UNREACHABLE();
+}
+
+static VmaAllocationCreateFlags ToVmaAllocationCreateFlags(StorageMode mode,
+                                                           bool is_texture) {
+  VmaAllocationCreateFlags flags = 0;
+  switch (mode) {
+    case StorageMode::kHostVisible:
+      if (is_texture) {
+        flags |= {};
+      } else {
+        flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+        flags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
+      }
+      return flags;
+    case StorageMode::kDevicePrivate:
+      if (is_texture) {
+        flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+      }
+      return flags;
+    case StorageMode::kDeviceTransient:
+      return flags;
+  }
+  FML_UNREACHABLE();
+}
+
 AllocatorVK::AllocatorVK(std::weak_ptr<Context> context,
                          uint32_t vulkan_api_version,
                          const vk::PhysicalDevice& physical_device,
@@ -89,12 +131,105 @@ AllocatorVK::AllocatorVK(std::weak_ptr<Context> context,
     VALIDATION_LOG << "Could not create memory allocator";
     return;
   }
+
+  {
+    vk::BufferCreateInfo buffer_info;
+    buffer_info.usage = vk::BufferUsageFlagBits::eVertexBuffer |
+                        vk::BufferUsageFlagBits::eIndexBuffer |
+                        vk::BufferUsageFlagBits::eUniformBuffer |
+                        vk::BufferUsageFlagBits::eStorageBuffer |
+                        vk::BufferUsageFlagBits::eTransferSrc |
+                        vk::BufferUsageFlagBits::eTransferDst;
+    buffer_info.size = 1u;
+    buffer_info.sharingMode = vk::SharingMode::eExclusive;
+    auto buffer_info_native =
+        static_cast<vk::BufferCreateInfo::NativeType>(buffer_info);
+
+    VmaAllocationCreateInfo allocation_info = {};
+    allocation_info.usage = ToVMAMemoryUsage();
+    allocation_info.preferredFlags =
+        ToVKMemoryPropertyFlags(StorageMode::kHostVisible);
+    allocation_info.flags =
+        ToVmaAllocationCreateFlags(StorageMode::kHostVisible, false);
+
+    const auto create_info_native =
+        static_cast<vk::BufferCreateInfo::NativeType>(buffer_info);
+
+    uint32_t memory_index = UINT32_MAX;
+    auto result = vk::Result{::vmaFindMemoryTypeIndexForBufferInfo(
+        allocator, &create_info_native, &allocation_info, &memory_index)};
+    if (result != vk::Result::eSuccess) {
+      VALIDATION_LOG << "Could not create memory allocator";
+      return;
+    }
+
+    const VmaPoolCreateInfo gpuPoolInfo{
+        .memoryTypeIndex = memory_index,
+        .flags = VMA_POOL_CREATE_IGNORE_BUFFER_IMAGE_GRANULARITY_BIT,
+        .blockSize = 128ull * 1024 * 1024,
+    };
+
+    result = vk::Result{
+        ::vmaCreatePool(allocator, &gpuPoolInfo, &host_buffer_pool_)};
+    if (result != vk::Result::eSuccess) {
+      VALIDATION_LOG << "Could not create memory allocator";
+      return;
+    }
+  }
+
+  {
+    vk::ImageCreateInfo image_info;
+    image_info.flags = {};
+    image_info.imageType = vk::ImageType::e2D;
+    image_info.format = vk::Format::eB8G8R8A8Srgb;
+    image_info.extent = VkExtent3D{1u, 1u, 1u};
+    image_info.samples = vk::SampleCountFlagBits::e1;
+    image_info.mipLevels = 1u;
+    image_info.arrayLayers = 1u;
+    image_info.tiling = vk::ImageTiling::eOptimal;
+    image_info.initialLayout = vk::ImageLayout::eUndefined;
+    image_info.usage = vk::ImageUsageFlagBits::eSampled;
+    image_info.sharingMode = vk::SharingMode::eExclusive;
+
+    VmaAllocationCreateInfo allocation_info = {};
+    allocation_info.usage = ToVMAMemoryUsage();
+    allocation_info.preferredFlags =
+        ToVKMemoryPropertyFlags(StorageMode::kHostVisible);
+    allocation_info.flags =
+        ToVmaAllocationCreateFlags(StorageMode::kHostVisible, true);
+
+    uint32_t memory_index = UINT32_MAX;
+    const auto create_info_native =
+        static_cast<vk::ImageCreateInfo::NativeType>(image_info);
+
+    auto result = vk::Result{::vmaFindMemoryTypeIndexForImageInfo(
+        allocator, &create_info_native, &allocation_info, &memory_index)};
+    if (result != vk::Result::eSuccess) {
+      VALIDATION_LOG << "Could not create memory allocator";
+      return;
+    }
+
+    const VmaPoolCreateInfo gpuPoolInfo{
+        .memoryTypeIndex = memory_index,
+        .blockSize = 128ull * 1024 * 1024,
+    };
+
+    result = vk::Result{
+        ::vmaCreatePool(allocator, &gpuPoolInfo, &host_texture_pool_)};
+    if (result != vk::Result::eSuccess) {
+      VALIDATION_LOG << "Could not create memory allocator";
+      return;
+    }
+  }
+
   allocator_ = allocator;
   is_valid_ = true;
 }
 
 AllocatorVK::~AllocatorVK() {
   if (allocator_) {
+    ::vmaDestroyPool(allocator_, host_buffer_pool_);
+    ::vmaDestroyPool(allocator_, host_texture_pool_);
     ::vmaDestroyAllocator(allocator_);
   }
 }
@@ -163,53 +298,12 @@ static constexpr vk::ImageUsageFlags ToVKImageUsageFlags(PixelFormat format,
   return vk_usage;
 }
 
-static constexpr VmaMemoryUsage ToVMAMemoryUsage() {
-  return VMA_MEMORY_USAGE_AUTO;
-}
-
-static constexpr VkMemoryPropertyFlags ToVKMemoryPropertyFlags(
-    StorageMode mode) {
-  switch (mode) {
-    case StorageMode::kHostVisible:
-      // See https://github.com/flutter/flutter/issues/128556 . Some devices do
-      // not have support for coherent host memory so we don't request it here.
-      return VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-    case StorageMode::kDevicePrivate:
-      return VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    case StorageMode::kDeviceTransient:
-      return VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT;
-  }
-  FML_UNREACHABLE();
-}
-
-static VmaAllocationCreateFlags ToVmaAllocationCreateFlags(StorageMode mode,
-                                                           bool is_texture) {
-  VmaAllocationCreateFlags flags = 0;
-  switch (mode) {
-    case StorageMode::kHostVisible:
-      if (is_texture) {
-        flags |= {};
-      } else {
-        flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
-        flags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
-      }
-      return flags;
-    case StorageMode::kDevicePrivate:
-      if (is_texture) {
-        flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-      }
-      return flags;
-    case StorageMode::kDeviceTransient:
-      return flags;
-  }
-  FML_UNREACHABLE();
-}
-
 class AllocatedTextureSourceVK final : public TextureSourceVK {
  public:
   AllocatedTextureSourceVK(const TextureDescriptor& desc,
                            VmaAllocator allocator,
-                           vk::Device device)
+                           vk::Device device,
+                           VmaPool texture_pool)
       : TextureSourceVK(desc) {
     vk::ImageCreateInfo image_info;
     image_info.flags = ToVKImageCreateFlags(desc.type);
@@ -234,6 +328,9 @@ class AllocatedTextureSourceVK final : public TextureSourceVK {
     alloc_nfo.usage = ToVMAMemoryUsage();
     alloc_nfo.preferredFlags = ToVKMemoryPropertyFlags(desc.storage_mode);
     alloc_nfo.flags = ToVmaAllocationCreateFlags(desc.storage_mode, true);
+    if (desc.storage_mode == StorageMode::kHostVisible) {
+      alloc_nfo.pool = texture_pool;
+    }
 
     auto create_info_native =
         static_cast<vk::ImageCreateInfo::NativeType>(image_info);
@@ -335,9 +432,10 @@ std::shared_ptr<Texture> AllocatorVK::OnCreateTexture(
     return nullptr;
   }
   auto source =
-      std::make_shared<AllocatedTextureSourceVK>(desc,                       //
-                                                 allocator_,                 //
-                                                 device_holder->GetDevice()  //
+      std::make_shared<AllocatedTextureSourceVK>(desc,                        //
+                                                 allocator_,                  //
+                                                 device_holder->GetDevice(),  //
+                                                 host_texture_pool_           //
       );
   if (!source->IsValid()) {
     return nullptr;
@@ -364,6 +462,9 @@ std::shared_ptr<DeviceBuffer> AllocatorVK::OnCreateBuffer(
   allocation_info.usage = ToVMAMemoryUsage();
   allocation_info.preferredFlags = ToVKMemoryPropertyFlags(desc.storage_mode);
   allocation_info.flags = ToVmaAllocationCreateFlags(desc.storage_mode, false);
+  if (StorageMode::kHostVisible == desc.storage_mode) {
+    allocation_info.pool = host_buffer_pool_;
+  }
 
   VkBuffer buffer = {};
   VmaAllocation buffer_allocation = {};
