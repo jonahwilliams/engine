@@ -47,6 +47,10 @@ class SwapchainImplVK final
         : surface(std::move(p_surface)) {}
   };
 
+  bool GetWasSuboptimal() const {
+    return was_suboptimal_;
+  }
+
   AcquireResult AcquireNextDrawable();
 
   vk::Format GetSurfaceFormat() const;
@@ -65,6 +69,7 @@ class SwapchainImplVK final
   std::vector<std::unique_ptr<FrameSynchronizer>> synchronizers_;
   size_t current_frame_ = 0u;
   bool is_valid_ = false;
+  bool was_suboptimal_ = false;
 
   SwapchainImplVK(const std::shared_ptr<Context>& context,
                   vk::UniqueSurfaceKHR surface,

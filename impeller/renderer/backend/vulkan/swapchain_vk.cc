@@ -35,9 +35,11 @@ std::unique_ptr<Surface> SwapchainVK::AcquireNextDrawable() {
 
   TRACE_EVENT0("impeller", __FUNCTION__);
 
-  auto result = impl_->AcquireNextDrawable();
-  if (!result.out_of_date) {
-    return std::move(result.surface);
+  if (!impl_->GetWasSuboptimal()) {
+    auto result = impl_->AcquireNextDrawable();
+    if (!result.out_of_date) {
+      return std::move(result.surface);
+    }
   }
 
   TRACE_EVENT0("impeller", "RecreateSwapchain");

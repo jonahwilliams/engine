@@ -178,17 +178,46 @@ SwapchainImplVK::SwapchainImplVK(const std::shared_ptr<Context>& context,
     return;
   }
 
+  vk::Extent2D swapchainExtent;
+  if (caps.currentExtent.width ==
+      std::numeric_limits<uint32_t>::max()) {
+    // If the surface size is undefined, the size is set to the size of the
+    // images requested.
+    swapchainExtent.width =
+        std::clamp(caps.currentExtent.width, caps.minImageExtent.width,
+                   caps.maxImageExtent.width);
+    swapchainExtent.height =
+        std::clamp(caps.currentExtent.height, caps.minImageExtent.height,
+                   caps.maxImageExtent.height);
+  } else {
+    // If the surface size is defined, the swap chain size must match
+    swapchainExtent = caps.currentExtent;
+  }
+  FML_LOG(ERROR) << "RECRATE";
+  FML_LOG(ERROR) << "size: " << swapchainExtent.width << " , " <<  swapchainExtent.height;
+
+  // auto width = std::clamp(caps.currentExtent.width,
+  // caps.minImageExtent.width,
+  //                         caps.maxImageExtent.width);
+  // auto height =
+  //     std::clamp(caps.currentExtent.height, caps.minImageExtent.height,
+  //                caps.maxImageExtent.height);
+
+  if (caps.currentTransform & vk::SurfaceTransformFlagBitsKHR::eRotate90 ||
+      caps.currentTransform & vk::SurfaceTransformFlagBitsKHR::eRotate270) {
+    auto temp = swapchainExtent.width;
+    swapchainExtent.width = swapchainExtent.height;
+    swapchainExtent.height = temp;
+    FML_LOG(ERROR) << "swapped: " << swapchainExtent.width << " , " <<  swapchainExtent.height;
+
+  }
+
   vk::SwapchainCreateInfoKHR swapchain_info;
   swapchain_info.surface = *surface;
   swapchain_info.imageFormat = format.value().format;
   swapchain_info.imageColorSpace = format.value().colorSpace;
   swapchain_info.presentMode = vk::PresentModeKHR::eFifo;
-  swapchain_info.imageExtent = vk::Extent2D{
-      std::clamp(caps.currentExtent.width, caps.minImageExtent.width,
-                 caps.maxImageExtent.width),
-      std::clamp(caps.currentExtent.height, caps.minImageExtent.height,
-                 caps.maxImageExtent.height),
-  };
+  swapchain_info.imageExtent = swapchainExtent;
   swapchain_info.minImageCount = std::clamp(
       caps.minImageCount + 1u,  // preferred image count
       caps.minImageCount,       // min count cannot be zero
@@ -440,14 +469,19 @@ bool SwapchainImplVK::Present(const std::shared_ptr<SwapchainImageVK>& image,
   present_info.setWaitSemaphores(*sync->present_ready);
 
   switch (auto result = present_queue_.presentKHR(present_info)) {
-    case vk::Result::eErrorOutOfDateKHR:
-      // Caller will recreate the impl on acquisition, not submission.
-      [[fallthrough]];
     case vk::Result::eErrorSurfaceLostKHR:
       // Vulkan guarantees that the set of queue operations will still complete
       // successfully.
       [[fallthrough]];
     case vk::Result::eSuccess:
+      was_suboptimal_ = false;
+      return true;
+    case vk::Result::eSuboptimalKHR:
+      [[fallthrough]];
+    case vk::Result::eErrorOutOfDateKHR:
+     FML_LOG(ERROR) << "BAD!";
+      // Caller will recreate the impl on acquisition, not submission.
+      was_suboptimal_ = true;
       return true;
     default:
       VALIDATION_LOG << "Could not present queue: " << vk::to_string(result);
