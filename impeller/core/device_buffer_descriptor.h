@@ -10,9 +10,17 @@
 
 namespace impeller {
 
+
+enum DeviceBufferUsageIntent {
+  /// @brief  This buffer we only be used as a staging buffer for data upload.
+  kStaging,
+  kUnknown,
+};
+
 struct DeviceBufferDescriptor {
   StorageMode storage_mode = StorageMode::kDeviceTransient;
   size_t size = 0u;
+  DeviceBufferUsageIntent usage = DeviceBufferUsageIntent::kUnknown;
 };
 
 }  // namespace impeller

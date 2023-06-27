@@ -184,14 +184,19 @@ static constexpr VkMemoryPropertyFlags ToVKMemoryPropertyFlags(
 }
 
 static VmaAllocationCreateFlags ToVmaAllocationCreateFlags(StorageMode mode,
-                                                           bool is_texture) {
+                                                           bool is_texture,
+                                                           bool is_staging) {
   VmaAllocationCreateFlags flags = 0;
   switch (mode) {
     case StorageMode::kHostVisible:
       if (is_texture) {
         flags |= {};
       } else {
-        flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+        if (is_staging) {
+          flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+        } else {
+          flags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+        }
         flags |= VMA_ALLOCATION_CREATE_MAPPED_BIT;
       }
       return flags;
@@ -234,7 +239,8 @@ class AllocatedTextureSourceVK final : public TextureSourceVK {
 
     alloc_nfo.usage = ToVMAMemoryUsage();
     alloc_nfo.preferredFlags = ToVKMemoryPropertyFlags(desc.storage_mode);
-    alloc_nfo.flags = ToVmaAllocationCreateFlags(desc.storage_mode, true);
+    alloc_nfo.flags =
+        ToVmaAllocationCreateFlags(desc.storage_mode, true, false);
 
     auto create_info_native =
         static_cast<vk::ImageCreateInfo::NativeType>(image_info);
@@ -352,12 +358,16 @@ std::shared_ptr<DeviceBuffer> AllocatorVK::OnCreateBuffer(
     const DeviceBufferDescriptor& desc) {
   TRACE_EVENT0("impeller", "AllocatorVK::OnCreateBuffer");
   vk::BufferCreateInfo buffer_info;
-  buffer_info.usage = vk::BufferUsageFlagBits::eVertexBuffer |
-                      vk::BufferUsageFlagBits::eIndexBuffer |
-                      vk::BufferUsageFlagBits::eUniformBuffer |
-                      vk::BufferUsageFlagBits::eStorageBuffer |
-                      vk::BufferUsageFlagBits::eTransferSrc |
-                      vk::BufferUsageFlagBits::eTransferDst;
+  if (desc.usage == DeviceBufferUsageIntent::kUnknown) {
+    buffer_info.usage = vk::BufferUsageFlagBits::eVertexBuffer |
+                        vk::BufferUsageFlagBits::eIndexBuffer |
+                        vk::BufferUsageFlagBits::eUniformBuffer |
+                        vk::BufferUsageFlagBits::eStorageBuffer |
+                        vk::BufferUsageFlagBits::eTransferSrc |
+                        vk::BufferUsageFlagBits::eTransferDst;
+  } else {
+    buffer_info.usage = vk::BufferUsageFlagBits::eTransferSrc;
+  }
   buffer_info.size = desc.size;
   buffer_info.sharingMode = vk::SharingMode::eExclusive;
   auto buffer_info_native =
@@ -366,7 +376,8 @@ std::shared_ptr<DeviceBuffer> AllocatorVK::OnCreateBuffer(
   VmaAllocationCreateInfo allocation_info = {};
   allocation_info.usage = ToVMAMemoryUsage();
   allocation_info.preferredFlags = ToVKMemoryPropertyFlags(desc.storage_mode);
-  allocation_info.flags = ToVmaAllocationCreateFlags(desc.storage_mode, false);
+  allocation_info.flags = ToVmaAllocationCreateFlags(
+      desc.storage_mode, false, desc.usage != DeviceBufferUsageIntent::kUnknown);
 
   VkBuffer buffer = {};
   VmaAllocation buffer_allocation = {};

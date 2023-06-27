@@ -527,6 +527,7 @@ bool ImpellerAllocator::allocPixelRef(SkBitmap* bitmap) {
   descriptor.storage_mode = impeller::StorageMode::kHostVisible;
   descriptor.size = ((bitmap->height() - 1) * bitmap->rowBytes()) +
                     (bitmap->width() * bitmap->bytesPerPixel());
+  descriptor.usage = impeller::DeviceBufferUsageIntent::kStaging;
 
   auto device_buffer = allocator_->CreateBuffer(descriptor);
 
