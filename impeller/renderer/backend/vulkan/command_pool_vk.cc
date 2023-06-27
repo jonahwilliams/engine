@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "flutter/fml/trace_event.h"
 #include "flutter/fml/thread_local.h"
 #include "impeller/base/thread.h"
 #include "impeller/renderer/backend/vulkan/context_vk.h"
@@ -41,6 +42,7 @@ std::shared_ptr<CommandPoolVK> CommandPoolVK::GetThreadLocal(
   }
   pool_map[context->GetHash()] = pool;
   {
+    TRACE_EVENT0("flutter", "CommandPoolVK::GetThreadLocal");
     Lock pool_lock(g_all_pools_mutex);
     g_all_pools[context].push_back(pool);
   }
@@ -51,6 +53,7 @@ void CommandPoolVK::ClearAllPools(const ContextVK* context) {
   if (tls_command_pool.get()) {
     tls_command_pool.get()->erase(context->GetHash());
   }
+  TRACE_EVENT0("flutter", "CommandPoolVK::ClearAllPools");
   Lock pool_lock(g_all_pools_mutex);
   if (auto found = g_all_pools.find(context); found != g_all_pools.end()) {
     for (auto& weak_pool : found->second) {
@@ -69,17 +72,31 @@ void CommandPoolVK::ClearAllPools(const ContextVK* context) {
 
 CommandPoolVK::CommandPoolVK(const ContextVK* context)
     : owner_id_(std::this_thread::get_id()) {
-  vk::CommandPoolCreateInfo pool_info;
+  device_holder_ = context->GetDeviceHolder();
 
-  pool_info.queueFamilyIndex = context->GetGraphicsQueue()->GetIndex().family;
-  pool_info.flags = vk::CommandPoolCreateFlagBits::eTransient;
-  auto pool = context->GetDevice().createCommandPoolUnique(pool_info);
-  if (pool.result != vk::Result::eSuccess) {
-    return;
+  {
+    vk::CommandPoolCreateInfo pool_info;
+    pool_info.queueFamilyIndex = context->GetGraphicsQueue()->GetIndex().family;
+    pool_info.flags = vk::CommandPoolCreateFlagBits::eTransient;
+    auto pool = context->GetDevice().createCommandPoolUnique(pool_info);
+    if (pool.result != vk::Result::eSuccess) {
+      return;
+    }
+
+    graphics_pool_ = std::move(pool.value);
   }
 
-  device_holder_ = context->GetDeviceHolder();
-  graphics_pool_ = std::move(pool.value);
+  {
+    vk::CommandPoolCreateInfo pool_info;
+    pool_info.queueFamilyIndex = context->GetTransferQueue()->GetIndex().family;
+    pool_info.flags = vk::CommandPoolCreateFlagBits::eTransient;
+    auto pool = context->GetDevice().createCommandPoolUnique(pool_info);
+    if (pool.result != vk::Result::eSuccess) {
+      return;
+    }
+
+    transfer_pool_ = std::move(pool.value);
+  }
   is_valid_ = true;
 }
 
@@ -90,17 +107,21 @@ bool CommandPoolVK::IsValid() const {
 }
 
 void CommandPoolVK::Reset() {
+  TRACE_EVENT0("flutter", "CommandPoolVK::Reset");
   Lock lock(buffers_to_collect_mutex_);
   GarbageCollectBuffersIfAble();
   graphics_pool_.reset();
   is_valid_ = false;
 }
 
-vk::CommandPool CommandPoolVK::GetGraphicsCommandPool() const {
-  return graphics_pool_.get();
+vk::CommandPool CommandPoolVK::GetCommandPool(
+    CommandBufferType buffer_type) const {
+  return (buffer_type == CommandBufferType::kGraphics) ? graphics_pool_.get()
+                                                       : transfer_pool_.get();
 }
 
-vk::UniqueCommandBuffer CommandPoolVK::CreateGraphicsCommandBuffer() {
+vk::UniqueCommandBuffer CommandPoolVK::CreateCommandBuffer(
+    CommandBufferType buffer_type) {
   std::shared_ptr<const DeviceHolder> strong_device = device_holder_.lock();
   if (!strong_device) {
     return {};
@@ -109,11 +130,14 @@ vk::UniqueCommandBuffer CommandPoolVK::CreateGraphicsCommandBuffer() {
     return {};
   }
   {
+    TRACE_EVENT0("flutter", "CommandPoolVK::CreateCommandBuffer");
     Lock lock(buffers_to_collect_mutex_);
     GarbageCollectBuffersIfAble();
   }
   vk::CommandBufferAllocateInfo alloc_info;
-  alloc_info.commandPool = graphics_pool_.get();
+  alloc_info.commandPool = (buffer_type == CommandBufferType::kGraphics)
+                               ? graphics_pool_.get()
+                               : transfer_pool_.get();
   alloc_info.commandBufferCount = 1u;
   alloc_info.level = vk::CommandBufferLevel::ePrimary;
   auto [result, buffers] =
@@ -124,14 +148,17 @@ vk::UniqueCommandBuffer CommandPoolVK::CreateGraphicsCommandBuffer() {
   return std::move(buffers[0]);
 }
 
-void CommandPoolVK::CollectGraphicsCommandBuffer(
-    vk::UniqueCommandBuffer buffer) {
-  Lock lock(buffers_to_collect_mutex_);
-  if (!graphics_pool_) {
+void CommandPoolVK::CollectCommandBuffer(vk::UniqueCommandBuffer buffer,
+                                         CommandBufferType buffer_type) {
+  if (buffer_type == CommandBufferType::kGraphics && !graphics_pool_) {
     // If the command pool has already been destroyed, then its command buffers
     // have been freed and are now invalid.
     buffer.release();
+  } else if (buffer_type == CommandBufferType::kTransfer && !transfer_pool_) {
+    buffer.release();
   }
+  TRACE_EVENT0("flutter", "CommandPoolVK::CollectCommandBuffer");
+  Lock lock(buffers_to_collect_mutex_);
   buffers_to_collect_.insert(MakeSharedVK(std::move(buffer)));
   GarbageCollectBuffersIfAble();
 }

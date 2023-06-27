@@ -72,7 +72,8 @@ class ContextVK final : public Context,
   std::shared_ptr<PipelineLibrary> GetPipelineLibrary() const override;
 
   // |Context|
-  std::shared_ptr<CommandBuffer> CreateCommandBuffer() const override;
+  std::shared_ptr<CommandBuffer> CreateCommandBuffer(
+      CommandBufferType type = CommandBufferType::kGraphics) const override;
 
   // |Context|
   const std::shared_ptr<const Capabilities>& GetCapabilities() const override;
@@ -132,6 +133,10 @@ class ContextVK final : public Context,
 
   const std::shared_ptr<QueueVK>& GetGraphicsQueue() const;
 
+  const std::shared_ptr<QueueVK>& GetTransferQueue() const {
+    return queues_.transfer_queue;
+  }
+
   vk::PhysicalDevice GetPhysicalDevice() const;
 
   std::shared_ptr<FenceWaiterVK> GetFenceWaiter() const;
@@ -171,6 +176,8 @@ class ContextVK final : public Context,
   void Setup(Settings settings);
 
   std::unique_ptr<CommandEncoderVK> CreateGraphicsCommandEncoder() const;
+
+  std::unique_ptr<CommandEncoderVK> CreateTransferCommandEncoder() const;
 
   FML_DISALLOW_COPY_AND_ASSIGN(ContextVK);
 };

@@ -5,6 +5,7 @@
 #include "impeller/renderer/backend/vulkan/queue_vk.h"
 
 #include "impeller/renderer/backend/vulkan/context_vk.h"
+#include "flutter/fml/trace_event.h"
 
 namespace impeller {
 
@@ -19,6 +20,7 @@ const QueueIndexVK& QueueVK::GetIndex() const {
 
 vk::Result QueueVK::Submit(const vk::SubmitInfo& submit_info,
                            const vk::Fence& fence) const {
+  TRACE_EVENT0("flutter", "QueueVK::Submit");
   Lock lock(queue_mutex_);
   return queue_.submit(submit_info, fence);
 }
@@ -29,6 +31,7 @@ void QueueVK::InsertDebugMarker(const char* label) const {
   }
   vk::DebugUtilsLabelEXT label_info;
   label_info.pLabelName = label;
+  TRACE_EVENT0("flutter", "QueueVK::Submit");
   Lock lock(queue_mutex_);
   queue_.insertDebugUtilsLabelEXT(label_info);
 }

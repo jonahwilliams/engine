@@ -20,6 +20,7 @@ std::shared_ptr<DeviceBuffer> Allocator::CreateBufferWithCopy(
   DeviceBufferDescriptor desc;
   desc.size = length;
   desc.storage_mode = StorageMode::kHostVisible;
+  desc.usage = DeviceBufferUsageIntent::kStaging;
   auto new_buffer = CreateBuffer(desc);
 
   if (!new_buffer) {

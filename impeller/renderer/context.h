@@ -40,7 +40,8 @@ class Context {
 
   virtual std::shared_ptr<PipelineLibrary> GetPipelineLibrary() const = 0;
 
-  virtual std::shared_ptr<CommandBuffer> CreateCommandBuffer() const = 0;
+  virtual std::shared_ptr<CommandBuffer> CreateCommandBuffer(
+      CommandBufferType type = CommandBufferType::kGraphics) const = 0;
 
   /// @brief Force all pending async work to finish by deleting any owned
   /// concurrent message loops.

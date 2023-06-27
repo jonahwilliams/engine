@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "impeller/renderer/backend/vulkan/texture_source_vk.h"
+#include "flutter/fml/trace_event.h"
 
 namespace impeller {
 
@@ -15,12 +16,14 @@ const TextureDescriptor& TextureSourceVK::GetTextureDescriptor() const {
 }
 
 vk::ImageLayout TextureSourceVK::GetLayout() const {
+  TRACE_EVENT0("flutter", "TextureSourceVK::GetLayout");
   ReaderLock lock(layout_mutex_);
   return layout_;
 }
 
 vk::ImageLayout TextureSourceVK::SetLayoutWithoutEncoding(
     vk::ImageLayout layout) const {
+  TRACE_EVENT0("flutter", "TextureSourceVK::SetLayoutWithoutEncoding");
   WriterLock lock(layout_mutex_);
   const auto old_layout = layout_;
   layout_ = layout;
