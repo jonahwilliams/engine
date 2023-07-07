@@ -461,8 +461,8 @@ std::shared_ptr<GlyphAtlas> TextRenderContextSkia::CreateGlyphAtlas(
   if (!texture) {
     return nullptr;
   }
-// Ensure that if this is the last reference to the glyph texture, that we do
-// not destruct it on the raster thread.
+  // Ensure that if this is the last reference to the glyph texture, that we do
+  // not destruct it on the raster thread.
   GetContext()->GetConcurrentWorkerTaskRunner()->PostTask([old_atlas] {});
 
   // ---------------------------------------------------------------------------
