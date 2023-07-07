@@ -11,6 +11,10 @@
 #include "impeller/core/formats.h"
 #include "impeller/renderer/capabilities.h"
 
+namespace fml {
+class ConcurrentTaskRunner;
+}
+
 namespace impeller {
 
 class ShaderLibrary;
@@ -130,6 +134,11 @@ class Context {
   /// @return     A new command buffer.
   ///
   virtual std::shared_ptr<CommandBuffer> CreateCommandBuffer() const = 0;
+
+  virtual const std::shared_ptr<fml::ConcurrentTaskRunner>
+  GetConcurrentWorkerTaskRunner() const {
+    return nullptr;
+  }
 
   //----------------------------------------------------------------------------
   /// @brief      Force all pending asynchronous work to finish. This is

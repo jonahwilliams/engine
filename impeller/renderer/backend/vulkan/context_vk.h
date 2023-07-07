@@ -120,7 +120,7 @@ class ContextVK final : public Context,
   const vk::Device& GetDevice() const;
 
   const std::shared_ptr<fml::ConcurrentTaskRunner>
-  GetConcurrentWorkerTaskRunner() const;
+  GetConcurrentWorkerTaskRunner() const override;
 
   [[nodiscard]] bool SetWindowSurface(vk::UniqueSurfaceKHR surface);
 

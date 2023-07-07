@@ -138,6 +138,8 @@ class GlyphAtlasContext {
   /// @brief      Retrieve the current glyph atlas.
   std::shared_ptr<GlyphAtlas> GetGlyphAtlas() const;
 
+  std::shared_ptr<GlyphAtlas> TakeGlyphAtlas() const;
+
   //----------------------------------------------------------------------------
   /// @brief      Retrieve the size of the current glyph atlas.
   const ISize& GetAtlasSize() const;

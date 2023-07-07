@@ -6,6 +6,7 @@
 
 #include <utility>
 
+#include "flutter/fml/concurrent_message_loop.h"
 #include "flutter/fml/logging.h"
 #include "flutter/fml/trace_event.h"
 #include "impeller/base/allocation.h"
@@ -408,6 +409,7 @@ std::shared_ptr<GlyphAtlas> TextRenderContextSkia::CreateGlyphAtlas(
   auto atlas_size = OptimumAtlasSizeForFontGlyphPairs(
       font_glyph_pairs, glyph_positions, atlas_context, type);
 
+  auto old_atlas = atlas_context->TakeGlyphAtlas();
   atlas_context->UpdateGlyphAtlas(glyph_atlas, atlas_size);
   if (atlas_size.IsEmpty()) {
     return nullptr;
@@ -459,6 +461,9 @@ std::shared_ptr<GlyphAtlas> TextRenderContextSkia::CreateGlyphAtlas(
   if (!texture) {
     return nullptr;
   }
+// Ensure that if this is the last reference to the glyph texture, that we do
+// not destruct it on the raster thread.
+  GetContext()->GetConcurrentWorkerTaskRunner()->PostTask([old_atlas] {});
 
   // ---------------------------------------------------------------------------
   // Step 9: Record the texture in the glyph atlas.

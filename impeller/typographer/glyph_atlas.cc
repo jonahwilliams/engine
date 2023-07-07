@@ -18,6 +18,10 @@ std::shared_ptr<GlyphAtlas> GlyphAtlasContext::GetGlyphAtlas() const {
   return atlas_;
 }
 
+std::shared_ptr<GlyphAtlas> GlyphAtlasContext::TakeGlyphAtlas() const {
+  return std::move(atlas_);
+}
+
 const ISize& GlyphAtlasContext::GetAtlasSize() const {
   return atlas_size_;
 }
