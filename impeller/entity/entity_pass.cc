@@ -981,7 +981,8 @@ Color EntityPass::GetClearColor(ISize target_size) const {
     if (!entity_color.has_value()) {
       break;
     }
-    FML_LOG(ERROR) << "Color: " << entity_color.value() << "blend: " << static_cast<int>(blend_mode);
+    FML_LOG(ERROR) << "Color: " << entity_color.value()
+                   << "blend: " << static_cast<int>(blend_mode);
     result = result.Blend(entity_color.value(), blend_mode);
   }
   return result.Premultiply();

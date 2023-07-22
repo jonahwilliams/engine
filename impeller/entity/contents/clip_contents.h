@@ -89,7 +89,6 @@ class ClipRestoreContents final : public Contents {
   // |Contents|
   void SetInheritedOpacity(Scalar opacity) override;
 
-
  private:
   std::optional<Rect> restore_coverage_;
 
