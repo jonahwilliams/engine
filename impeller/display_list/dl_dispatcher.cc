@@ -813,13 +813,27 @@ void DlDispatcher::clipRRect(const SkRRect& rrect, ClipOp clip_op, bool is_aa) {
     canvas_.ClipRRect(skia_conversions::ToRect(rrect.rect()),
                       rrect.getSimpleRadii().fX, ToClipOperation(clip_op));
   } else {
-    canvas_.ClipPath(skia_conversions::ToPath(rrect), ToClipOperation(clip_op));
+    canvas_.ClipPath(skia_conversions::ToPath(rrect), ToClipOperation(clip_op),
+                     skia_conversions::ToRect(rrect.rect()));
   }
 }
 
 // |flutter::DlOpReceiver|
 void DlDispatcher::clipPath(const SkPath& path, ClipOp clip_op, bool is_aa) {
-  canvas_.ClipPath(skia_conversions::ToPath(path), ToClipOperation(clip_op));
+  SkRect rect;
+  SkRRect rrect;
+  if (path.isRect(&rect)) {
+    clipRect(rect, clip_op, is_aa);
+  } else if (path.isRRect(&rrect)) {
+    if (rrect.isSimple()) {
+      clipRRect(rrect, clip_op, is_aa);
+    } else {
+      canvas_.ClipPath(skia_conversions::ToPath(path), ToClipOperation(clip_op),
+                       skia_conversions::ToRect(rrect.rect()));
+    }
+  } else {
+    canvas_.ClipPath(skia_conversions::ToPath(path), ToClipOperation(clip_op));
+  }
 }
 
 // |flutter::DlOpReceiver|

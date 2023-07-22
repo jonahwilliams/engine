@@ -269,8 +269,12 @@ void Canvas::DrawCircle(Point center, Scalar radius, const Paint& paint) {
   DrawPath(circle_path, paint);
 }
 
-void Canvas::ClipPath(const Path& path, Entity::ClipOperation clip_op) {
-  ClipGeometry(Geometry::MakeFillPath(path), clip_op);
+void Canvas::ClipPath(const Path& path,
+                      Entity::ClipOperation clip_op,
+                      std::optional<Rect> inner_rect) {
+  if (!ClipGeometry(Geometry::MakeFillPath(path, inner_rect), clip_op)) {
+    return;
+  }
   if (clip_op == Entity::ClipOperation::kIntersect) {
     auto bounds = path.GetBoundingBox();
     if (bounds.has_value()) {
@@ -280,7 +284,9 @@ void Canvas::ClipPath(const Path& path, Entity::ClipOperation clip_op) {
 }
 
 void Canvas::ClipRect(const Rect& rect, Entity::ClipOperation clip_op) {
-  ClipGeometry(Geometry::MakeRect(rect), clip_op);
+  if (!ClipGeometry(Geometry::MakeRect(rect), clip_op)) {
+    return;
+  }
   switch (clip_op) {
     case Entity::ClipOperation::kIntersect:
       IntersectCulling(rect);
@@ -298,7 +304,10 @@ void Canvas::ClipRRect(const Rect& rect,
                   .SetConvexity(Convexity::kConvex)
                   .AddRoundedRect(rect, corner_radius)
                   .TakePath();
-  ClipGeometry(Geometry::MakeFillPath(path), clip_op);
+  if (!ClipGeometry(Geometry::MakeFillPath(path, /*inner_rect=*/rect),
+                    clip_op)) {
+    return;
+  }
   switch (clip_op) {
     case Entity::ClipOperation::kIntersect:
       IntersectCulling(rect);
@@ -327,8 +336,29 @@ void Canvas::ClipRRect(const Rect& rect,
   }
 }
 
-void Canvas::ClipGeometry(std::unique_ptr<Geometry> geometry,
+std::optional<Rect> Canvas::GetLastCullRect() const {
+  for (auto it = xformation_stack_.crbegin(); it != xformation_stack_.crend();
+       it++) {
+    if (it->cull_rect.has_value()) {
+      return it->cull_rect;
+    }
+  }
+  return std::nullopt;
+}
+
+bool Canvas::ClipGeometry(std::unique_ptr<Geometry> geometry,
                           Entity::ClipOperation clip_op) {
+  auto last_cull_rect = GetLastCullRect();
+  if (clip_op == Entity::ClipOperation::kIntersect &&
+      last_cull_rect.has_value() &&
+      geometry->CoversArea(GetCurrentTransformation(),
+                           last_cull_rect.value())) {
+    FML_LOG(ERROR) << "cull";
+    return false;
+  } else {
+    FML_LOG(ERROR) << "no cull";
+  }
+
   auto contents = std::make_shared<ClipContents>();
   contents->SetGeometry(std::move(geometry));
   contents->SetClipOperation(clip_op);
@@ -342,6 +372,7 @@ void Canvas::ClipGeometry(std::unique_ptr<Geometry> geometry,
 
   ++xformation_stack_.back().stencil_depth;
   xformation_stack_.back().contains_clips = true;
+  return true;
 }
 
 void Canvas::IntersectCulling(Rect clip_rect) {

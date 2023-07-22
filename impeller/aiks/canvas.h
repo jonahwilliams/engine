@@ -126,7 +126,8 @@ class Canvas {
 
   void ClipPath(
       const Path& path,
-      Entity::ClipOperation clip_op = Entity::ClipOperation::kIntersect);
+      Entity::ClipOperation clip_op = Entity::ClipOperation::kIntersect,
+      std::optional<Rect> inner_rect = std::nullopt);
 
   void ClipRect(
       const Rect& rect,
@@ -172,11 +173,13 @@ class Canvas {
 
   size_t GetStencilDepth() const;
 
-  void ClipGeometry(std::unique_ptr<Geometry> geometry,
+  bool ClipGeometry(std::unique_ptr<Geometry> geometry,
                     Entity::ClipOperation clip_op);
 
   void IntersectCulling(Rect clip_bounds);
   void SubtractCulling(Rect clip_bounds);
+
+  std::optional<Rect> GetLastCullRect() const;
 
   void Save(bool create_subpass,
             BlendMode = BlendMode::kSourceOver,

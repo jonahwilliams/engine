@@ -57,7 +57,9 @@ class Geometry {
 
   virtual ~Geometry();
 
-  static std::unique_ptr<Geometry> MakeFillPath(const Path& path);
+  static std::unique_ptr<Geometry> MakeFillPath(
+      const Path& path,
+      std::optional<Rect> inner_rect = std::nullopt);
 
   static std::unique_ptr<Geometry> MakeStrokePath(
       const Path& path,
