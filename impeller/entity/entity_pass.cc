@@ -748,7 +748,6 @@ bool EntityPass::OnRender(
   }
 
   bool is_collapsing_clear_colors = true;
-  size_t count = 0u;
   for (const auto& element : elements_) {
     // Skip elements that are incorporated into the clear color.
     if (!collapsed_parent_pass) {
@@ -756,8 +755,6 @@ bool EntityPass::OnRender(
         auto [entity_color, _] =
             ElementAsBackgroundColor(element, root_pass_size);
         if (entity_color.has_value()) {
-          count++;
-          FML_LOG(ERROR) << "merged into background " << count;
           continue;
         }
         is_collapsing_clear_colors = false;
@@ -981,8 +978,6 @@ Color EntityPass::GetClearColor(ISize target_size) const {
     if (!entity_color.has_value()) {
       break;
     }
-    FML_LOG(ERROR) << "Color: " << entity_color.value()
-                   << "blend: " << static_cast<int>(blend_mode);
     result = result.Blend(entity_color.value(), blend_mode);
   }
   return result.Premultiply();

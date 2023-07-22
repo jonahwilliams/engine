@@ -52,8 +52,6 @@ bool RectGeometry::CoversArea(const Matrix& transform, const Rect& rect) const {
     return false;
   }
   Rect coverage = rect_.TransformBounds(transform);
-  FML_LOG(ERROR) << "Transformed Rect: " << coverage;
-  FML_LOG(ERROR) << "Should contain: " << rect;
   return coverage.Contains(rect);
 }
 

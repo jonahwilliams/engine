@@ -153,7 +153,6 @@ bool FillPathGeometry::CoversArea(const Matrix& transform,
                                   const Rect& rect) const {
   if (inner_rect_.has_value() && transform.IsTranslationScaleOnly()) {
     Rect coverage = inner_rect_.value().TransformBounds(transform);
-    FML_LOG(ERROR) << "Coverage: " << coverage << " Contains " << rect;
     return coverage.Contains(rect);
   }
   return false;

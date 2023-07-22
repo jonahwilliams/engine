@@ -353,10 +353,7 @@ bool Canvas::ClipGeometry(std::unique_ptr<Geometry> geometry,
       last_cull_rect.has_value() &&
       geometry->CoversArea(GetCurrentTransformation(),
                            last_cull_rect.value())) {
-    FML_LOG(ERROR) << "cull";
     return false;
-  } else {
-    FML_LOG(ERROR) << "no cull";
   }
 
   auto contents = std::make_shared<ClipContents>();
