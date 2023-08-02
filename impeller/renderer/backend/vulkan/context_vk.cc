@@ -428,6 +428,7 @@ void ContextVK::Setup(Settings settings) {
   fence_waiter_ = std::move(fence_waiter);
   resource_manager_ = std::move(resource_manager);
   device_name_ = std::string(physical_device_properties.deviceName);
+  command_buffer_queue_ = std::make_shared<CommandBufferQueue>();
   is_valid_ = true;
 
   //----------------------------------------------------------------------------
@@ -464,6 +465,10 @@ std::shared_ptr<SamplerLibrary> ContextVK::GetSamplerLibrary() const {
 
 std::shared_ptr<PipelineLibrary> ContextVK::GetPipelineLibrary() const {
   return pipeline_library_;
+}
+
+std::shared_ptr<CommandBufferQueue> ContextVK::GetCommandBufferQueue() const {
+  return command_buffer_queue_;
 }
 
 std::shared_ptr<CommandBuffer> ContextVK::CreateCommandBuffer() const {

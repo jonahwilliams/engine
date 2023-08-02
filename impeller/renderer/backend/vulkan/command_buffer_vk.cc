@@ -109,4 +109,54 @@ std::shared_ptr<ComputePass> CommandBufferVK::OnCreateComputePass() {
   return pass;
 }
 
+bool CommandBufferVK::SubmitCommandsAsync(std::shared_ptr<BlitPass> blit_pass) {
+  TRACE_EVENT0("impeller", "CommandBufferVK::SubmitCommandsAsync");
+  if (!blit_pass->IsValid() || !IsValid()) {
+    return false;
+  }
+  auto context = context_.lock();
+  if (!context) {
+    return false;
+  }
+
+  const auto& context_vk = ContextVK::Cast(*context);
+  auto pending = std::make_shared<EnqueuedCommandBuffer>();
+  context_vk.GetCommandBufferQueue()->Enqueue(pending);
+  if (!context) {
+    return false;
+  }
+  auto encoder = GetEncoder();
+  if (!blit_pass->EncodeCommands(context->GetResourceAllocator()) ||
+      !encoder->Finish()) {
+    VALIDATION_LOG << "Failed to encode render pass.";
+  }
+  pending->encoder = (std::move(encoder));
+
+  return true;
+}
+
+bool CommandBufferVK::SubmitCommandsAsync(
+    std::shared_ptr<RenderPass> render_pass) {
+  TRACE_EVENT0("impeller", "CommandBufferVK::SubmitCommandsAsync");
+  if (!render_pass->IsValid() || !IsValid()) {
+    return false;
+  }
+  const auto context = context_.lock();
+  if (!context) {
+    return false;
+  }
+  const auto& context_vk = ContextVK::Cast(*context);
+  auto pending = std::make_shared<EnqueuedCommandBuffer>();
+  context_vk.GetCommandBufferQueue()->Enqueue(pending);
+  if (!context) {
+    return false;
+  }
+  auto encoder = GetEncoder();
+  if (!render_pass->EncodeCommands() || !encoder->Finish()) {
+    VALIDATION_LOG << "Failed to encode render pass.";
+  }
+  pending->encoder = std::move(encoder);
+  return true;
+}
+
 }  // namespace impeller

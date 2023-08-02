@@ -328,4 +328,13 @@ void CommandEncoderVK::InsertDebugMarker(const char* label) const {
   }
 }
 
+bool CommandEncoderVK::Finish() {
+  auto command_buffer = GetCommandBuffer();
+
+  if (command_buffer.end() != vk::Result::eSuccess) {
+    return false;
+  }
+  return true;
+}
+
 }  // namespace impeller

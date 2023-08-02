@@ -34,6 +34,24 @@ class FenceWaiterVK;
 class ResourceManagerVK;
 class SurfaceContextVK;
 
+struct EnqueuedCommandBuffer {
+  std::shared_ptr<CommandEncoderVK> encoder;
+};
+
+class CommandBufferQueue {
+ public:
+  void Enqueue(const std::shared_ptr<EnqueuedCommandBuffer>& encoder) {
+    pending_.push_back(encoder);
+  }
+
+  std::vector<std::shared_ptr<EnqueuedCommandBuffer>> Take() {
+    return std::move(pending_);
+  }
+
+ private:
+  std::vector<std::shared_ptr<EnqueuedCommandBuffer>> pending_;
+};
+
 class ContextVK final : public Context,
                         public BackendCast<ContextVK, Context>,
                         public std::enable_shared_from_this<ContextVK> {
@@ -82,6 +100,8 @@ class ContextVK final : public Context,
 
   // |Context|
   const std::shared_ptr<const Capabilities>& GetCapabilities() const override;
+
+  std::shared_ptr<CommandBufferQueue> GetCommandBufferQueue() const;
 
   // |Context|
   void Shutdown() override;
@@ -164,6 +184,7 @@ class ContextVK final : public Context,
   std::shared_ptr<ResourceManagerVK> resource_manager_;
   std::string device_name_;
   std::shared_ptr<fml::ConcurrentMessageLoop> raster_message_loop_;
+  std::shared_ptr<CommandBufferQueue> command_buffer_queue_;
   const uint64_t hash_;
 
   bool is_valid_ = false;
