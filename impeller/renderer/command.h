@@ -74,11 +74,50 @@ struct BufferAndUniformSlot {
   BufferResource view;
 };
 
+using IterateImagesCallback = std::function<bool(size_t index, const TextureAndSampler& data)>;
+
 struct Bindings {
-  std::map<size_t, TextureAndSampler> sampled_images;
-  std::map<size_t, BufferAndUniformSlot> buffers;
+  BufferAndUniformSlot buffer_0;
+  bool has_buffer_0 = false;
+  TextureAndSampler image_0;
+  bool has_texture_0 = false;
+  std::optional<std::map<size_t, TextureAndSampler>> sampled_images;
+  std::optional<std::map<size_t, BufferAndUniformSlot>> buffers;
   // This is only valid for vertex bindings.
   BufferAndUniformSlot vertex_buffer;
+
+  bool iterate_images(const IterateImagesCallback& cb) const {
+    if (has_texture_0) {
+      if (!cb(0u, image_0)) {
+        return false;
+      }
+    }
+    if (sampled_images.has_value()) {
+      for (const auto& [index, data] : sampled_images.value()) {
+        if (!cb(index, data)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  bool iterate_buffers(
+      const std::function<bool(size_t index, const BufferAndUniformSlot& data)>& cb) const {
+    if (has_buffer_0) {
+      if (!cb(0u, buffer_0)) {
+        return false;
+      }
+    }
+    if (buffers.has_value()) {
+      for (const auto& [index, data] : buffers.value()) {
+        if (!cb(index, data)) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
 };
 
 //------------------------------------------------------------------------------

@@ -25,6 +25,7 @@
 #include "impeller/renderer/backend/vulkan/sampler_vk.h"
 #include "impeller/renderer/backend/vulkan/shared_object_vk.h"
 #include "impeller/renderer/backend/vulkan/texture_vk.h"
+#include "impeller/renderer/command.h"
 #include "vulkan/vulkan_to_string.hpp"
 
 namespace impeller {
@@ -281,12 +282,10 @@ static bool UpdateBindingLayouts(const Bindings& bindings,
 
   barrier.new_layout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
-  for (const auto& [_, data] : bindings.sampled_images) {
-    if (!TextureVK::Cast(*data.texture.resource).SetLayout(barrier)) {
-      return false;
-    }
-  }
-  return true;
+  return bindings.iterate_images(
+      [&barrier](size_t index, const TextureAndSampler& data) {
+        return TextureVK::Cast(*data.texture.resource).SetLayout(barrier);
+      });
 }
 
 static bool UpdateBindingLayouts(const Command& command,
@@ -329,7 +328,7 @@ static bool AllocateAndBindDescriptorSets(const ContextVK& context,
                       &writes,      //
                       &vk_desc_set  //
   ](const Bindings& bindings) -> bool {
-    for (const auto& [index, data] : bindings.sampled_images) {
+    bindings.iterate_images([&](size_t index, const TextureAndSampler& data) -> bool {
       auto texture = data.texture.resource;
       const auto& texture_vk = TextureVK::Cast(*texture);
       const SamplerVK& sampler = SamplerVK::Cast(*data.sampler.resource);
@@ -354,7 +353,7 @@ static bool AllocateAndBindDescriptorSets(const ContextVK& context,
       write_set.pImageInfo = &(images[slot.binding] = image_info);
 
       writes.push_back(write_set);
-    }
+    });
 
     return true;
   };
