@@ -29,7 +29,7 @@ class FenceWaiterVK;
 
 class CommandEncoderFactoryVK {
  public:
-  CommandEncoderFactoryVK(const std::weak_ptr<const ContextVK>& context);
+  explicit CommandEncoderFactoryVK(const std::weak_ptr<const ContextVK>& context);
 
   std::shared_ptr<CommandEncoderVK> Create();
 
@@ -55,8 +55,6 @@ class CommandEncoderVK {
   ~CommandEncoderVK();
 
   bool IsValid() const;
-
-  bool Finish();
 
   bool Submit(SubmitCallback callback = {});
 

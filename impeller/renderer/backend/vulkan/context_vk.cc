@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "impeller/renderer/backend/vulkan/context_vk.h"
+#include "impeller/renderer/backend/vulkan/background_encoder_vk.h"
 
 #ifdef FML_OS_ANDROID
 #include <pthread.h>
@@ -384,6 +385,16 @@ void ContextVK::Setup(Settings settings) {
   }
 
   //----------------------------------------------------------------------------
+  /// Create the background encoder.
+  ///
+  auto background_encoder = std::shared_ptr<BackgroundEncoderVK>(
+      new BackgroundEncoderVK(weak_from_this()));
+  if (!background_encoder->IsValid()) {
+    VALIDATION_LOG << "Could not create background encoder.";
+    return;
+  }
+
+  //----------------------------------------------------------------------------
   /// Create the resource manager.
   ///
   auto resource_manager = ResourceManagerVK::Create();
@@ -421,9 +432,9 @@ void ContextVK::Setup(Settings settings) {
   queues_ = std::move(queues);
   device_capabilities_ = std::move(caps);
   fence_waiter_ = std::move(fence_waiter);
+  background_encoder_ = std::move(background_encoder);
   resource_manager_ = std::move(resource_manager);
   device_name_ = std::string(physical_device_properties.deviceName);
-  command_buffer_queue_ = std::make_shared<CommandBufferQueue>();
   is_valid_ = true;
 
   //----------------------------------------------------------------------------
@@ -462,8 +473,8 @@ std::shared_ptr<PipelineLibrary> ContextVK::GetPipelineLibrary() const {
   return pipeline_library_;
 }
 
-std::shared_ptr<CommandBufferQueue> ContextVK::GetCommandBufferQueue() const {
-  return command_buffer_queue_;
+std::shared_ptr<BackgroundEncoderVK> ContextVK::GetBackgroundEncoder() const {
+  return background_encoder_;
 }
 
 std::shared_ptr<CommandBuffer> ContextVK::CreateCommandBuffer() const {
@@ -492,27 +503,6 @@ void ContextVK::Shutdown() {
 
 void ContextVK::Flush() const {
   TRACE_EVENT0("impeller", __FUNCTION__);
-  const auto encoders = GetCommandBufferQueue()->Take();
-  auto [fence_result, fence] = GetDevice().createFenceUnique({});
-  if (fence_result != vk::Result::eSuccess) {
-    VALIDATION_LOG << "Failed to create fence for flush.";
-    return;
-  };
-  vk::SubmitInfo submit_info;
-  std::vector<vk::CommandBuffer> buffers;
-  for (const auto& encoder : encoders) {
-    buffers.push_back(encoder->WaitAndGet()->GetCommandBuffer());
-  }
-  submit_info.setCommandBuffers(buffers);
-  if (GetGraphicsQueue()->Submit(submit_info, *fence) != vk::Result::eSuccess) {
-    VALIDATION_LOG << "Failed to submit for flush.";
-    return;
-  }
-
-  if (!GetFenceWaiter()->AddFence(std::move(fence), [encoders] {})) {
-    VALIDATION_LOG << "Failed to add fence waiter.";
-    return;
-  }
 }
 
 std::shared_ptr<SurfaceContextVK> ContextVK::CreateSurfaceContext() {

@@ -419,28 +419,7 @@ bool SwapchainImplVK::Present(const std::shared_ptr<SwapchainImageVK>& image,
 
   {
     TRACE_EVENT0("flutter", "WaitUntilScheduled");
-    const auto encoders = context.GetCommandBufferQueue()->Take();
-    auto [fence_result, fence] = context.GetDevice().createFenceUnique({});
-    if (fence_result != vk::Result::eSuccess) {
-      VALIDATION_LOG << "Failed to create fence for flush.";
-      return false;
-    };
-    vk::SubmitInfo submit_info;
-    std::vector<vk::CommandBuffer> buffers;
-    for (const auto& encoder : encoders) {
-      buffers.push_back(encoder->WaitAndGet()->GetCommandBuffer());
-    }
-    submit_info.setCommandBuffers(buffers);
-    if (context.GetGraphicsQueue()->Submit(submit_info, *fence) !=
-        vk::Result::eSuccess) {
-      VALIDATION_LOG << "Failed to submit for flush.";
-      return false;
-    }
-
-    if (!context.GetFenceWaiter()->AddFence(std::move(fence), [encoders] {})) {
-      VALIDATION_LOG << "Failed to add fence waiter.";
-      return false;
-    }
+    context.GetBackgroundEncoder()->Flush();
   }
 
   //----------------------------------------------------------------------------

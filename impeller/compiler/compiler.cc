@@ -139,10 +139,12 @@ static CompilerBackend CreateGLSLCompiler(const spirv_cross::ParsedIR& ir,
   // use `samplerExternalOES` directly because compiling to spirv requires the
   // source language profile to be at least 310 ES, but this extension is
   // incompatible with ES 310+.
-  for (auto& id : ir.ids_for_constant_or_variable) {
-    if (StringStartsWith(ir.get_name(id), kExternalTexturePrefix)) {
-      gl_compiler->require_extension("GL_OES_EGL_image_external");
-      break;
+  if (source_options.target_platform == TargetPlatform::kOpenGLES) {
+    for (auto& id : ir.ids_for_constant_or_variable) {
+      if (StringStartsWith(ir.get_name(id), kExternalTexturePrefix)) {
+        gl_compiler->require_extension("GL_OES_EGL_image_external");
+        break;
+      }
     }
   }
 

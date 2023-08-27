@@ -63,23 +63,20 @@ bool CommandBufferVK::SubmitCommandsAsync(std::shared_ptr<BlitPass> blit_pass) {
   }
 
   const auto& context_vk = ContextVK::Cast(*context);
-  auto pending = std::make_shared<EnqueuedCommandBuffer>();
-  context_vk.GetCommandBufferQueue()->Enqueue(pending);
-  // context_vk.GetConcurrentWorkerTaskRunner()->PostTask(
-  //     [cmd_buffer = shared_from_this(), pending, blit_pass,
-  //      weak_context = context_]() {
-  // auto context = weak_context.lock();
-  // if (!context || !cmd_buffer) {
-  //   return;
-  // }
-  auto encoder = GetEncoder();
-  if (!blit_pass->EncodeCommands(context->GetResourceAllocator()) ||
-      !encoder->Finish()) {
-    VALIDATION_LOG << "Failed to encode render pass.";
-  }
-  pending->SetEncoder(std::move(encoder));
-  // });
-
+  context_vk.GetBackgroundEncoder()->AddTask(
+      [&, blit_pass = std::move(blit_pass), buffer = shared_from_this()]() -> bool {
+        TRACE_EVENT0("impeller", "BackgroundEncodeBlitPass");
+        auto encoder = buffer->GetEncoder();
+        if (!blit_pass->EncodeCommands(context->GetResourceAllocator())) {
+          VALIDATION_LOG << "Failed to encode blit pass.";
+          return false;
+        }
+        if (!encoder->Submit()) {
+          VALIDATION_LOG << "Failed to submit blit pass.";
+          return false;
+        }
+        return true;
+      });
   return true;
 }
 
@@ -94,21 +91,20 @@ bool CommandBufferVK::SubmitCommandsAsync(
     return false;
   }
   const auto& context_vk = ContextVK::Cast(*context);
-  auto pending = std::make_shared<EnqueuedCommandBuffer>();
-  context_vk.GetCommandBufferQueue()->Enqueue(pending);
-  // context_vk.GetConcurrentWorkerTaskRunner()->PostTask(
-  //     [cmd_buffer = shared_from_this(), pending, render_pass,
-  //      weak_context = context_]() {
-  // auto context = weak_context.lock();
-  // if (!context || !cmd_buffer) {
-  //   return;
-  // }
-  auto encoder = GetEncoder();
-  if (!render_pass->EncodeCommands() || !encoder->Finish()) {
-    VALIDATION_LOG << "Failed to encode render pass.";
-  }
-  pending->SetEncoder(std::move(encoder));
-  // });
+  context_vk.GetBackgroundEncoder()->AddTask(
+      [render_pass = std::move(render_pass), buffer = shared_from_this()]() -> bool {
+        TRACE_EVENT0("impeller", "BackgroundEncodeRenderPass");
+        auto encoder = buffer->GetEncoder();
+        if (!render_pass->EncodeCommands()) {
+          VALIDATION_LOG << "Failed to encode render pass.";
+          return false;
+        }
+        if (!encoder->Submit()) {
+          VALIDATION_LOG << "Failed to submit render pass.";
+          return false;
+        }
+        return true;
+      });
   return true;
 }
 

@@ -13,6 +13,7 @@
 #include "flutter/fml/unique_fd.h"
 #include "impeller/base/backend_cast.h"
 #include "impeller/core/formats.h"
+#include "impeller/renderer/backend/vulkan/background_encoder_vk.h"
 #include "impeller/renderer/backend/vulkan/device_holder.h"
 #include "impeller/renderer/backend/vulkan/pipeline_library_vk.h"
 #include "impeller/renderer/backend/vulkan/queue_vk.h"
@@ -46,20 +47,6 @@ class EnqueuedCommandBuffer {
 
  private:
   std::shared_ptr<CommandEncoderVK> encoder_;
-};
-
-class CommandBufferQueue {
- public:
-  void Enqueue(std::shared_ptr<EnqueuedCommandBuffer> buffer) {
-    pending_.push_back(buffer);
-  }
-
-  std::vector<std::shared_ptr<EnqueuedCommandBuffer>> Take() {
-    return std::move(pending_);
-  }
-
- private:
-  std::vector<std::shared_ptr<EnqueuedCommandBuffer>> pending_;
 };
 
 class ContextVK final : public Context,
@@ -167,7 +154,7 @@ class ContextVK final : public Context,
 
   std::shared_ptr<FenceWaiterVK> GetFenceWaiter() const;
 
-  std::shared_ptr<CommandBufferQueue> GetCommandBufferQueue() const;
+  std::shared_ptr<BackgroundEncoderVK> GetBackgroundEncoder() const;
 
   std::shared_ptr<ResourceManagerVK> GetResourceManager() const;
 
@@ -194,10 +181,11 @@ class ContextVK final : public Context,
   QueuesVK queues_;
   std::shared_ptr<const Capabilities> device_capabilities_;
   std::shared_ptr<FenceWaiterVK> fence_waiter_;
+  std::shared_ptr<BackgroundEncoderVK> background_encoder_;
   std::shared_ptr<ResourceManagerVK> resource_manager_;
   std::string device_name_;
   std::shared_ptr<fml::ConcurrentMessageLoop> raster_message_loop_;
-  std::shared_ptr<CommandBufferQueue> command_buffer_queue_;
+
   const uint64_t hash_;
 
   bool is_valid_ = false;
