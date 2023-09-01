@@ -11,6 +11,7 @@
 #include "flutter/fml/macros.h"
 #include "impeller/core/allocator.h"
 #include "impeller/core/formats.h"
+#include "impeller/core/texture_descriptor.h"
 #include "impeller/geometry/size.h"
 
 namespace impeller {
@@ -44,6 +45,27 @@ class RenderTargetAllocator {
  private:
   std::shared_ptr<Allocator> allocator_;
 };
+
+struct RenderTargetKey {
+  std::vector<TextureDescriptor> descriptors;
+
+  constexpr bool operator==(const RenderTargetKey& other) const {
+    if (descriptors.size() != other.descriptors.size()) {
+      return false;
+    }
+    for (auto i = 0u; i < descriptors.size(); i++) {
+      if (descriptors[i] != other.descriptors[i]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  constexpr bool operator!=(const RenderTargetKey& other) const {
+    return !(*this == other);
+  }
+};
+
 
 class RenderTarget final {
  public:
@@ -146,6 +168,8 @@ class RenderTarget final {
 
   void IterateAllAttachments(
       const std::function<bool(const Attachment& attachment)>& iterator) const;
+
+  RenderTargetKey CreateKey() const;
 
   std::string ToString() const;
 

@@ -15,6 +15,7 @@
 #include <optional>
 #include <set>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "flutter/fml/build_config.h"
@@ -513,6 +514,72 @@ std::shared_ptr<ResourceManagerVK> ContextVK::GetResourceManager() const {
 std::unique_ptr<CommandEncoderFactoryVK>
 ContextVK::CreateGraphicsCommandEncoderFactory() const {
   return std::make_unique<CommandEncoderFactoryVK>(weak_from_this());
+}
+
+void ContextVK::RecycleRenderPass(KeyedRenderPass render_pass) const {
+  render_pass_cache_.push_back(std::move(render_pass));
+}
+
+void ContextVK::RecycleFrameBuffer(KeyedFramebuffer framebuffer) const {
+  framebuffer_cache_.push_back(std::move(framebuffer));
+}
+
+std::shared_ptr<RecylingRenderPass> ContextVK::FindMatchingRenderPass(
+    const RenderTargetKey& key) const {
+  int index = -1;
+  for (auto i = 0u; i < render_pass_cache_.size(); i++) {
+    if (render_pass_cache_[i].key == key) {
+      index = i;
+      break;
+    }
+  }
+  if (index == -1) {
+    return nullptr;
+  }
+  auto result = render_pass_cache_[index];
+  render_pass_cache_.erase(render_pass_cache_.begin() + index);
+  return std::make_shared<RecylingRenderPass>(result, weak_from_this());
+}
+
+std::shared_ptr<RecylingFrameBuffer> ContextVK::FindMatchingFramebuffer(
+    const RenderTargetKey& key) const {
+  int index = -1;
+  for (auto i = 0u; i < framebuffer_cache_.size(); i++) {
+    if (framebuffer_cache_[i].key == key) {
+      index = i;
+      break;
+    }
+  }
+  if (index == -1) {
+    return nullptr;
+  }
+  auto result = framebuffer_cache_[index];
+  framebuffer_cache_.erase(framebuffer_cache_.begin() + index);
+  return std::make_shared<RecylingFrameBuffer>(result, weak_from_this());
+}
+
+RecylingFrameBuffer::RecylingFrameBuffer(KeyedFramebuffer framebuffer,
+                                         std::weak_ptr<const ContextVK> weak_context)
+    : framebuffer_(std::move(framebuffer)), weak_context_(std::move(weak_context)) {}
+
+RecylingFrameBuffer::~RecylingFrameBuffer() {
+  auto context = weak_context_.lock();
+  if (!context) {
+    return;
+  }
+  context->RecycleFrameBuffer(std::move(framebuffer_));
+}
+
+RecylingRenderPass::RecylingRenderPass(KeyedRenderPass pair,
+                                       std::weak_ptr<const ContextVK> weak_context)
+    : render_pass_(std::move(pair)), weak_context_(std::move(weak_context)) {}
+
+RecylingRenderPass::~RecylingRenderPass() {
+  auto context = weak_context_.lock();
+  if (!context) {
+    return;
+  }
+  context->RecycleRenderPass(std::move(render_pass_));
 }
 
 }  // namespace impeller

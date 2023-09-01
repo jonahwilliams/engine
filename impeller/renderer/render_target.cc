@@ -9,7 +9,9 @@
 #include "impeller/base/strings.h"
 #include "impeller/base/validation.h"
 #include "impeller/core/allocator.h"
+#include "impeller/core/formats.h"
 #include "impeller/core/texture.h"
+#include "impeller/core/texture_descriptor.h"
 #include "impeller/renderer/context.h"
 
 namespace impeller {
@@ -394,6 +396,20 @@ size_t RenderTarget::GetTotalAttachmentCount() const {
     count++;
   }
   return count;
+}
+
+RenderTargetKey RenderTarget::CreateKey() const {
+  std::vector<TextureDescriptor> descriptors;
+  IterateAllAttachments([&descriptors](const Attachment& attachment) {
+    if (attachment.resolve_texture) {
+      descriptors.push_back(attachment.resolve_texture->GetTextureDescriptor());
+    }
+    if (attachment.texture) {
+      descriptors.push_back(attachment.texture->GetTextureDescriptor());
+    }
+    return true;
+  });
+  return RenderTargetKey{.descriptors = descriptors};
 }
 
 std::string RenderTarget::ToString() const {

@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 #include "flutter/fml/logging.h"
@@ -96,8 +97,9 @@ static void SetTextureLayout(
   texture_vk.SetLayoutWithoutEncoding(attachment_desc.finalLayout);
 }
 
-SharedHandleVK<vk::RenderPass> RenderPassVK::CreateVKRenderPass(
+std::shared_ptr<RecylingRenderPass> RenderPassVK::CreateVKRenderPass(
     const ContextVK& context,
+    const RenderTargetKey& key,
     const std::shared_ptr<CommandBufferVK>& command_buffer) const {
   std::vector<vk::AttachmentDescription> attachments;
 
@@ -157,6 +159,11 @@ SharedHandleVK<vk::RenderPass> RenderPassVK::CreateVKRenderPass(
                      &Attachment::texture);
   }
 
+  auto recycled_render_pass = context.FindMatchingRenderPass(key);
+  if (recycled_render_pass) {
+    return recycled_render_pass;
+  }
+
   vk::SubpassDescription subpass_desc;
   subpass_desc.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
   subpass_desc.setColorAttachments(color_refs);
@@ -175,7 +182,10 @@ SharedHandleVK<vk::RenderPass> RenderPassVK::CreateVKRenderPass(
     return {};
   }
   context.SetDebugName(pass.get(), debug_label_.c_str());
-  return MakeSharedVK(std::move(pass));
+  auto shared = MakeSharedVK(std::move(pass));
+  return std::make_shared<RecylingRenderPass>(
+      KeyedRenderPass{.key = key, .render_pass = shared},
+      context.weak_from_this());
 }
 
 RenderPassVK::RenderPassVK(const std::shared_ptr<const Context>& context,
@@ -237,8 +247,9 @@ static std::vector<vk::ClearValue> GetVKClearValues(
   return clears;
 }
 
-SharedHandleVK<vk::Framebuffer> RenderPassVK::CreateVKFramebuffer(
+std::shared_ptr<RecylingFrameBuffer> RenderPassVK::CreateVKFramebuffer(
     const ContextVK& context,
+    const RenderTargetKey& key,
     const vk::RenderPass& pass) const {
   vk::FramebufferCreateInfo fb_info;
 
@@ -273,6 +284,7 @@ SharedHandleVK<vk::Framebuffer> RenderPassVK::CreateVKFramebuffer(
 
   fb_info.setAttachments(attachments);
 
+
   auto [result, framebuffer] =
       context.GetDevice().createFramebufferUnique(fb_info);
 
@@ -281,7 +293,10 @@ SharedHandleVK<vk::Framebuffer> RenderPassVK::CreateVKFramebuffer(
     return {};
   }
 
-  return MakeSharedVK(std::move(framebuffer));
+  return std::make_shared<RecylingFrameBuffer>(
+      KeyedFramebuffer{.key = key,
+                       .framebuffer = MakeSharedVK(std::move(framebuffer))},
+      context.weak_from_this());
 }
 
 static bool UpdateBindingLayouts(const Bindings& bindings,
@@ -634,14 +649,15 @@ bool RenderPassVK::OnEncodeCommands(const Context& context) const {
       });
 
   const auto& target_size = render_target_.GetRenderTargetSize();
+  const auto& key = render_target_.CreateKey();
 
-  auto render_pass = CreateVKRenderPass(vk_context, command_buffer);
+  auto render_pass = CreateVKRenderPass(vk_context, key, command_buffer);
   if (!render_pass) {
     VALIDATION_LOG << "Could not create renderpass.";
     return false;
   }
 
-  auto framebuffer = CreateVKFramebuffer(vk_context, *render_pass);
+  auto framebuffer = CreateVKFramebuffer(vk_context, key, *render_pass->GetRenderPass());
   if (!framebuffer) {
     VALIDATION_LOG << "Could not create framebuffer.";
     return false;
@@ -654,8 +670,8 @@ bool RenderPassVK::OnEncodeCommands(const Context& context) const {
   auto clear_values = GetVKClearValues(render_target_);
 
   vk::RenderPassBeginInfo pass_info;
-  pass_info.renderPass = *render_pass;
-  pass_info.framebuffer = *framebuffer;
+  pass_info.renderPass = *render_pass->GetRenderPass();
+  pass_info.framebuffer = *framebuffer->GetFramebuffer();
   pass_info.renderArea.extent.width = static_cast<uint32_t>(target_size.width);
   pass_info.renderArea.extent.height =
       static_cast<uint32_t>(target_size.height);

@@ -17,8 +17,11 @@
 #include "impeller/renderer/backend/vulkan/queue_vk.h"
 #include "impeller/renderer/backend/vulkan/sampler_library_vk.h"
 #include "impeller/renderer/backend/vulkan/shader_library_vk.h"
+#include "impeller/renderer/backend/vulkan/shared_object_vk.h"
 #include "impeller/renderer/capabilities.h"
 #include "impeller/renderer/context.h"
+#include "impeller/renderer/render_target.h"
+#include "vulkan/vulkan_handles.hpp"
 
 namespace impeller {
 
@@ -30,6 +33,10 @@ class DebugReportVK;
 class FenceWaiterVK;
 class ResourceManagerVK;
 class SurfaceContextVK;
+class RecylingFrameBuffer;
+class RecylingRenderPass;
+struct KeyedRenderPass;
+struct KeyedFramebuffer;
 
 class ContextVK final : public Context,
                         public BackendCast<ContextVK, Context>,
@@ -140,6 +147,14 @@ class ContextVK final : public Context,
 
   std::shared_ptr<ResourceManagerVK> GetResourceManager() const;
 
+  void RecycleRenderPass(KeyedRenderPass render_pass) const;
+  void RecycleFrameBuffer(KeyedFramebuffer framebuffer) const;
+
+  std::shared_ptr<RecylingRenderPass> FindMatchingRenderPass(
+      const RenderTargetKey& key) const;
+  std::shared_ptr<RecylingFrameBuffer> FindMatchingFramebuffer(
+      const RenderTargetKey& key) const;
+
  private:
   struct DeviceHolderImpl : public DeviceHolder {
     // |DeviceHolder|
@@ -166,6 +181,10 @@ class ContextVK final : public Context,
   std::shared_ptr<ResourceManagerVK> resource_manager_;
   std::string device_name_;
   std::shared_ptr<fml::ConcurrentMessageLoop> raster_message_loop_;
+
+  mutable std::vector<KeyedRenderPass> render_pass_cache_;
+  mutable std::vector<KeyedFramebuffer> framebuffer_cache_;
+
   bool sync_presentation_ = false;
   const uint64_t hash_;
 
@@ -179,6 +198,48 @@ class ContextVK final : public Context,
       const;
 
   FML_DISALLOW_COPY_AND_ASSIGN(ContextVK);
+};
+
+struct KeyedRenderPass {
+  RenderTargetKey key;
+  SharedHandleVK<vk::RenderPass> render_pass;
+};
+
+struct KeyedFramebuffer {
+  RenderTargetKey key;
+  SharedHandleVK<vk::Framebuffer> framebuffer;
+};
+
+class RecylingFrameBuffer : public SharedObjectVK {
+ public:
+  explicit RecylingFrameBuffer(KeyedFramebuffer pair,
+                               std::weak_ptr<const ContextVK> weak_context);
+
+  ~RecylingFrameBuffer();
+
+  SharedHandleVK<vk::Framebuffer> GetFramebuffer() const {
+    return framebuffer_.framebuffer;
+  }
+
+ private:
+  KeyedFramebuffer framebuffer_;
+  std::weak_ptr<const ContextVK> weak_context_;
+};
+
+class RecylingRenderPass : public SharedObjectVK {
+ public:
+  explicit RecylingRenderPass(KeyedRenderPass pair,
+                              std::weak_ptr<const ContextVK> weak_context);
+
+  ~RecylingRenderPass();
+
+  SharedHandleVK<vk::RenderPass> GetRenderPass() const {
+    return render_pass_.render_pass;
+  }
+
+ private:
+  KeyedRenderPass render_pass_;
+  std::weak_ptr<const ContextVK> weak_context_;
 };
 
 }  // namespace impeller

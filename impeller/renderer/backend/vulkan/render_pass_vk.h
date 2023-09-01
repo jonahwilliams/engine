@@ -44,12 +44,14 @@ class RenderPassVK final : public RenderPass {
   // |RenderPass|
   bool OnEncodeCommands(const Context& context) const override;
 
-  SharedHandleVK<vk::RenderPass> CreateVKRenderPass(
+  std::shared_ptr<RecylingRenderPass> CreateVKRenderPass(
       const ContextVK& context,
+      const RenderTargetKey& key,
       const std::shared_ptr<CommandBufferVK>& command_buffer) const;
 
-  SharedHandleVK<vk::Framebuffer> CreateVKFramebuffer(
+  std::shared_ptr<RecylingFrameBuffer> CreateVKFramebuffer(
       const ContextVK& context,
+      const RenderTargetKey& key,
       const vk::RenderPass& pass) const;
 
   FML_DISALLOW_COPY_AND_ASSIGN(RenderPassVK);
