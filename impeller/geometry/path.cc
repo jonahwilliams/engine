@@ -304,8 +304,11 @@ void PathListener::EndContour(std::optional<PathComponentVariant>& variant) {
   auto maybe_vector =
       std::visit(PathComponentEndDirectionVisitor(), variant.value());
   UpdateLastContourEndDirection(maybe_vector.value_or(Vector2{0, 1}));
-  OnCountour(storage_.data(), storage_.size());
-  storage_.clear();
+
+  if (storage_.size() > 0u) {
+    OnContour(storage_.data(), storage_.size());
+    storage_.clear();
+  }
 }
 
 PathComponentVariant Path::GetPathComponent(size_t index) const {
@@ -340,7 +343,7 @@ class PolylineBuilder : public PathListener {
                                   .start_direction = start_direction});
   }
 
-  void OnCountour(const Point data[], size_t countour_size) override {
+  void OnContour(const Point data[], size_t countour_size) override {
     for (auto i = 0u; i < countour_size; i++) {
       polyline_.points.push_back(data[i]);
     }
@@ -364,6 +367,7 @@ Path::Polyline Path::CreatePolyline(Scalar scale) const {
 
 void Path::CreatePolyline(Scalar scale, PathListener& listener) const {
   std::optional<PathComponentVariant> variant;
+
   for (size_t component_i = 0; component_i < components_.size();
        component_i++) {
     const auto& component = components_[component_i];
@@ -402,8 +406,8 @@ void Path::CreatePolyline(Scalar scale, PathListener& listener) const {
         listener.AddPoint(contour.destination);
         break;
     }
-    listener.EndContour(variant);
   }
+  listener.EndContour(variant);
 }
 
 std::optional<Rect> Path::GetBoundingBox() const {

@@ -198,7 +198,7 @@ class PathListener {
 
   virtual void OnContourStart(bool is_closed, Vector2 start_direction) {}
 
-  virtual void OnCountour(const Point data[], size_t countour_size) {}
+  virtual void OnContour(const Point data[], size_t countour_size) {}
 
   virtual void UpdateLastContourEndDirection(Vector2 vector) {}
 

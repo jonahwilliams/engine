@@ -13,7 +13,11 @@ class ImmediatePathListener : public PathListener {
  public:
   const std::vector<Point>& GetPoints() const { return points_; }
 
-  void OnContour();
+  void OnContour(const Point data[], size_t contour_size) override {
+    for (auto i = 0u; i < contour_size; i++) {
+      points_.push_back(data[i]);
+    }
+  }
 
  private:
   std::vector<Point> points_;

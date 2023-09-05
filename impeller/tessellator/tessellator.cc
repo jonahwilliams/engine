@@ -57,15 +57,15 @@ class TessellationListener : public PathListener {
 
   ~TessellationListener() = default;
 
-  void OnCountour(const Point data[], size_t countour_size) override {
-    if (countour_size == 0u) {
+  void OnContour(const Point data[], size_t contour_size) override {
+    if (contour_size == 0u) {
       return;
     }
     ::tessAddContour(tessellator_,   // the C tessellator
                      kVertexSize,    //
                      data,           //
                      sizeof(Point),  //
-                     countour_size   //
+                     contour_size    //
     );
   }
 
@@ -125,7 +125,6 @@ Tessellator::Result Tessellator::Tessellate(
   }
   auto listener = TessellationListener(tessellator);
   path.CreatePolyline(scale, listener);
-
   return listener.Finish(callback, fill_type);
 }
 
