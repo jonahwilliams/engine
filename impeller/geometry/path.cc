@@ -8,6 +8,7 @@
 #include <variant>
 
 #include "impeller/geometry/path_component.h"
+#include "impeller/geometry/point.h"
 
 namespace impeller {
 
@@ -269,110 +270,115 @@ bool Path::UpdateContourComponentAtIndex(size_t index,
   return true;
 }
 
-Path::Polyline Path::CreatePolyline(Scalar scale) const {
-  Polyline polyline;
+void PathListener::AddPoint(Point point) {
+  if (last_point_.has_value() && last_point_ == point) {
+    return;
+  }
+  last_point_ = point;
+  storage_.emplace_back(point);
+}
 
-  std::optional<Point> previous_contour_point;
-  auto collect_points = [&polyline, &previous_contour_point](
-                            const std::vector<Point>& collection) {
-    if (collection.empty()) {
-      return;
+void PathListener::StartCountour(
+    const ContourComponent& contour,
+    std::optional<PathComponentVariant>& next_variant) {
+  last_point_ = std::nullopt;
+  Vector2 start_direction = Vector2(0, -1);
+  if (next_variant.has_value()) {
+    auto maybe_vector =
+        std::visit(PathComponentStartDirectionVisitor(), next_variant.value());
+    if (maybe_vector.has_value()) {
+      start_direction = maybe_vector.value();
     }
+  }
 
-    for (const auto& point : collection) {
-      if (previous_contour_point.has_value() &&
-          previous_contour_point.value() == point) {
-        // Skip over duplicate points in the same contour.
-        continue;
-      }
-      previous_contour_point = point;
-      polyline.points.push_back(point);
-    }
-  };
+  OnContourStart(contour.is_closed, start_direction);
+}
 
-  auto get_path_component = [this](size_t component_i) -> PathComponentVariant {
-    if (component_i >= components_.size()) {
+void PathListener::EndContour(std::optional<PathComponentVariant>& variant) {
+  // Whenever a contour has ended, extract the exact end direction from the
+  // last component.
+  if (!variant.has_value()) {
+    return;
+  }
+
+  auto maybe_vector =
+      std::visit(PathComponentEndDirectionVisitor(), variant.value());
+  UpdateLastContourEndDirection(maybe_vector.value_or(Vector2{0, 1}));
+  OnCountour(storage_.data(), storage_.size());
+  storage_.clear();
+}
+
+PathComponentVariant Path::GetPathComponent(size_t index) const {
+  if (index >= components_.size()) {
+    return std::monostate{};
+  }
+  const auto& component = components_[index];
+  switch (component.type) {
+    case ComponentType::kLinear:
+      return &linears_[component.index];
+    case ComponentType::kQuadratic:
+      return &quads_[component.index];
+    case ComponentType::kCubic:
+      return &cubics_[component.index];
+    case ComponentType::kContour:
       return std::monostate{};
-    }
-    const auto& component = components_[component_i];
-    switch (component.type) {
-      case ComponentType::kLinear:
-        return &linears_[component.index];
-      case ComponentType::kQuadratic:
-        return &quads_[component.index];
-      case ComponentType::kCubic:
-        return &cubics_[component.index];
-      case ComponentType::kContour:
-        return std::monostate{};
-    }
-  };
+  }
+};
 
-  auto compute_contour_start_direction =
-      [&get_path_component](size_t current_path_component_index) {
-        size_t next_component_index = current_path_component_index + 1;
-        while (!std::holds_alternative<std::monostate>(
-            get_path_component(next_component_index))) {
-          auto next_component = get_path_component(next_component_index);
-          auto maybe_vector =
-              std::visit(PathComponentStartDirectionVisitor(), next_component);
-          if (maybe_vector.has_value()) {
-            return maybe_vector.value();
-          } else {
-            next_component_index++;
-          }
-        }
-        return Vector2(0, -1);
-      };
+class PolylineBuilder : public PathListener {
+ public:
+  PolylineBuilder() = default;
 
-  std::optional<size_t> previous_path_component_index;
-  auto end_contour = [&polyline, &previous_path_component_index,
-                      &get_path_component]() {
-    // Whenever a contour has ended, extract the exact end direction from the
-    // last component.
-    if (polyline.contours.empty()) {
+  ~PolylineBuilder() = default;
+
+  Path::Polyline& GetPolyline() { return polyline_; }
+
+ private:
+  void OnContourStart(bool is_closed, Vector2 start_direction) override {
+    polyline_.contours.push_back({.start_index = polyline_.points.size(),
+                                  .is_closed = is_closed,
+                                  .start_direction = start_direction});
+  }
+
+  void OnCountour(const Point data[], size_t countour_size) override {
+    for (auto i = 0u; i < countour_size; i++) {
+      polyline_.points.push_back(data[i]);
+    }
+  }
+
+  void UpdateLastContourEndDirection(Vector2 end_direction) override {
+    if (polyline_.contours.size() == 0u) {
       return;
     }
+    polyline_.contours.back().end_direction = end_direction;
+  }
 
-    if (!previous_path_component_index.has_value()) {
-      return;
-    }
+  Path::Polyline polyline_;
+};
 
-    auto& contour = polyline.contours.back();
-    contour.end_direction = Vector2(0, 1);
+Path::Polyline Path::CreatePolyline(Scalar scale) const {
+  PolylineBuilder builder;
+  CreatePolyline(scale, builder);
+  return builder.GetPolyline();
+}
 
-    size_t previous_index = previous_path_component_index.value();
-    while (!std::holds_alternative<std::monostate>(
-        get_path_component(previous_index))) {
-      auto previous_component = get_path_component(previous_index);
-      auto maybe_vector =
-          std::visit(PathComponentEndDirectionVisitor(), previous_component);
-      if (maybe_vector.has_value()) {
-        contour.end_direction = maybe_vector.value();
-        break;
-      } else {
-        if (previous_index == 0) {
-          break;
-        }
-        previous_index--;
-      }
-    }
-  };
-
+void Path::CreatePolyline(Scalar scale, PathListener& listener) const {
+  std::optional<PathComponentVariant> variant;
   for (size_t component_i = 0; component_i < components_.size();
        component_i++) {
     const auto& component = components_[component_i];
     switch (component.type) {
       case ComponentType::kLinear:
-        collect_points(linears_[component.index].CreatePolyline());
-        previous_path_component_index = component_i;
+        linears_[component.index].CreatePolyline(listener);
+        variant = &linears_[component.index];
         break;
       case ComponentType::kQuadratic:
-        collect_points(quads_[component.index].CreatePolyline(scale));
-        previous_path_component_index = component_i;
+        quads_[component.index].CreatePolyline(scale, listener);
+        variant = &quads_[component.index];
         break;
       case ComponentType::kCubic:
-        collect_points(cubics_[component.index].CreatePolyline(scale));
-        previous_path_component_index = component_i;
+        cubics_[component.index].CreatePolyline(scale, listener);
+        variant = &cubics_[component.index];
         break;
       case ComponentType::kContour:
         if (component_i == components_.size() - 1) {
@@ -380,20 +386,24 @@ Path::Polyline Path::CreatePolyline(Scalar scale) const {
           // contour, so skip it.
           continue;
         }
-        end_contour();
-
-        Vector2 start_direction = compute_contour_start_direction(component_i);
+        listener.EndContour(variant);
+        // Find the next non-contour component, if any. this is used to
+        // compute the starting direction of the contour.
+        std::optional<PathComponentVariant> next_variant = std::nullopt;
+        for (auto i = component_i + 1; i < components_.size(); i++) {
+          auto component_variant = GetPathComponent(i);
+          if (!std::holds_alternative<std::monostate>(component_variant)) {
+            next_variant = component_variant;
+            break;
+          }
+        }
         const auto& contour = contours_[component.index];
-        polyline.contours.push_back({.start_index = polyline.points.size(),
-                                     .is_closed = contour.is_closed,
-                                     .start_direction = start_direction});
-        previous_contour_point = std::nullopt;
-        collect_points({contour.destination});
+        listener.StartCountour(contour, next_variant);
+        listener.AddPoint(contour.destination);
         break;
     }
-    end_contour();
+    listener.EndContour(variant);
   }
-  return polyline;
 }
 
 std::optional<Rect> Path::GetBoundingBox() const {

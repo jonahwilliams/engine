@@ -41,10 +41,9 @@ struct Vertices* Tessellate(PathBuilder* builder,
                             int fill_type,
                             Scalar tolerance) {
   auto path = builder->CopyPath(static_cast<FillType>(fill_type));
-  auto polyline = path.CreatePolyline(tolerance);
   std::vector<float> points;
   if (Tessellator{}.Tessellate(
-          path.GetFillType(), polyline,
+          path.GetFillType(), tolerance, path,
           [&points](const float* vertices, size_t vertices_size,
                     const uint16_t* indices, size_t indices_size) {
             // Results are expected to be re-duplicated.

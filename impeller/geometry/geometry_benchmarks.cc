@@ -26,21 +26,20 @@ static void BM_Polyline(benchmark::State& state, Args&&... args) {
   auto path = std::get<Path>(args_tuple);
   bool tessellate = std::get<bool>(args_tuple);
 
-  size_t point_count = 0u;
-  size_t single_point_count = 0u;
+  // size_t point_count = 0u;
+  // size_t single_point_count = 0u;
   while (state.KeepRunning()) {
-    auto polyline = path.CreatePolyline(1.0f);
-    single_point_count = polyline.points.size();
-    point_count += single_point_count;
+    // single_point_count = polyline.points.size();
+    // point_count += single_point_count;
     if (tessellate) {
       tess.Tessellate(
-          FillType::kNonZero, polyline,
+          FillType::kNonZero, 1.0f, path,
           [](const float* vertices, size_t vertices_size,
              const uint16_t* indices, size_t indices_size) { return true; });
     }
   }
-  state.counters["SinglePointCount"] = single_point_count;
-  state.counters["TotalPointCount"] = point_count;
+  // state.counters["SinglePointCount"] = single_point_count;
+  // state.counters["TotalPointCount"] = point_count;
 }
 
 BENCHMARK_CAPTURE(BM_Polyline, cubic_polyline, CreateCubic(), false);

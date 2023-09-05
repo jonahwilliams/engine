@@ -60,7 +60,8 @@ class Tessellator {
   /// @return The result status of the tessellation.
   ///
   Tessellator::Result Tessellate(FillType fill_type,
-                                 const Path::Polyline& polyline,
+                                 Scalar scale,
+                                 const Path& path,
                                  const BuilderCallback& callback) const;
 
  private:

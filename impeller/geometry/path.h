@@ -6,13 +6,16 @@
 
 #include <functional>
 #include <optional>
-#include <set>
 #include <tuple>
 #include <vector>
 
 #include "impeller/geometry/path_component.h"
+#include "impeller/geometry/point.h"
+#include "impeller/geometry/rect.h"
 
 namespace impeller {
+
+class PathListener;
 
 enum class Cap {
   kButt,
@@ -125,6 +128,9 @@ class Path {
   /// the path. If the provided scale is 0, curves will revert to lines.
   Polyline CreatePolyline(Scalar scale) const;
 
+  /// @brief Like `CreatePolyline`, except uses a listener based pattern.
+  void CreatePolyline(Scalar scale, PathListener& listener) const;
+
   std::optional<Rect> GetBoundingBox() const;
 
   std::optional<Rect> GetTransformedBoundingBox(const Matrix& transform) const;
@@ -171,6 +177,8 @@ class Path {
         : type(a_type), index(a_index) {}
   };
 
+  PathComponentVariant GetPathComponent(size_t index) const;
+
   FillType fill_ = FillType::kNonZero;
   Convexity convexity_ = Convexity::kUnknown;
   std::vector<ComponentIndexPair> components_;
@@ -178,6 +186,37 @@ class Path {
   std::vector<QuadraticPathComponent> quads_;
   std::vector<CubicPathComponent> cubics_;
   std::vector<ContourComponent> contours_;
+};
+
+/// @brief An interface for collecting the points of a Paths polyline
+/// decomposition.
+class PathListener {
+ public:
+  PathListener() = default;
+
+  ~PathListener() = default;
+
+  virtual void OnContourStart(bool is_closed, Vector2 start_direction) {}
+
+  virtual void OnCountour(const Point data[], size_t countour_size) {}
+
+  virtual void UpdateLastContourEndDirection(Vector2 vector) {}
+
+ private:
+  friend class Path;
+  friend struct LinearPathComponent;
+  friend struct QuadraticPathComponent;
+  friend struct CubicPathComponent;
+
+  void AddPoint(Point point);
+
+  void EndContour(std::optional<PathComponentVariant>& variant);
+
+  void StartCountour(const ContourComponent& contour,
+                     std::optional<PathComponentVariant>& next_variant);
+
+  std::optional<Point> last_point_ = std::nullopt;
+  std::vector<Point> storage_;
 };
 
 }  // namespace impeller

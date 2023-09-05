@@ -4,9 +4,20 @@
 
 #include "impeller/entity/geometry/stroke_path_geometry.h"
 
+#include "impeller/geometry/path.h"
 #include "impeller/geometry/path_builder.h"
 
 namespace impeller {
+
+class ImmediatePathListener : public PathListener {
+ public:
+  const std::vector<Point>& GetPoints() const { return points_; }
+
+  void OnContour();
+
+ private:
+  std::vector<Point> points_;
+};
 
 StrokePathGeometry::StrokePathGeometry(const Path& path,
                                        Scalar stroke_width,
@@ -128,10 +139,10 @@ StrokePathGeometry::JoinProc StrokePathGeometry::GetJoinProc(Join stroke_join) {
                                PathBuilder::kArcApproximationMagic * alignment *
                                dir;
 
-        auto arc_points = CubicPathComponent(start_offset, start_handle,
-                                             middle_handle, middle)
-                              .CreatePolyline(scale);
-
+        ImmediatePathListener listener;
+        CubicPathComponent(start_offset, start_handle, middle_handle, middle)
+            .CreatePolyline(scale, listener);
+        auto arc_points = listener.GetPoints();
         VS::PerVertexData vtx;
         for (const auto& point : arc_points) {
           vtx.position = position + point * dir;
@@ -192,7 +203,10 @@ StrokePathGeometry::CapProc StrokePathGeometry::GetCapProc(Cap stroke_cap) {
         vtx_builder.AppendVertex(vtx);
         vtx.position = position - orientation;
         vtx_builder.AppendVertex(vtx);
-        for (const auto& point : arc.CreatePolyline(scale)) {
+
+        ImmediatePathListener listener;
+        arc.CreatePolyline(scale, listener);
+        for (const auto& point : listener.GetPoints()) {
           vtx.position = position + point;
           vtx_builder.AppendVertex(vtx);
           vtx.position = position + (-point).Reflect(forward_normal);

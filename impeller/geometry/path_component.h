@@ -4,15 +4,17 @@
 
 #pragma once
 
+#include <optional>
 #include <type_traits>
 #include <variant>
 #include <vector>
 
 #include "impeller/geometry/point.h"
-#include "impeller/geometry/rect.h"
 #include "impeller/geometry/scalar.h"
 
 namespace impeller {
+
+class PathListener;
 
 // The default tolerance value for QuadraticCurveComponent::CreatePolyline and
 // CubicCurveComponent::CreatePolyline. It also impacts the number of quadratics
@@ -34,7 +36,7 @@ struct LinearPathComponent {
 
   Point Solve(Scalar time) const;
 
-  std::vector<Point> CreatePolyline() const;
+  void CreatePolyline(PathListener& builder) const;
 
   std::vector<Point> Extrema() const;
 
@@ -71,10 +73,9 @@ struct QuadraticPathComponent {
   //   making it trivially parallelizable.
   //
   // See also the implementation in kurbo: https://github.com/linebender/kurbo.
-  std::vector<Point> CreatePolyline(Scalar scale) const;
+  void CreatePolyline(Scalar scale, PathListener& builder) const;
 
-  void FillPointsForPolyline(std::vector<Point>& points,
-                             Scalar scale_factor) const;
+  void FillPointsForPolyline(PathListener& listener, Scalar scale_factor) const;
 
   std::vector<Point> Extrema() const;
 
@@ -95,7 +96,7 @@ struct CubicPathComponent {
 
   CubicPathComponent() {}
 
-  CubicPathComponent(const QuadraticPathComponent& q)
+  explicit CubicPathComponent(const QuadraticPathComponent& q)
       : p1(q.p1),
         cp1(q.p1 + (q.cp - q.p1) * (2.0 / 3.0)),
         cp2(q.p2 + (q.cp - q.p2) * (2.0 / 3.0)),
@@ -112,7 +113,7 @@ struct CubicPathComponent {
   // generates a polyline from those quadratics.
   //
   // See the note on QuadraticPathComponent::CreatePolyline for references.
-  std::vector<Point> CreatePolyline(Scalar scale) const;
+  void CreatePolyline(Scalar scale, PathListener& builder) const;
 
   std::vector<Point> Extrema() const;
 
@@ -140,7 +141,7 @@ struct ContourComponent {
 
   ContourComponent() {}
 
-  ContourComponent(Point p, bool is_closed = false)
+  explicit ContourComponent(Point p, bool is_closed = false)
       : destination(p), is_closed(is_closed) {}
 
   bool operator==(const ContourComponent& other) const {

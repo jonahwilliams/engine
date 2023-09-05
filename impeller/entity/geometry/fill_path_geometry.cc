@@ -41,8 +41,8 @@ GeometryResult FillPathGeometry::GetPositionBuffer(
   }
 
   auto tesselation_result = renderer.GetTessellator()->Tessellate(
-      path_.GetFillType(),
-      path_.CreatePolyline(entity.GetTransformation().GetMaxBasisLength()),
+      path_.GetFillType(), entity.GetTransformation().GetMaxBasisLength(),
+      path_,
       [&vertex_buffer, &host_buffer](
           const float* vertices, size_t vertices_count, const uint16_t* indices,
           size_t indices_count) {
@@ -107,8 +107,8 @@ GeometryResult FillPathGeometry::GetPositionUVBuffer(
 
   VertexBufferBuilder<VS::PerVertexData> vertex_builder;
   auto tesselation_result = renderer.GetTessellator()->Tessellate(
-      path_.GetFillType(),
-      path_.CreatePolyline(entity.GetTransformation().GetMaxBasisLength()),
+      path_.GetFillType(), entity.GetTransformation().GetMaxBasisLength(),
+      path_,
       [&vertex_builder, &texture_coverage, &effect_transform](
           const float* vertices, size_t vertices_count, const uint16_t* indices,
           size_t indices_count) {

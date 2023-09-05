@@ -4,6 +4,8 @@
 
 #include "path_component.h"
 
+#include "impeller/geometry/path.h"
+
 #include <cmath>
 
 namespace impeller {
@@ -59,8 +61,8 @@ Point LinearPathComponent::Solve(Scalar time) const {
   };
 }
 
-std::vector<Point> LinearPathComponent::CreatePolyline() const {
-  return {p2};
+void LinearPathComponent::CreatePolyline(PathListener& builder) const {
+  builder.AddPoint(p2);
 }
 
 std::vector<Point> LinearPathComponent::Extrema() const {
@@ -100,13 +102,12 @@ static Scalar ApproximateParabolaIntegral(Scalar x) {
   return x / (1.0 - d + sqrt(sqrt(pow(d, 4) + 0.25 * x * x)));
 }
 
-std::vector<Point> QuadraticPathComponent::CreatePolyline(Scalar scale) const {
-  std::vector<Point> points;
-  FillPointsForPolyline(points, scale);
-  return points;
+void QuadraticPathComponent::CreatePolyline(Scalar scale,
+                                            PathListener& listener) const {
+  FillPointsForPolyline(listener, scale);
 }
 
-void QuadraticPathComponent::FillPointsForPolyline(std::vector<Point>& points,
+void QuadraticPathComponent::FillPointsForPolyline(PathListener& listener,
                                                    Scalar scale_factor) const {
   auto tolerance = kDefaultCurveTolerance / scale_factor;
   auto sqrt_tolerance = sqrt(tolerance);
@@ -143,9 +144,9 @@ void QuadraticPathComponent::FillPointsForPolyline(std::vector<Point>& points,
     auto u = i * step;
     auto a = a0 + (a2 - a0) * u;
     auto t = (ApproximateParabolaIntegral(a) - u0) * uscale;
-    points.emplace_back(Solve(t));
+    listener.AddPoint(Solve(t));
   }
-  points.emplace_back(p2);
+  listener.AddPoint(p2);
 }
 
 std::vector<Point> QuadraticPathComponent::Extrema() const {
@@ -187,13 +188,12 @@ Point CubicPathComponent::SolveDerivative(Scalar time) const {
   };
 }
 
-std::vector<Point> CubicPathComponent::CreatePolyline(Scalar scale) const {
+void CubicPathComponent::CreatePolyline(Scalar scale,
+                                        PathListener& listener) const {
   auto quads = ToQuadraticPathComponents(.1);
-  std::vector<Point> points;
   for (const auto& quad : quads) {
-    quad.FillPointsForPolyline(points, scale);
+    quad.FillPointsForPolyline(listener, scale);
   }
-  return points;
 }
 
 inline QuadraticPathComponent CubicPathComponent::Lower() const {
