@@ -16,7 +16,7 @@ class GaussianBlurFilterContents final : public FilterContents {
 
   ~GaussianBlurFilterContents() override;
 
-  void SetSigma(Sigma sigma);
+  void SetSigma(Sigma sigma_x, Sigma sigma_y);
 
   void SetDirection(Vector2 direction);
 
@@ -39,8 +39,8 @@ class GaussianBlurFilterContents final : public FilterContents {
       const Matrix& effect_transform,
       const Rect& coverage,
       const std::optional<Rect>& coverage_hint) const override;
-  Sigma blur_sigma_;
-  BlurStyle blur_style_ = BlurStyle::kNormal;
+  Sigma sigma_x_;
+  Sigma sigma_y_;
   Entity::TileMode tile_mode_ = Entity::TileMode::kDecal;
   FilterInput::Ref source_override_;
 

@@ -17,6 +17,7 @@
 #include "impeller/entity/contents/filters/filter_contents.h"
 #include "impeller/geometry/rect.h"
 #include "impeller/geometry/scalar.h"
+#include "impeller/geometry/size.h"
 #include "impeller/renderer/command_buffer.h"
 #include "impeller/renderer/render_pass.h"
 #include "impeller/renderer/render_target.h"
@@ -43,12 +44,11 @@ constexpr int BlurKernelWidth(int radius) {
 
 void Compute2DBlurKernel(Sigma sigma_x,
                          Sigma sigma_y,
-                         ISize radius,
                          std::array<float, kMaxBlurSamples> kernel) {
   // Callers are responsible for downscaling large sigmas to values that can be
   // processed by the effects, so ensure the radius won't overflow 'kernel'
-  const int width = BlurKernelWidth(radius.width);
-  const int height = BlurKernelWidth(radius.height);
+  const int width = BlurKernelWidth(static_cast<Radius>(sigma_x).radius);
+  const int height = BlurKernelWidth(static_cast<Radius>(sigma_y).radius);
   const size_t kernelSize = width * height;
   FML_DCHECK(kernelSize <= kMaxBlurSamples);
 
@@ -56,23 +56,24 @@ void Compute2DBlurKernel(Sigma sigma_x,
   // isn't near zero when there's a non-trivial radius.
   const float twoSigmaSqrdX = 2.0f * sigma_x.sigma * sigma_x.sigma;
   const float twoSigmaSqrdY = 2.0f * sigma_y.sigma * sigma_y.sigma;
-  ;
 
-  FML_DCHECK((radius.width == 0 || !ScalarNearlyZero(twoSigmaSqrdX)) &&
-             (radius.height == 0 || !ScalarNearlyZero(twoSigmaSqrdY)));
+  // FML_DCHECK((radius.width == 0 || !ScalarNearlyZero(twoSigmaSqrdX)) &&
+  //            (radius.height == 0 || !ScalarNearlyZero(twoSigmaSqrdY)));
 
   // Setting the denominator to 1 when the radius is 0 automatically converts
   // the remaining math to the 1D Gaussian distribution. When both radii are 0,
   // it correctly computes a weight of 1.0
-  const float sigmaXDenom = radius.width > 0 ? 1.0f / twoSigmaSqrdX : 1.f;
-  const float sigmaYDenom = radius.height > 0 ? 1.0f / twoSigmaSqrdY : 1.f;
+  const float sigmaXDenom =
+      static_cast<Radius>(sigma_x).radius > 0 ? 1.0f / twoSigmaSqrdX : 1.f;
+  const float sigmaYDenom =
+      static_cast<Radius>(sigma_y).radius > 0 ? 1.0f / twoSigmaSqrdY : 1.f;
 
   float sum = 0.0f;
   for (int x = 0; x < width; x++) {
-    float xTerm = static_cast<float>(x - radius.width);
+    float xTerm = static_cast<float>(x - static_cast<Radius>(sigma_x).radius);
     xTerm = xTerm * xTerm * sigmaXDenom;
     for (int y = 0; y < height; y++) {
-      float yTerm = static_cast<float>(y - radius.height);
+      float yTerm = static_cast<float>(y - static_cast<Radius>(sigma_y).radius);
       float xyTerm = std::exp(-(xTerm + yTerm * yTerm * sigmaYDenom));
       // Note that the constant term (1/(sqrt(2*pi*sigma^2)) of the Gaussian
       // is dropped here, since we renormalize the kernel below.
@@ -90,33 +91,13 @@ void Compute2DBlurKernel(Sigma sigma_x,
          sizeof(float) * (kernel.size() - kernelSize));
 }
 
-void Rescale(Sigma sigma_x,
-             Sigma sigma_y) {
-      // We round down here so that when we recalculate sigmas we know they will be below
-    // kMaxSigma (but clamp to 1 do we don't have an empty texture).
-    ISize rescaledSize = {std::max(sk_float_floor2int(srcBounds.width() * scaleX), 1),
-                            std::max(sk_float_floor2int(srcBounds.height() * scaleY), 1)};
-
-    float scaleX = sigma_x.sigma > kMaxLinearBlurSigma ? kMaxLinearBlurSigma / sigma_x.sigma : 1.f;
-    float scaleY = sigma_y.sigma > kMaxLinearBlurSigma ? kMaxLinearBlurSigma / sigma_y.sigma : 1.f;
-    // We round down here so that when we recalculate sigmas we know they will be below
-    // kMaxSigma (but clamp to 1 do we don't have an empty texture).
-    ISize rescaledSize = {std::max(sk_float_floor2int(srcBounds.width() * scaleX), 1),
-                          std::max(sk_float_floor2int(srcBounds.height() * scaleY), 1)};
-    // Compute the sigmas using the actual scale factors used once we integerized the
-    // rescaledSize.
-    scaleX = static_cast<float>(rescaledSize.width()) / srcBounds.width();
-    scaleY = static_cast<float>(rescaledSize.height()) / srcBounds.height();
-}
-
-//     std::array<float, skgpu::kMaxBlurSamples> kernel;
-
 GaussianBlurFilterContents::GaussianBlurFilterContents() = default;
 
 GaussianBlurFilterContents::~GaussianBlurFilterContents() = default;
 
-void GaussianBlurFilterContents::SetSigma(Sigma sigma) {
-  blur_sigma_ = sigma;
+void GaussianBlurFilterContents::SetSigma(Sigma sigma_x, Sigma sigma_y) {
+  sigma_x_ = sigma_x;
+  sigma_y_ = sigma_y;
 }
 
 void GaussianBlurFilterContents::SetTileMode(Entity::TileMode tile_mode) {
@@ -135,8 +116,6 @@ std::optional<Entity> GaussianBlurFilterContents::RenderFilter(
     const Matrix& effect_transform,
     const Rect& coverage,
     const std::optional<Rect>& coverage_hint) const {
-  using VS = GaussianBlurAlphaDecalPipeline::VertexShader;
-  using FS = GaussianBlurAlphaDecalPipeline::FragmentShader;
 
   //----------------------------------------------------------------------------
   /// Handle inputs.
@@ -146,9 +125,70 @@ std::optional<Entity> GaussianBlurFilterContents::RenderFilter(
     return std::nullopt;
   }
 
-  // Limit the kernel size to 1000x1000 pixels, like Skia does.
-  auto radius = std::min(Radius{blur_sigma_}.radius, 500.0f);
-  auto transform = entity.GetTransformation() * effect_transform.Basis();
+  auto input_snapshot =
+      inputs[0]->GetSnapshot("GaussianBlur", renderer, entity);
+  if (!input_snapshot.has_value()) {
+    return std::nullopt;
+  }
+
+  auto input_bounds = input_snapshot->texture->GetSize();
+
+  float scale_x = sigma_x_.sigma > kMaxLinearBlurSigma
+                      ? kMaxLinearBlurSigma / sigma_x_.sigma
+                      : 1.f;
+  float scale_y = sigma_y_.sigma > kMaxLinearBlurSigma
+                      ? kMaxLinearBlurSigma / sigma_y_.sigma
+                      : 1.f;
+
+  // We round down here so that when we recalculate sigmas we know they will be
+  // below kMaxSigma (but clamp to 1 do we don't have an empty texture).
+  ISize rescaled_size = {
+      std::max(static_cast<int>(std::floor(input_bounds.width * scale_x)), 1),
+      std::max(static_cast<int>(std::floor(input_bounds.height * scale_y)), 1)};
+
+  // Compute the sigmas using the actual scale factors used once we integerized
+  // the rescaledSize.
+  scale_x = static_cast<float>(rescaled_size.width) / input_bounds.width;
+  scale_y = static_cast<float>(rescaled_size.height) / input_bounds.height;
+
+  FML_LOG(ERROR) << "With bounds: " << input_bounds << " And sigma "
+                 << sigma_x_.sigma << "," << sigma_y_.sigma << " scaled to "
+                 << rescaled_size;
+  // Compute kernel.
+  Sigma scaled_x = Sigma(scale_x);
+  Sigma scaled_y = Sigma(scale_y);
+  std::array<float, kMaxBlurSamples> kernel;
+  Compute2DBlurKernel(scaled_x, scaled_y, kernel);
+
+  // TODO: combine with above.
+  auto scaled_contents = renderer.MakeSubpass(
+      "Gaussian X", rescaled_size,
+      [&](const ContentContext& renderer, RenderPass& pass) {
+        auto& host_buffer = pass.GetTransientsBuffer();
+
+        VertexBufferBuilder<VS::PerVertexData> vtx_builder;
+        vtx_builder.AddVertices({
+            {Point(0, 0), input_uvs[0]},
+            {Point(1, 0), input_uvs[1], source_uvs[1]},
+            {Point(1, 1), input_uvs[3], source_uvs[3]},
+            {Point(0, 0), input_uvs[0], source_uvs[0]},
+            {Point(1, 1), input_uvs[3], source_uvs[3]},
+            {Point(0, 1), input_uvs[2], source_uvs[2]},
+        });
+        auto vtx_buffer = vtx_builder.CreateVertexBuffer(host_buffer);
+
+        VS::FrameInfo frame_info;
+        frame_info.mvp = Matrix::MakeOrthographic(ISize(1, 1));
+        frame_info.texture_sampler_y_coord_scale =
+            input_snapshot->texture->GetYCoordScale();
+
+        FS::BlurInfo frag_info;
+        auto r = Radius{transformed_blur_radius_length};
+        frag_info.blur_sigma = Sigma{r}.sigma;
+        frag_info.blur_radius = std::round(r.radius);
+
+        return true;
+      });
 }
 
 std::optional<Rect> GaussianBlurFilterContents::GetFilterCoverage(

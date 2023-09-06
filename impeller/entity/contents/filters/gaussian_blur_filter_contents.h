@@ -6,6 +6,7 @@
 
 #include <memory>
 #include <optional>
+#include "impeller/core/sampler_descriptor.h"
 #include "impeller/entity/contents/filters/filter_contents.h"
 #include "impeller/entity/contents/filters/inputs/filter_input.h"
 
@@ -44,6 +45,13 @@ class DirectionalGaussianBlurFilterContents final : public FilterContents {
       const Matrix& effect_transform,
       const Rect& coverage,
       const std::optional<Rect>& coverage_hint) const override;
+
+  /// @brief Update the input and source sampler descriptors based on the
+  /// current `tile_mode_` and device capabilities.
+  void UpdateSamplerDescriptor(SamplerDescriptor& input_descriptor,
+                               SamplerDescriptor& source_descriptor,
+                               const ContentContext& renderer) const;
+
   Sigma blur_sigma_;
   Sigma secondary_blur_sigma_;
   Vector2 blur_direction_;

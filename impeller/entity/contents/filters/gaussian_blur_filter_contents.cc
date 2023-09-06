@@ -23,6 +23,72 @@
 
 namespace impeller {
 
+// The maximum sigma that can be computed without downscaling is based on the
+// number of uniforms and texture samples the effects will make in a single
+// pass. For 1D passes, the number of samples is equal to
+// `BlurLinearKernelWidth`; for 2D passes, it is equal to
+// `BlurKernelWidth(radiusX)*BlurKernelWidth(radiusY)`. This maps back to
+// different maximum sigmas depending on the approach used, as well as the ratio
+// between the sigmas for the X and Y axes if a 2D blur is performed.
+constexpr size_t kMaxBlurSamples = 28;
+
+constexpr Scalar kMaxLinearBlurSigma = 4.f;
+
+// The kernel width of a Gaussian blur of the given pixel radius, for when all
+// pixels are sampled.
+constexpr int BlurKernelWidth(int radius) {
+  return 2 * radius + 1;
+}
+
+void Compute2DBlurKernel(Sigma sigma_x,
+                         Sigma sigma_y,
+                         std::array<float, kMaxBlurSamples> kernel) {
+  // Callers are responsible for downscaling large sigmas to values that can be
+  // processed by the effects, so ensure the radius won't overflow 'kernel'
+  const int width = BlurKernelWidth(static_cast<Radius>(sigma_x).radius);
+  const int height = BlurKernelWidth(static_cast<Radius>(sigma_y).radius);
+  const size_t kernelSize = width * height;
+  FML_DCHECK(kernelSize <= kMaxBlurSamples);
+
+  // And the definition of an identity blur should be sufficient that 2sigma^2
+  // isn't near zero when there's a non-trivial radius.
+  const float twoSigmaSqrdX = 2.0f * sigma_x.sigma * sigma_x.sigma;
+  const float twoSigmaSqrdY = 2.0f * sigma_y.sigma * sigma_y.sigma;
+
+  // FML_DCHECK((radius.width == 0 || !ScalarNearlyZero(twoSigmaSqrdX)) &&
+  //            (radius.height == 0 || !ScalarNearlyZero(twoSigmaSqrdY)));
+
+  // Setting the denominator to 1 when the radius is 0 automatically converts
+  // the remaining math to the 1D Gaussian distribution. When both radii are 0,
+  // it correctly computes a weight of 1.0
+  const float sigmaXDenom =
+      static_cast<Radius>(sigma_x).radius > 0 ? 1.0f / twoSigmaSqrdX : 1.f;
+  const float sigmaYDenom =
+      static_cast<Radius>(sigma_y).radius > 0 ? 1.0f / twoSigmaSqrdY : 1.f;
+
+  float sum = 0.0f;
+  for (int x = 0; x < width; x++) {
+    float xTerm = static_cast<float>(x - static_cast<Radius>(sigma_x).radius);
+    xTerm = xTerm * xTerm * sigmaXDenom;
+    for (int y = 0; y < height; y++) {
+      float yTerm = static_cast<float>(y - static_cast<Radius>(sigma_y).radius);
+      float xyTerm = std::exp(-(xTerm + yTerm * yTerm * sigmaYDenom));
+      // Note that the constant term (1/(sqrt(2*pi*sigma^2)) of the Gaussian
+      // is dropped here, since we renormalize the kernel below.
+      kernel[y * width + x] = xyTerm;
+      sum += xyTerm;
+    }
+  }
+  // Normalize the kernel
+  float scale = 1.0f / sum;
+  for (size_t i = 0; i < kernelSize; i++) {
+    kernel[i] *= scale;
+  }
+  // Zero remainder of the array
+  memset(kernel.data() + kernelSize, 0,
+         sizeof(float) * (kernel.size() - kernelSize));
+}
+
 DirectionalGaussianBlurFilterContents::DirectionalGaussianBlurFilterContents() =
     default;
 
@@ -81,6 +147,40 @@ void DirectionalGaussianBlurFilterContents::SetSourceOverride(
   source_override_ = std::move(source_override);
 }
 
+void DirectionalGaussianBlurFilterContents::UpdateSamplerDescriptor(
+    SamplerDescriptor& input_descriptor,
+    SamplerDescriptor& source_descriptor,
+    const ContentContext& renderer) const {
+  switch (tile_mode_) {
+    case Entity::TileMode::kDecal:
+      if (renderer.GetDeviceCapabilities().SupportsDecalSamplerAddressMode()) {
+        input_descriptor.width_address_mode = SamplerAddressMode::kDecal;
+        input_descriptor.height_address_mode = SamplerAddressMode::kDecal;
+        source_descriptor.width_address_mode = SamplerAddressMode::kDecal;
+        source_descriptor.height_address_mode = SamplerAddressMode::kDecal;
+      }
+      break;
+    case Entity::TileMode::kClamp:
+      input_descriptor.width_address_mode = SamplerAddressMode::kClampToEdge;
+      input_descriptor.height_address_mode = SamplerAddressMode::kClampToEdge;
+      source_descriptor.width_address_mode = SamplerAddressMode::kClampToEdge;
+      source_descriptor.height_address_mode = SamplerAddressMode::kClampToEdge;
+      break;
+    case Entity::TileMode::kMirror:
+      input_descriptor.width_address_mode = SamplerAddressMode::kMirror;
+      input_descriptor.height_address_mode = SamplerAddressMode::kMirror;
+      source_descriptor.width_address_mode = SamplerAddressMode::kMirror;
+      source_descriptor.height_address_mode = SamplerAddressMode::kMirror;
+      break;
+    case Entity::TileMode::kRepeat:
+      input_descriptor.width_address_mode = SamplerAddressMode::kRepeat;
+      input_descriptor.height_address_mode = SamplerAddressMode::kRepeat;
+      source_descriptor.width_address_mode = SamplerAddressMode::kRepeat;
+      source_descriptor.height_address_mode = SamplerAddressMode::kRepeat;
+      break;
+  }
+}
+
 std::optional<Entity> DirectionalGaussianBlurFilterContents::RenderFilter(
     const FilterInput::Vector& inputs,
     const ContentContext& renderer,
@@ -112,18 +212,18 @@ std::optional<Entity> DirectionalGaussianBlurFilterContents::RenderFilter(
 
   // Input 0 snapshot.
 
-  std::optional<Rect> expanded_coverage_hint;
-  if (coverage_hint.has_value()) {
-    auto r =
-        Size(transformed_blur_radius_length, transformed_blur_radius_length)
-            .Abs();
-    expanded_coverage_hint =
-        is_first_pass ? Rect(coverage_hint.value().origin - r,
-                             Size(coverage_hint.value().size + r * 2))
-                      : coverage_hint;
-  }
-  auto input_snapshot = inputs[0]->GetSnapshot("GaussianBlur", renderer, entity,
-                                               expanded_coverage_hint);
+  // std::optional<Rect> expanded_coverage_hint;
+  // if (coverage_hint.has_value()) {
+  //   auto r =
+  //       Size(transformed_blur_radius_length, transformed_blur_radius_length)
+  //           .Abs();
+  //   expanded_coverage_hint =
+  //       is_first_pass ? Rect(coverage_hint.value().origin - r,
+  //                            Size(coverage_hint.value().size + r * 2))
+  //                     : coverage_hint;
+  // }
+  auto input_snapshot =
+      inputs[0]->GetSnapshot("GaussianBlur", renderer, entity, nullptr);
   if (!input_snapshot.has_value()) {
     return std::nullopt;
   }
@@ -179,7 +279,6 @@ std::optional<Entity> DirectionalGaussianBlurFilterContents::RenderFilter(
   };
 
   auto input_uvs = pass_uv_project(input_snapshot.value());
-
   auto source_uvs = pass_uv_project(source_snapshot.value());
 
   //----------------------------------------------------------------------------
@@ -218,7 +317,6 @@ std::optional<Entity> DirectionalGaussianBlurFilterContents::RenderFilter(
     frag_info.blur_uv_offset =
         pass_transform.Invert().TransformDirection(Vector2(1, 0)).Normalize() /
         Point(input_snapshot->GetCoverage().value().size);
-
     Command cmd;
     DEBUG_COMMAND_INFO(cmd, SPrintF("Gaussian Blur Filter (Radius=%.2f)",
                                     transformed_blur_radius_length));
@@ -228,36 +326,7 @@ std::optional<Entity> DirectionalGaussianBlurFilterContents::RenderFilter(
     options.blend_mode = BlendMode::kSource;
     auto input_descriptor = input_snapshot->sampler_descriptor;
     auto source_descriptor = source_snapshot->sampler_descriptor;
-    switch (tile_mode_) {
-      case Entity::TileMode::kDecal:
-        if (renderer.GetDeviceCapabilities()
-                .SupportsDecalSamplerAddressMode()) {
-          input_descriptor.width_address_mode = SamplerAddressMode::kDecal;
-          input_descriptor.height_address_mode = SamplerAddressMode::kDecal;
-          source_descriptor.width_address_mode = SamplerAddressMode::kDecal;
-          source_descriptor.height_address_mode = SamplerAddressMode::kDecal;
-        }
-        break;
-      case Entity::TileMode::kClamp:
-        input_descriptor.width_address_mode = SamplerAddressMode::kClampToEdge;
-        input_descriptor.height_address_mode = SamplerAddressMode::kClampToEdge;
-        source_descriptor.width_address_mode = SamplerAddressMode::kClampToEdge;
-        source_descriptor.height_address_mode =
-            SamplerAddressMode::kClampToEdge;
-        break;
-      case Entity::TileMode::kMirror:
-        input_descriptor.width_address_mode = SamplerAddressMode::kMirror;
-        input_descriptor.height_address_mode = SamplerAddressMode::kMirror;
-        source_descriptor.width_address_mode = SamplerAddressMode::kMirror;
-        source_descriptor.height_address_mode = SamplerAddressMode::kMirror;
-        break;
-      case Entity::TileMode::kRepeat:
-        input_descriptor.width_address_mode = SamplerAddressMode::kRepeat;
-        input_descriptor.height_address_mode = SamplerAddressMode::kRepeat;
-        source_descriptor.width_address_mode = SamplerAddressMode::kRepeat;
-        source_descriptor.height_address_mode = SamplerAddressMode::kRepeat;
-        break;
-    }
+    UpdateSamplerDescriptor(input_descriptor, source_descriptor, renderer);
     input_descriptor.mag_filter = MinMagFilter::kLinear;
     input_descriptor.min_filter = MinMagFilter::kLinear;
 
@@ -299,20 +368,28 @@ std::optional<Entity> DirectionalGaussianBlurFilterContents::RenderFilter(
     return pass.AddCommand(std::move(cmd));
   };
 
-  Vector2 scale;
-  auto scale_curve = [](Scalar radius) {
-    constexpr Scalar decay = 4.0;   // Larger is more gradual.
-    constexpr Scalar limit = 0.95;  // The maximum percentage of the scaledown.
-    const Scalar curve =
-        std::min(1.0, decay / (std::max(1.0f, radius) + decay - 1.0));
-    return (curve - 1) * limit + 1;
-  };
-  {
-    scale.x = scale_curve(transformed_blur_radius_length);
+  // Radius 4, 920, 1124 -> 956, 1123 -> 956, 1260
 
-    Scalar y_radius = std::abs(pass_transform.GetDirectionScale(
-        Vector2(0, !is_first_pass ? Radius{secondary_blur_sigma_}.radius : 1)));
-    scale.y = scale_curve(y_radius);
+  // The scale curve is computed such that the maximum kernel size is 14 for
+  // each direction. The scale down is only performed in the first pass.
+  Vector2 scale = {1.0, 1.0};
+  if (is_first_pass) {
+    auto transformed_x = transform.GetMaxBasisLength() * blur_sigma_.sigma;
+    auto transformed_y =
+        transform.GetMaxBasisLength() * secondary_blur_sigma_.sigma;
+    FML_LOG(ERROR) << transformed_x << "," << transformed_y;
+    float scaled_sigma_x = transformed_x > kMaxLinearBlurSigma
+                               ? kMaxLinearBlurSigma / transformed_x
+                               : 1.f;
+    float scaled_sigma_y = transformed_y > kMaxLinearBlurSigma
+                               ? (kMaxLinearBlurSigma / transformed_y)
+                               : 1.f;
+
+    scale.x = scaled_sigma_x;
+    scale.y = scaled_sigma_y;
+  }
+  if (is_first_pass) {
+    FML_LOG(ERROR) << "scale: " << scale;
   }
 
   Vector2 scaled_size = pass_texture_rect.size * scale;
