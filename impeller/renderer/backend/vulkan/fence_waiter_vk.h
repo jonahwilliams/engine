@@ -11,10 +11,8 @@
 
 #include "flutter/fml/closure.h"
 #include "flutter/fml/macros.h"
-#include "impeller/base/thread.h"
 #include "impeller/renderer/backend/vulkan/device_holder.h"
 #include "impeller/renderer/backend/vulkan/shared_object_vk.h"
-#include "impeller/renderer/backend/vulkan/vk.h"
 
 namespace impeller {
 
@@ -31,7 +29,7 @@ class FenceWaiterVK {
 
   void Terminate();
 
-  bool AddFence(vk::UniqueFence fence, const fml::closure& callback);
+  bool AddFence(SharedHandleVK<vk::Fence> fence, const fml::closure& callback);
 
  private:
   friend class ContextVK;

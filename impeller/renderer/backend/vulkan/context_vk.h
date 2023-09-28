@@ -33,6 +33,36 @@ class FenceWaiterVK;
 class ResourceManagerVK;
 class SurfaceContextVK;
 
+class EnqueuedCommandBuffer {
+ public:
+  EnqueuedCommandBuffer(){};
+
+  ~EnqueuedCommandBuffer() = default;
+
+  std::shared_ptr<CommandEncoderVK>& WaitAndGet() { return encoder_; }
+
+  void SetEncoder(std::shared_ptr<CommandEncoderVK> encoder) {
+    encoder_ = std::move(encoder);
+  }
+
+ private:
+  std::shared_ptr<CommandEncoderVK> encoder_;
+};
+
+class CommandBufferQueue {
+ public:
+  void Enqueue(std::shared_ptr<EnqueuedCommandBuffer> buffer) {
+    pending_.push_back(buffer);
+  }
+
+  std::vector<std::shared_ptr<EnqueuedCommandBuffer>> Take() {
+    return std::move(pending_);
+  }
+
+ private:
+  std::vector<std::shared_ptr<EnqueuedCommandBuffer>> pending_;
+};
+
 class ContextVK final : public Context,
                         public BackendCast<ContextVK, Context>,
                         public std::enable_shared_from_this<ContextVK> {
@@ -140,6 +170,8 @@ class ContextVK final : public Context,
 
   std::shared_ptr<FenceWaiterVK> GetFenceWaiter() const;
 
+  std::shared_ptr<CommandBufferQueue> GetCommandBufferQueue() const;
+
   std::shared_ptr<ResourceManagerVK> GetResourceManager() const;
 
   std::shared_ptr<CommandPoolRecyclerVK> GetCommandPoolRecycler() const;
@@ -171,6 +203,7 @@ class ContextVK final : public Context,
   std::shared_ptr<CommandPoolRecyclerVK> command_pool_recycler_;
   std::string device_name_;
   std::shared_ptr<fml::ConcurrentMessageLoop> raster_message_loop_;
+  std::shared_ptr<CommandBufferQueue> command_buffer_queue_;
   bool sync_presentation_ = false;
   const uint64_t hash_;
 

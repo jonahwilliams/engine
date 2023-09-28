@@ -82,4 +82,23 @@ std::shared_ptr<ComputePass> CommandBuffer::CreateComputePass() {
   return nullptr;
 }
 
+bool CommandBuffer::SubmitCommandsAsync(
+    std::shared_ptr<BlitPass>
+        blit_pass  // NOLINT(performance-unnecessary-value-param)
+) {
+  TRACE_EVENT0("impeller", "CommandBuffer::SubmitCommandsAsync");
+  if (!blit_pass->IsValid() || !IsValid()) {
+    return false;
+  }
+  auto context = context_.lock();
+  if (!context) {
+    return false;
+  }
+  if (!blit_pass->EncodeCommands(context->GetResourceAllocator())) {
+    return false;
+  }
+
+  return SubmitCommands(nullptr);
+}
+
 }  // namespace impeller

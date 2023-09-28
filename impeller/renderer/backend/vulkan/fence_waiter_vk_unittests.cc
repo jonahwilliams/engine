@@ -13,7 +13,8 @@ namespace testing {
 TEST(FenceWaiterVKTest, IgnoresNullFence) {
   auto const context = MockVulkanContextBuilder().Build();
   auto const waiter = context->GetFenceWaiter();
-  EXPECT_FALSE(waiter->AddFence(vk::UniqueFence(), []() {}));
+  auto fence = MakeSharedVK(vk::UniqueFence());
+  EXPECT_FALSE(waiter->AddFence(fence, []() {}));
 }
 
 TEST(FenceWaiterVKTest, IgnoresNullCallback) {
@@ -21,7 +22,8 @@ TEST(FenceWaiterVKTest, IgnoresNullCallback) {
   auto const device = context->GetDevice();
   auto const waiter = context->GetFenceWaiter();
 
-  auto fence = device.createFenceUnique({}).value;
+  auto p_fence = device.createFenceUnique({}).value;
+  auto fence = MakeSharedVK(std::move(p_fence));
   EXPECT_FALSE(waiter->AddFence(std::move(fence), nullptr));
 }
 
@@ -31,7 +33,8 @@ TEST(FenceWaiterVKTest, ExecutesFenceCallback) {
   auto const waiter = context->GetFenceWaiter();
 
   auto signal = fml::ManualResetWaitableEvent();
-  auto fence = device.createFenceUnique({}).value;
+  auto p_fence = device.createFenceUnique({}).value;
+  auto fence = MakeSharedVK(std::move(p_fence));
   waiter->AddFence(std::move(fence), [&signal]() { signal.Signal(); });
 
   signal.Wait();
@@ -43,11 +46,13 @@ TEST(FenceWaiterVKTest, ExecutesFenceCallbackX2) {
   auto const waiter = context->GetFenceWaiter();
 
   auto signal = fml::ManualResetWaitableEvent();
-  auto fence = device.createFenceUnique({}).value;
+  auto p_fence = device.createFenceUnique({}).value;
+  auto fence = MakeSharedVK(std::move(p_fence));
   waiter->AddFence(std::move(fence), [&signal]() { signal.Signal(); });
 
   auto signal2 = fml::ManualResetWaitableEvent();
-  auto fence2 = device.createFenceUnique({}).value;
+  auto p_fence2 = device.createFenceUnique({}).value;
+  auto fence2 = MakeSharedVK(std::move(p_fence2));
   waiter->AddFence(std::move(fence2), [&signal2]() { signal2.Signal(); });
 
   signal.Wait();
@@ -63,7 +68,8 @@ TEST(FenceWaiterVKTest, ExecutesNewFenceThenOldFence) {
   auto fence = device.createFenceUnique({}).value;
   MockFence::SetStatus(fence, vk::Result::eNotReady);
   auto raw_fence = MockFence::GetRawPointer(fence);
-  waiter->AddFence(std::move(fence), [&signal]() { signal.Signal(); });
+  auto shared_fence = MakeSharedVK(std::move(fence));
+  waiter->AddFence(shared_fence, [&signal]() { signal.Signal(); });
 
   // The easiest way to verify that the callback was _not_ called is to wait
   // for a timeout, but that could introduce flakiness. Instead, we'll add a
@@ -72,7 +78,8 @@ TEST(FenceWaiterVKTest, ExecutesNewFenceThenOldFence) {
     auto signal2 = fml::ManualResetWaitableEvent();
     auto fence2 = device.createFenceUnique({}).value;
     MockFence::SetStatus(fence2, vk::Result::eSuccess);
-    waiter->AddFence(std::move(fence2), [&signal2]() { signal2.Signal(); });
+    auto shared_fence_2 = MakeSharedVK(std::move(fence2));
+    waiter->AddFence(shared_fence_2, [&signal2]() { signal2.Signal(); });
     signal2.Wait();
   }
 
@@ -93,7 +100,8 @@ TEST(FenceWaiterVKTest, AddFenceDoesNothingIfTerminating) {
     waiter->Terminate();
 
     auto fence = device.createFenceUnique({}).value;
-    waiter->AddFence(std::move(fence), [&signal]() { signal.Signal(); });
+    auto shared_fence = MakeSharedVK(std::move(fence));
+    waiter->AddFence(shared_fence, [&signal]() { signal.Signal(); });
   }
 
   // Ensure the fence did _not_ signal.
@@ -114,7 +122,8 @@ TEST(FenceWaiterVKTest, InProgressFencesStillWaitIfTerminated) {
   // Even if the fence is eSuccess, it's not guaranteed to be called in time.
   MockFence::SetStatus(fence, vk::Result::eNotReady);
   raw_fence = MockFence::GetRawPointer(fence);
-  waiter->AddFence(std::move(fence), [&signal]() { signal.Signal(); });
+  auto shared_fence = MakeSharedVK(std::move(fence));
+  waiter->AddFence(shared_fence, [&signal]() { signal.Signal(); });
 
   // Terminate the waiter.
   waiter->Terminate();

@@ -46,6 +46,12 @@ class CommandBufferVK final
   // |CommandBuffer|
   void OnWaitUntilScheduled() override;
 
+    // |CommandBuffer|
+  bool SubmitCommandsAsync(std::shared_ptr<RenderPass> render_pass) override;
+
+  // |CommandBuffer|
+  bool SubmitCommandsAsync(std::shared_ptr<BlitPass> blit_pass) override;
+
   // |CommandBuffer|
   std::shared_ptr<RenderPass> OnCreateRenderPass(RenderTarget target) override;
 

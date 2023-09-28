@@ -61,6 +61,66 @@ bool CommandBufferVK::OnSubmitCommands(CompletionCallback callback) {
   });
 }
 
+bool CommandBufferVK::SubmitCommandsAsync(std::shared_ptr<BlitPass> blit_pass) {
+  TRACE_EVENT0("impeller", "CommandBufferVK::SubmitCommandsAsync");
+  if (!blit_pass->IsValid() || !IsValid()) {
+    return false;
+  }
+  auto context = context_.lock();
+  if (!context) {
+    return false;
+  }
+
+  const auto& context_vk = ContextVK::Cast(*context);
+  auto pending = std::make_shared<EnqueuedCommandBuffer>();
+  context_vk.GetCommandBufferQueue()->Enqueue(pending);
+  // context_vk.GetConcurrentWorkerTaskRunner()->PostTask(
+  //     [cmd_buffer = shared_from_this(), pending, blit_pass,
+  //      weak_context = context_]() {
+  // auto context = weak_context.lock();
+  // if (!context || !cmd_buffer) {
+  //   return;
+  // }
+  auto encoder = GetEncoder();
+  if (!blit_pass->EncodeCommands(context->GetResourceAllocator()) ||
+      !encoder->Finish()) {
+    VALIDATION_LOG << "Failed to encode render pass.";
+  }
+  pending->SetEncoder(std::move(encoder));
+  // });
+
+  return true;
+}
+
+bool CommandBufferVK::SubmitCommandsAsync(
+    std::shared_ptr<RenderPass> render_pass) {
+  TRACE_EVENT0("impeller", "CommandBufferVK::SubmitCommandsAsync");
+  if (!render_pass->IsValid() || !IsValid()) {
+    return false;
+  }
+  const auto context = context_.lock();
+  if (!context) {
+    return false;
+  }
+  const auto& context_vk = ContextVK::Cast(*context);
+  auto pending = std::make_shared<EnqueuedCommandBuffer>();
+  context_vk.GetCommandBufferQueue()->Enqueue(pending);
+  // context_vk.GetConcurrentWorkerTaskRunner()->PostTask(
+  //     [cmd_buffer = shared_from_this(), pending, render_pass,
+  //      weak_context = context_]() {
+  // auto context = weak_context.lock();
+  // if (!context || !cmd_buffer) {
+  //   return;
+  // }
+  auto encoder = GetEncoder();
+  if (!render_pass->EncodeCommands() || !encoder->Finish()) {
+    VALIDATION_LOG << "Failed to encode render pass.";
+  }
+  pending->SetEncoder(std::move(encoder));
+  // });
+  return true;
+}
+
 void CommandBufferVK::OnWaitUntilScheduled() {}
 
 std::shared_ptr<RenderPass> CommandBufferVK::OnCreateRenderPass(

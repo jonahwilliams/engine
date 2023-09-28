@@ -56,7 +56,7 @@ class BackgroundCommandPoolVK final {
   std::weak_ptr<CommandPoolRecyclerVK> recycler_;
 };
 
-static bool kResetOnBackgroundThread = false;
+static bool kResetOnBackgroundThread = true;
 
 CommandPoolVK::~CommandPoolVK() {
   if (!pool_) {

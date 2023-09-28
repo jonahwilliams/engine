@@ -12,12 +12,13 @@
 #include "flutter/fml/thread.h"
 #include "flutter/fml/trace_event.h"
 #include "impeller/base/validation.h"
+#include "impeller/renderer/backend/vulkan/shared_object_vk.h"
 
 namespace impeller {
 
 class WaitSetEntry {
  public:
-  static std::shared_ptr<WaitSetEntry> Create(vk::UniqueFence p_fence,
+  static std::shared_ptr<WaitSetEntry> Create(SharedHandleVK<vk::Fence> p_fence,
                                               const fml::closure& p_callback) {
     return std::shared_ptr<WaitSetEntry>(
         new WaitSetEntry(std::move(p_fence), p_callback));
@@ -27,19 +28,21 @@ class WaitSetEntry {
     if (is_signalled_) {
       return;
     }
-    is_signalled_ = device.getFenceStatus(fence_.get()) == vk::Result::eSuccess;
+    is_signalled_ =
+        device.getFenceStatus(fence_->Get()) == vk::Result::eSuccess;
   }
 
-  const vk::Fence& GetFence() const { return fence_.get(); }
+  const vk::Fence& GetFence() const { return fence_.get()->Get(); }
 
   bool IsSignalled() const { return is_signalled_; }
 
  private:
-  vk::UniqueFence fence_;
+  SharedHandleVK<vk::Fence> fence_;
   fml::ScopedCleanupClosure callback_;
   bool is_signalled_ = false;
 
-  WaitSetEntry(vk::UniqueFence p_fence, const fml::closure& p_callback)
+  WaitSetEntry(SharedHandleVK<vk::Fence> p_fence,
+               const fml::closure& p_callback)
       : fence_(std::move(p_fence)),
         callback_(fml::ScopedCleanupClosure{p_callback}) {}
 
@@ -56,7 +59,7 @@ FenceWaiterVK::~FenceWaiterVK() {
   waiter_thread_->join();
 }
 
-bool FenceWaiterVK::AddFence(vk::UniqueFence fence,
+bool FenceWaiterVK::AddFence(SharedHandleVK<vk::Fence> fence,
                              const fml::closure& callback) {
   TRACE_EVENT0("flutter", "FenceWaiterVK::AddFence");
   if (!fence || !callback) {

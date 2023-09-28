@@ -188,16 +188,17 @@ bool CommandEncoderVK::Submit(SubmitCallback callback) {
     VALIDATION_LOG << "Device lost.";
     return false;
   }
-  auto [fence_result, fence] = strong_device->GetDevice().createFenceUnique({});
+  auto [fence_result, p_fence] = strong_device->GetDevice().createFenceUnique({});
   if (fence_result != vk::Result::eSuccess) {
     VALIDATION_LOG << "Failed to create fence: " << vk::to_string(fence_result);
     return false;
   }
+  auto fence = MakeSharedVK(std::move(p_fence));
 
   vk::SubmitInfo submit_info;
   std::vector<vk::CommandBuffer> buffers = {command_buffer};
   submit_info.setCommandBuffers(buffers);
-  status = queue_->Submit(submit_info, *fence);
+  status = queue_->Submit(submit_info, fence->Get());
   if (status != vk::Result::eSuccess) {
     VALIDATION_LOG << "Failed to submit queue: " << vk::to_string(status);
     return false;
@@ -269,6 +270,15 @@ bool CommandEncoderVK::Track(const std::shared_ptr<const Texture>& texture) {
     return true;
   }
   return Track(TextureVK::Cast(*texture).GetTextureSource());
+}
+
+bool CommandEncoderVK::Finish() {
+  auto command_buffer = GetCommandBuffer();
+
+  if (command_buffer.end() != vk::Result::eSuccess) {
+    return false;
+  }
+  return true;
 }
 
 bool CommandEncoderVK::IsTracking(

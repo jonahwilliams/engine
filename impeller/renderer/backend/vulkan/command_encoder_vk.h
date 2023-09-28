@@ -78,6 +78,8 @@ class CommandEncoderVK {
 
   void InsertDebugMarker(const char* label) const;
 
+  bool Finish();
+
   std::optional<vk::DescriptorSet> AllocateDescriptorSet(
       const vk::DescriptorSetLayout& layout,
       size_t command_count);

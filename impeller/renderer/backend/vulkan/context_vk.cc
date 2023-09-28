@@ -140,6 +140,8 @@ void ContextVK::Setup(Settings settings) {
 #endif  // FML_OS_ANDROID
   });
 
+  command_buffer_queue_ = std::make_shared<CommandBufferQueue>();
+
   auto& dispatcher = VULKAN_HPP_DEFAULT_DISPATCHER;
   dispatcher.init(settings.proc_address_callback);
 
@@ -484,6 +486,10 @@ const vk::Device& ContextVK::GetDevice() const {
 const std::shared_ptr<fml::ConcurrentTaskRunner>
 ContextVK::GetConcurrentWorkerTaskRunner() const {
   return raster_message_loop_->GetTaskRunner();
+}
+
+std::shared_ptr<CommandBufferQueue> ContextVK::GetCommandBufferQueue() const {
+  return command_buffer_queue_;
 }
 
 void ContextVK::Shutdown() {
