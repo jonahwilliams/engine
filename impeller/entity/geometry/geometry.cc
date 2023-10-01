@@ -4,20 +4,24 @@
 
 #include "impeller/entity/geometry/geometry.h"
 
+#include <cstdint>
 #include <optional>
 
+#include "impeller/core/formats.h"
+#include "impeller/core/host_buffer.h"
 #include "impeller/entity/geometry/cover_geometry.h"
 #include "impeller/entity/geometry/fill_path_geometry.h"
 #include "impeller/entity/geometry/point_field_geometry.h"
 #include "impeller/entity/geometry/rect_geometry.h"
 #include "impeller/entity/geometry/stroke_path_geometry.h"
+#include "impeller/geometry/point.h"
 #include "impeller/geometry/rect.h"
 
 namespace impeller {
 
 /// Given a convex polyline, create a triangle fan structure.
 std::pair<std::vector<Point>, std::vector<uint16_t>> TessellateConvex(
-    Path::Polyline polyline) {
+    const Path::Polyline& polyline) {
   std::vector<Point> output;
   std::vector<uint16_t> indices;
 
@@ -44,6 +48,45 @@ std::pair<std::vector<Point>, std::vector<uint16_t>> TessellateConvex(
     }
   }
   return std::make_pair(output, indices);
+}
+
+VertexBuffer TessellateConvex(const Path::Polyline& polyline,
+                              HostBuffer& host_buffer) {
+  FML_DCHECK(polyline.contours.size() == 1u);
+  if (polyline.contours.size() > 1) {
+    FML_LOG(ERROR) << "Invalid contour with size: " << polyline.contours.size();
+    return {};
+  }
+
+  auto [start, end] = polyline.GetContourPointBounds(0);
+  // Some polygons will not self close and an additional triangle
+  // must be inserted, others will self close and we need to avoid
+  // inserting an extra triangle.
+  if (polyline.points[end - 1] == polyline.points[start]) {
+    end--;
+  }
+  size_t vertex_count = polyline.points.size();
+  size_t index_count = (end - 2) * 3;
+
+  auto vtx_data = host_buffer.Emplace(
+      vertex_count * sizeof(Point), alignof(Point), [&](uint8_t* contents) {
+        std::memcpy(contents, polyline.points.data(),
+                    sizeof(Point) * polyline.points.size());
+      });
+  auto idx_data = host_buffer.Emplace(
+      index_count * sizeof(uint16_t), alignof(uint16_t),
+      [&, end = end](uint8_t* contents) {
+        for (uint16_t i = 2u; i < end; i++) {
+          uint16_t data[3] = {0, static_cast<uint16_t>(i - 1),
+                              static_cast<uint16_t>(i)};
+          std::memcpy(contents, data, sizeof(uint16_t[3]));
+          contents += (sizeof(uint16_t[3]));
+        }
+      });
+  return VertexBuffer{.vertex_buffer = vtx_data,
+                      .index_buffer = idx_data,
+                      .vertex_count = index_count,
+                      .index_type = IndexType::k16bit};
 }
 
 VertexBufferBuilder<TextureFillVertexShader::PerVertexData>

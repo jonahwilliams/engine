@@ -18,19 +18,12 @@ GeometryResult FillPathGeometry::GetPositionBuffer(
     const Entity& entity,
     RenderPass& pass) {
   auto& host_buffer = pass.GetTransientsBuffer();
-  VertexBuffer vertex_buffer;
 
   if (path_.GetFillType() == FillType::kNonZero &&  //
       path_.IsConvex()) {
-    auto [points, indices] = TessellateConvex(
-        path_.CreatePolyline(entity.GetTransformation().GetMaxBasisLength()));
-
-    vertex_buffer.vertex_buffer = host_buffer.Emplace(
-        points.data(), points.size() * sizeof(Point), alignof(Point));
-    vertex_buffer.index_buffer = host_buffer.Emplace(
-        indices.data(), indices.size() * sizeof(uint16_t), alignof(uint16_t));
-    vertex_buffer.vertex_count = indices.size();
-    vertex_buffer.index_type = IndexType::k16bit;
+    auto vertex_buffer = TessellateConvex(
+        path_.CreatePolyline(entity.GetTransformation().GetMaxBasisLength()),
+        host_buffer);
 
     return GeometryResult{
         .type = PrimitiveType::kTriangle,
@@ -41,6 +34,7 @@ GeometryResult FillPathGeometry::GetPositionBuffer(
     };
   }
 
+  VertexBuffer vertex_buffer;
   auto tesselation_result = renderer.GetTessellator()->Tessellate(
       path_.GetFillType(),
       path_.CreatePolyline(entity.GetTransformation().GetMaxBasisLength()),

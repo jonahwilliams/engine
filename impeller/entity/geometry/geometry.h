@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "impeller/core/buffer_view.h"
 #include "impeller/core/formats.h"
 #include "impeller/core/vertex_buffer.h"
 #include "impeller/entity/contents/content_context.h"
@@ -49,7 +50,10 @@ GeometryResult ComputeUVGeometryForRect(Rect source_rect,
 /// @brief Given a polyline created from a convex filled path, perform a
 /// tessellation.
 std::pair<std::vector<Point>, std::vector<uint16_t>> TessellateConvex(
-    Path::Polyline polyline);
+    const Path::Polyline& polyline);
+
+VertexBuffer TessellateConvex(const Path::Polyline& polyline,
+                              HostBuffer& host_buffer);
 
 class Geometry {
  public:
