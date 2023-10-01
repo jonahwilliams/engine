@@ -131,6 +131,26 @@ class Path {
 
   std::optional<std::pair<Point, Point>> GetMinMaxCoveragePoints() const;
 
+  struct ComponentIndexPair {
+    ComponentType type = ComponentType::kLinear;
+    size_t index = 0;
+
+    ComponentIndexPair() {}
+
+    ComponentIndexPair(ComponentType a_type, size_t a_index)
+        : type(a_type), index(a_index) {}
+  };
+
+  const std::vector<ComponentIndexPair>& GetComponents() const {
+    return components_;
+  }
+  const std::vector<LinearPathComponent>& GetLinears() const {
+    return linears_;
+  }
+  const std::vector<QuadraticPathComponent>& GetQuads() const { return quads_; }
+  const std::vector<CubicPathComponent>& GetCubics() const { return cubics_; }
+  const std::vector<ContourComponent>& GetContours() const { return contours_; }
+
  private:
   friend class PathBuilder;
 
@@ -168,16 +188,6 @@ class Path {
 
   bool UpdateContourComponentAtIndex(size_t index,
                                      const ContourComponent& contour);
-
-  struct ComponentIndexPair {
-    ComponentType type = ComponentType::kLinear;
-    size_t index = 0;
-
-    ComponentIndexPair() {}
-
-    ComponentIndexPair(ComponentType a_type, size_t a_index)
-        : type(a_type), index(a_index) {}
-  };
 
   FillType fill_ = FillType::kNonZero;
   Convexity convexity_ = Convexity::kUnknown;

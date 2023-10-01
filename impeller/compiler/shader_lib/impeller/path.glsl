@@ -35,6 +35,7 @@ struct QuadDecomposition {
 struct PathComponent {
   uint index;  // Location in buffer
   uint count;  // Number of points. 4 = cubic, 3 = quad, 2 = line.
+  bool contour_end;
 };
 
 /// Solve for point on a quadratic Bezier curve defined by starting point `p1`,
@@ -121,7 +122,7 @@ QuadDecomposition DecomposeQuad(QuadData quad, float tolerance) {
   // This should never happen, but if it does happen be more defensive -
   // otherwise we'll get NaNs down the line.
   if (dd == vec2(0.)) {
-    return QuadDecomposition(0., 0., 0., 0., 0, 0.);
+    return QuadDecomposition(0., 0., 0., 0., 1, 0.);
   }
   float c = Cross(quad.p2 - quad.p1, dd);
   float x0 = dot(d01, dd) * 1. / c;

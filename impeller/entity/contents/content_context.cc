@@ -335,6 +335,16 @@ ContentContext::ContentContext(
         UvComputeShaderPipeline::MakeDefaultPipelineDescriptor(*context_);
     uv_compute_pipelines_ =
         context_->GetPipelineLibrary()->GetPipeline(uv_pipeline_desc).Get();
+
+    auto polyline_pipeline_desc =
+       PolylineShaderPipeline::MakeDefaultPipelineDescriptor(*context_);
+    polyline_pipelines_ =
+        context_->GetPipelineLibrary()->GetPipeline(polyline_pipeline_desc).Get();
+
+    auto convex_pipeline_desc =
+       ConvexShaderPipeline::MakeDefaultPipelineDescriptor(*context_);
+    convex_pipelines_ =
+        context_->GetPipelineLibrary()->GetPipeline(convex_pipeline_desc).Get();
   }
 
   /// Setup default clip pipeline.

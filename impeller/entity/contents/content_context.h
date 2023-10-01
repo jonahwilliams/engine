@@ -68,6 +68,8 @@
 
 #include "impeller/entity/position_color.vert.h"
 
+#include "impeller/entity/convex.comp.h"
+#include "impeller/entity/polyline.comp.h"
 #include "impeller/typographer/glyph_atlas.h"
 
 #include "impeller/entity/conical_gradient_ssbo_fill.frag.h"
@@ -283,6 +285,8 @@ using FramebufferBlendSoftLightPipeline =
 /// Geometry Pipelines
 using PointsComputeShaderPipeline = ComputePipelineBuilder<PointsComputeShader>;
 using UvComputeShaderPipeline = ComputePipelineBuilder<UvComputeShader>;
+using PolylineShaderPipeline = ComputePipelineBuilder<PolylineComputeShader>;
+using ConvexShaderPipeline = ComputePipelineBuilder<ConvexComputeShader>;
 
 #ifdef IMPELLER_ENABLE_OPENGLES
 using TextureExternalPipeline =
@@ -693,6 +697,18 @@ class ContentContext {
     return uv_compute_pipelines_;
   }
 
+  std::shared_ptr<Pipeline<ComputePipelineDescriptor>>
+  GetPolylineComputePipeline() const {
+    FML_DCHECK(GetDeviceCapabilities().SupportsCompute());
+    return polyline_pipelines_;
+  }
+
+  std::shared_ptr<Pipeline<ComputePipelineDescriptor>>
+  GetConvexComputePipeline() const {
+    FML_DCHECK(GetDeviceCapabilities().SupportsCompute());
+    return convex_pipelines_;
+  }
+
   std::shared_ptr<Context> GetContext() const;
 
   const Capabilities& GetDeviceCapabilities() const;
@@ -824,6 +840,10 @@ class ContentContext {
       point_field_compute_pipelines_;
   mutable std::shared_ptr<Pipeline<ComputePipelineDescriptor>>
       uv_compute_pipelines_;
+  mutable std::shared_ptr<Pipeline<ComputePipelineDescriptor>>
+      polyline_pipelines_;
+  mutable std::shared_ptr<Pipeline<ComputePipelineDescriptor>>
+      convex_pipelines_;
   // The values for the default context options must be cached on
   // initial creation. In the presence of wide gamut and platform views,
   // it is possible that secondary surfaces will have a different default

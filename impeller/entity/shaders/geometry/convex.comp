@@ -1,0 +1,58 @@
+// Copyright 2013 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include <impeller/texture.glsl>
+#include <impeller/types.glsl>
+
+// unused
+layout(local_size_x = 16) in;
+
+struct PolylineComponent {
+  vec2 pt;
+  // This is the end of a countour.
+  //
+  // that is path.close was called with this as the final
+  // point.
+  bool contour_end;
+
+  // This point is the end of a line segment.
+  bool segment_end;
+};
+
+layout(std430) readonly buffer PolylineData {
+  uint count;
+  PolylineComponent points[];
+}
+polyline_data;
+
+layout(std430) writeonly buffer GeometryData {
+  // Size of this data is (points_size - 2) * 3;
+  vec2 points[];
+}
+geometry_data;
+
+layout(std430) buffer IndirectCommandArguments {
+  uint vertex_count;
+  uint instance_count;
+  uint vertex_start;
+  uint base_instance;
+}
+indirect_command_arguments;
+
+void main() {
+  uint ident = gl_GlobalInvocationID.x;
+  if (ident >= polyline_data.count || ident < 2) {
+    return;
+  }
+
+  uint index = (ident - 2) * 3;
+
+  geometry_data.points[index] = polyline_data.points[0].pt;
+  geometry_data.points[index + 1] = polyline_data.points[ident - 1].pt;
+  geometry_data.points[index + 2] = polyline_data.points[ident].pt;
+
+  if (ident == 2) {
+    indirect_command_arguments.vertex_count = (polyline_data.count - 2) * 3;
+  }
+}
