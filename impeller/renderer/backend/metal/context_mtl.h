@@ -13,7 +13,10 @@
 #include "flutter/fml/macros.h"
 #include "flutter/fml/synchronization/sync_switch.h"
 #include "impeller/base/backend_cast.h"
+#include "impeller/core/formats.h"
 #include "impeller/core/sampler.h"
+#include "impeller/core/texture.h"
+#include "impeller/geometry/size.h"
 #include "impeller/renderer/backend/metal/allocator_mtl.h"
 #include "impeller/renderer/backend/metal/command_buffer_mtl.h"
 #include "impeller/renderer/backend/metal/pipeline_library_mtl.h"
@@ -87,9 +90,19 @@ class ContextMTL final : public Context,
   // |Context|
   void Shutdown() override;
 
+  std::shared_ptr<Texture> GetOrCreateSwapchainTexture(PixelFormat format,
+                                                       ISize size) const;
+
+  std::shared_ptr<Texture> GetLastTexture() const { return texture_; }
+
   id<MTLCommandBuffer> CreateMTLCommandBuffer(const std::string& label) const;
 
   const std::shared_ptr<fml::ConcurrentTaskRunner> GetWorkerTaskRunner() const;
+
+  const std::shared_ptr<fml::ConcurrentTaskRunner> GetPresentationTaskRunner()
+      const {
+    return presentation_loop_->GetTaskRunner();
+  }
 
   std::shared_ptr<const fml::SyncSwitch> GetIsGpuDisabledSyncSwitch() const;
 
@@ -102,7 +115,9 @@ class ContextMTL final : public Context,
   std::shared_ptr<AllocatorMTL> resource_allocator_;
   std::shared_ptr<const Capabilities> device_capabilities_;
   std::shared_ptr<fml::ConcurrentMessageLoop> raster_message_loop_;
+  std::shared_ptr<fml::ConcurrentMessageLoop> presentation_loop_;
   std::shared_ptr<const fml::SyncSwitch> is_gpu_disabled_sync_switch_;
+  mutable std::shared_ptr<Texture> texture_;
   bool is_valid_ = false;
 
   ContextMTL(

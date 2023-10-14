@@ -6,6 +6,7 @@
 
 #import <Metal/Metal.h>
 #import <QuartzCore/QuartzCore.h>
+#include "impeller/renderer/backend/metal/context_mtl.h"
 
 #include "flutter/common/settings.h"
 #include "flutter/fml/make_copyable.h"
@@ -99,9 +100,6 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceMetalImpeller::AcquireFrameFromCAMetalLa
 
   auto drawable = impeller::SurfaceMTL::GetMetalDrawableAndValidate(
       impeller_renderer_->GetContext(), mtl_layer);
-  if (Settings::kSurfaceDataAccessible) {
-    last_texture_.reset([drawable.texture retain]);
-  }
 
   id<MTLTexture> last_texture = static_cast<id<MTLTexture>>(last_texture_);
   SurfaceFrame::SubmitCallback submit_callback =
@@ -170,7 +168,9 @@ std::unique_ptr<SurfaceFrame> GPUSurfaceMetalImpeller::AcquireFrameFromCAMetalLa
   if (!disable_partial_repaint_) {
     // Provide accumulated damage to rasterizer (area in current framebuffer that lags behind
     // front buffer)
-    uintptr_t texture = reinterpret_cast<uintptr_t>(drawable.texture);
+    auto last_texture = impeller::ContextMTL::Cast(*aiks_context_->GetContext()).GetLastTexture();
+    uintptr_t texture =
+        reinterpret_cast<uintptr_t>(last_texture == nullptr ? 0u : last_texture.get());
     auto i = damage_.find(texture);
     if (i != damage_.end()) {
       framebuffer_info.existing_damage = i->second;
@@ -324,45 +324,7 @@ std::shared_ptr<impeller::AiksContext> GPUSurfaceMetalImpeller::GetAiksContext()
 }
 
 Surface::SurfaceData GPUSurfaceMetalImpeller::GetSurfaceData() const {
-  if (!(last_texture_ && [last_texture_ conformsToProtocol:@protocol(MTLTexture)])) {
-    return {};
-  }
-  id<MTLTexture> texture = last_texture_.get();
-  int bytesPerPixel = 0;
-  std::string pixel_format;
-  switch (texture.pixelFormat) {
-    case MTLPixelFormatBGR10_XR:
-      bytesPerPixel = 4;
-      pixel_format = "MTLPixelFormatBGR10_XR";
-      break;
-    case MTLPixelFormatBGRA10_XR:
-      bytesPerPixel = 8;
-      pixel_format = "MTLPixelFormatBGRA10_XR";
-      break;
-    case MTLPixelFormatBGRA8Unorm:
-      bytesPerPixel = 4;
-      pixel_format = "MTLPixelFormatBGRA8Unorm";
-      break;
-    case MTLPixelFormatRGBA16Float:
-      bytesPerPixel = 8;
-      pixel_format = "MTLPixelFormatRGBA16Float";
-      break;
-    default:
-      return {};
-  }
-
-  // Zero initialized so that errors are easier to find at the cost of
-  // performance.
-  sk_sp<SkData> result =
-      SkData::MakeZeroInitialized(texture.width * texture.height * bytesPerPixel);
-  [texture getBytes:result->writable_data()
-        bytesPerRow:texture.width * bytesPerPixel
-         fromRegion:MTLRegionMake2D(0, 0, texture.width, texture.height)
-        mipmapLevel:0];
-  return {
-      .pixel_format = pixel_format,
-      .data = result,
-  };
+  return {};
 }
 
 }  // namespace flutter

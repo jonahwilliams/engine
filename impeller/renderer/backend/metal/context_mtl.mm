@@ -11,7 +11,9 @@
 #include "flutter/fml/logging.h"
 #include "flutter/fml/paths.h"
 #include "flutter/fml/synchronization/sync_switch.h"
+#include "impeller/core/formats.h"
 #include "impeller/core/sampler_descriptor.h"
+#include "impeller/core/texture_descriptor.h"
 #include "impeller/renderer/backend/metal/sampler_library_mtl.h"
 #include "impeller/renderer/capabilities.h"
 
@@ -88,6 +90,19 @@ ContextMTL::ContextMTL(
     raster_message_loop_ = fml::ConcurrentMessageLoop::Create(
         std::min(4u, std::thread::hardware_concurrency()));
     raster_message_loop_->PostTaskToAllWorkers([]() {
+      // See https://github.com/flutter/flutter/issues/65752
+      // Intentionally opt out of QoS for raster task workloads.
+      [[NSThread currentThread] setThreadPriority:1.0];
+      sched_param param;
+      int policy;
+      pthread_t thread = pthread_self();
+      if (!pthread_getschedparam(thread, &policy, &param)) {
+        param.sched_priority = 50;
+        pthread_setschedparam(thread, policy, &param);
+      }
+    });
+    presentation_loop_ = fml::ConcurrentMessageLoop::Create(1u);
+    presentation_loop_->PostTaskToAllWorkers([]() {
       // See https://github.com/flutter/flutter/issues/65752
       // Intentionally opt out of QoS for raster task workloads.
       [[NSThread currentThread] setThreadPriority:1.0];
@@ -365,6 +380,22 @@ const std::shared_ptr<const Capabilities>& ContextMTL::GetCapabilities() const {
 bool ContextMTL::UpdateOffscreenLayerPixelFormat(PixelFormat format) {
   device_capabilities_ = InferMetalCapabilities(device_, format);
   return true;
+}
+
+std::shared_ptr<Texture> ContextMTL::GetOrCreateSwapchainTexture(
+    PixelFormat format,
+    ISize size) const {
+  if (!texture_ || format != texture_->GetTextureDescriptor().format ||
+      size != texture_->GetTextureDescriptor().size) {
+    TextureDescriptor desc;
+    desc.size = size;
+    desc.format = format;
+    desc.storage_mode = StorageMode::kDevicePrivate;
+    desc.compression_type = CompressionType::kLossy;
+
+    texture_ = GetResourceAllocator()->CreateTexture(desc);
+  }
+  return texture_;
 }
 
 id<MTLCommandBuffer> ContextMTL::CreateMTLCommandBuffer(

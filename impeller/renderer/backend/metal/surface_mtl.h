@@ -8,11 +8,30 @@
 #include <memory>
 
 #include "flutter/fml/macros.h"
+#include "impeller/core/formats.h"
 #include "impeller/geometry/rect.h"
+#include "impeller/renderer/backend/metal/context_mtl.h"
 #include "impeller/renderer/context.h"
 #include "impeller/renderer/surface.h"
 
 namespace impeller {
+
+/// @brief An indirection around drawable aquisition.
+class MetalLazyDrawable {
+ public:
+  explicit MetalLazyDrawable(CAMetalLayer* layer);
+
+  ~MetalLazyDrawable() = default;
+
+  ISize GetSize() const;
+
+  PixelFormat GetFormat() const;
+
+  id<CAMetalDrawable> AcquireDrawable();
+
+ private:
+  CAMetalLayer* layer_;
+};
 
 class SurfaceMTL final : public Surface {
  public:
@@ -34,26 +53,26 @@ class SurfaceMTL final : public Surface {
   ///
   /// @return     A pointer to the wrapped surface or null.
   ///
-  static id<CAMetalDrawable> GetMetalDrawableAndValidate(
+  static std::shared_ptr<MetalLazyDrawable> GetMetalDrawableAndValidate(
       const std::shared_ptr<Context>& context,
       CAMetalLayer* layer);
 
   static std::unique_ptr<SurfaceMTL> MakeFromMetalLayerDrawable(
       const std::shared_ptr<Context>& context,
-      id<CAMetalDrawable> drawable,
+      std::shared_ptr<MetalLazyDrawable> drawable,
       std::optional<IRect> clip_rect = std::nullopt);
 
   static std::unique_ptr<SurfaceMTL> MakeFromTexture(
       const std::shared_ptr<Context>& context,
       id<MTLTexture> texture,
       std::optional<IRect> clip_rect,
-      id<CAMetalDrawable> drawable = nil);
+      std::shared_ptr<MetalLazyDrawable> drawable = nil);
 #pragma GCC diagnostic pop
 
   // |Surface|
   ~SurfaceMTL() override;
 
-  id<MTLDrawable> drawable() const { return drawable_; }
+  std::shared_ptr<MetalLazyDrawable> drawable() const { return drawable_; }
 
   // Returns a Rect defining the area of the surface in device pixels
   IRect coverage() const;
@@ -64,7 +83,7 @@ class SurfaceMTL final : public Surface {
  private:
   std::weak_ptr<Context> context_;
   std::shared_ptr<Texture> resolve_texture_;
-  id<CAMetalDrawable> drawable_ = nil;
+  std::shared_ptr<MetalLazyDrawable> drawable_;
   std::shared_ptr<Texture> source_texture_;
   std::shared_ptr<Texture> destination_texture_;
   bool requires_blit_ = false;
@@ -75,7 +94,7 @@ class SurfaceMTL final : public Surface {
   SurfaceMTL(const std::weak_ptr<Context>& context,
              const RenderTarget& target,
              std::shared_ptr<Texture> resolve_texture,
-             id<CAMetalDrawable> drawable,
+             std::shared_ptr<MetalLazyDrawable> drawable,
              std::shared_ptr<Texture> source_texture,
              std::shared_ptr<Texture> destination_texture,
              bool requires_blit,

@@ -8,6 +8,7 @@
 #include "flutter/impeller/renderer/command_buffer.h"
 #include "impeller/base/validation.h"
 #include "impeller/core/texture_descriptor.h"
+#include "impeller/geometry/size.h"
 #include "impeller/renderer/backend/metal/context_mtl.h"
 #include "impeller/renderer/backend/metal/formats_mtl.h"
 #include "impeller/renderer/backend/metal/texture_mtl.h"
@@ -15,22 +16,21 @@
 
 namespace impeller {
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunguarded-availability-new"
+MetalLazyDrawable::MetalLazyDrawable(CAMetalLayer* layer) : layer_(layer) {}
 
-id<CAMetalDrawable> SurfaceMTL::GetMetalDrawableAndValidate(
-    const std::shared_ptr<Context>& context,
-    CAMetalLayer* layer) {
-  TRACE_EVENT0("impeller", "SurfaceMTL::WrapCurrentMetalLayerDrawable");
+ISize MetalLazyDrawable::GetSize() const {
+  return ISize(layer_.drawableSize.width, layer_.drawableSize.height);
+}
 
-  if (context == nullptr || !context->IsValid() || layer == nil) {
-    return nullptr;
-  }
+PixelFormat MetalLazyDrawable::GetFormat() const {
+  return FromMTLPixelFormat(layer_.pixelFormat);
+}
 
+id<CAMetalDrawable> MetalLazyDrawable::AcquireDrawable() {
   id<CAMetalDrawable> current_drawable = nil;
-  {
+  if (layer_ != nullptr) {
     TRACE_EVENT0("impeller", "WaitForNextDrawable");
-    current_drawable = [layer nextDrawable];
+    current_drawable = [layer_ nextDrawable];
   }
 
   if (!current_drawable) {
@@ -38,6 +38,20 @@ id<CAMetalDrawable> SurfaceMTL::GetMetalDrawableAndValidate(
     return nullptr;
   }
   return current_drawable;
+}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunguarded-availability-new"
+
+std::shared_ptr<MetalLazyDrawable> SurfaceMTL::GetMetalDrawableAndValidate(
+    const std::shared_ptr<Context>& context,
+    CAMetalLayer* layer) {
+  TRACE_EVENT0("impeller", "SurfaceMTL::WrapCurrentMetalLayerDrawable");
+
+  if (context == nullptr || !context->IsValid() || layer == nil) {
+    return nullptr;
+  }
+  return std::make_shared<MetalLazyDrawable>(layer);
 }
 
 static std::optional<RenderTarget> WrapTextureWithRenderTarget(
@@ -118,17 +132,20 @@ static std::optional<RenderTarget> WrapTextureWithRenderTarget(
 
 std::unique_ptr<SurfaceMTL> SurfaceMTL::MakeFromMetalLayerDrawable(
     const std::shared_ptr<Context>& context,
-    id<CAMetalDrawable> drawable,
+    std::shared_ptr<MetalLazyDrawable> drawable,
     std::optional<IRect> clip_rect) {
-  return SurfaceMTL::MakeFromTexture(context, drawable.texture, clip_rect,
-                                     drawable);
+  auto texture = ContextMTL::Cast(context.get())
+                     ->GetOrCreateSwapchainTexture(drawable->GetFormat(),
+                                                   drawable->GetSize());
+  auto mtl_texture = TextureMTL::Cast(*texture).GetMTLTexture();
+  return SurfaceMTL::MakeFromTexture(context, mtl_texture, clip_rect, drawable);
 }
 
 std::unique_ptr<SurfaceMTL> SurfaceMTL::MakeFromTexture(
     const std::shared_ptr<Context>& context,
     id<MTLTexture> texture,
     std::optional<IRect> clip_rect,
-    id<CAMetalDrawable> drawable) {
+    std::shared_ptr<MetalLazyDrawable> drawable) {
   bool partial_repaint_blit_required = ShouldPerformPartialRepaint(clip_rect);
 
   // The returned render target is the texture that Impeller will render the
@@ -161,7 +178,7 @@ std::unique_ptr<SurfaceMTL> SurfaceMTL::MakeFromTexture(
                                    static_cast<ISize::Type>(texture.height)};
     destination_texture = TextureMTL::Wrapper(destination_descriptor, texture);
   } else {
-    // When not partial repaint blit is needed, the render target texture _is_
+    // When no partial repaint blit is needed, the render target texture _is_
     // the drawable texture.
     destination_texture = render_target->GetRenderTargetTexture();
   }
@@ -181,7 +198,7 @@ std::unique_ptr<SurfaceMTL> SurfaceMTL::MakeFromTexture(
 SurfaceMTL::SurfaceMTL(const std::weak_ptr<Context>& context,
                        const RenderTarget& target,
                        std::shared_ptr<Texture> resolve_texture,
-                       id<CAMetalDrawable> drawable,
+                       std::shared_ptr<MetalLazyDrawable> drawable,
                        std::shared_ptr<Texture> source_texture,
                        std::shared_ptr<Texture> destination_texture,
                        bool requires_blit,
@@ -216,6 +233,29 @@ bool SurfaceMTL::ShouldPerformPartialRepaint(std::optional<IRect> damage_rect) {
 // |Surface|
 IRect SurfaceMTL::coverage() const {
   return IRect::MakeSize(resolve_texture_->GetSize());
+}
+
+static id<MTLDrawable> BlockAndBlit(std::shared_ptr<MetalLazyDrawable> drawable,
+                                    const std::shared_ptr<Texture> texture,
+                                    const std::shared_ptr<Context>& context) {
+  auto blit_command_buffer = context->CreateCommandBuffer();
+  if (!blit_command_buffer) {
+    return nullptr;
+  }
+  auto blit_pass = blit_command_buffer->CreateBlitPass();
+
+  auto mtl_drawable = drawable->AcquireDrawable();
+  if (!mtl_drawable) {
+    return nullptr;
+  }
+  auto wrapped_texture = TextureMTL::Wrapper(texture->GetTextureDescriptor(),
+                                             mtl_drawable.texture);
+  blit_pass->AddCopy(texture, wrapped_texture);
+  blit_pass->EncodeCommands(context->GetResourceAllocator());
+  if (!blit_command_buffer->SubmitCommands()) {
+    return nullptr;
+  }
+  return mtl_drawable;
 }
 
 // |Surface|
@@ -257,12 +297,32 @@ bool SurfaceMTL::Present() const {
     if ([[NSThread currentThread] isMainThread] ||
         [[MTLCaptureManager sharedCaptureManager] isCapturing]) {
       TRACE_EVENT0("flutter", "waitUntilScheduled");
+      auto drawable = BlockAndBlit(drawable_, destination_texture_, context);
+      if (!drawable) {
+        return false;
+      }
       [command_buffer commit];
       [command_buffer waitUntilScheduled];
-      [drawable_ present];
+      [drawable present];
     } else {
-      [command_buffer presentDrawable:drawable_];
-      [command_buffer commit];
+      ContextMTL::Cast(context.get())
+          ->GetPresentationTaskRunner()
+          ->PostTask([lazy_drawable = std::move(drawable_),
+                      destination_texture = destination_texture_,
+                      context = context_, command_buffer]() {
+            TRACE_EVENT0("flutter", "PresentDrawable");
+            auto strong_context = context.lock();
+            if (!strong_context) {
+              return;
+            }
+            auto drawable = BlockAndBlit(lazy_drawable, destination_texture,
+                                         strong_context);
+            if (!drawable) {
+              return;
+            }
+            [command_buffer presentDrawable:drawable];
+            [command_buffer commit];
+          });
     }
   }
 
