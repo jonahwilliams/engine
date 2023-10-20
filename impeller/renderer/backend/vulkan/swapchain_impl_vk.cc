@@ -439,7 +439,7 @@ bool SwapchainImplVK::Present(const std::shared_ptr<SwapchainImageVK>& image,
       return false;
     }
 
-    const auto& encoders = context.GetCommandBufferQueue()->Take();
+    auto encoders = context.GetCommandBufferQueue()->Take();
     vk::SubmitInfo submit_info;
     std::vector<vk::CommandBuffer> buffers;
     for (const auto& encoder : encoders) {
@@ -452,7 +452,7 @@ bool SwapchainImplVK::Present(const std::shared_ptr<SwapchainImageVK>& image,
     }
 
     if (!context.GetFenceWaiter()->AddFence(std::move(fence),
-                                            [encoders = encoders] {})) {
+                                            [encoders = std::move(encoders)] {})) {
       return false;
     }
   }
