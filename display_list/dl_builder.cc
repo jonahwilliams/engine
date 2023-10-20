@@ -351,7 +351,7 @@ void DisplayListBuilder::SetAttributesFromPaint(
     setDither(paint.isDither());
   }
   if (flags.applies_alpha_or_color()) {
-    setColor(paint.getColor().argb);
+    setColor(paint.getColor());
   }
   if (flags.applies_blend()) {
     setBlendMode(paint.getBlendMode());
@@ -551,10 +551,22 @@ void DisplayListBuilder::saveLayer(const SkRect* bounds,
   }
   UpdateLayerResult(result);
 
-  // Even though Skia claims that the bounds are only a hint, they actually
-  // use them as the temporary layer bounds during rendering the layer, so
-  // we set them as if a clip operation were performed.
-  if (bounds) {
+  if (options.renders_with_attributes() && current_.getImageFilter()) {
+    // We use |resetCullRect| here because we will be accumulating bounds of
+    // primitives before applying the filter to those bounds. We might
+    // encounter a primitive whose bounds are clipped, but whose filtered
+    // bounds will not be clipped. If the individual rendering ops bounds
+    // are clipped, it will not contribute to the overall bounds which
+    // could lead to inaccurate (subset) bounds of the DisplayList.
+    // We need to reset the cull rect here to avoid this premature clipping.
+    // The filtered bounds will be clipped to the existing clip rect when
+    // this layer is restored.
+    // If bounds is null then the original cull_rect will be used.
+    tracker_.resetCullRect(bounds);
+  } else if (bounds) {
+    // Even though Skia claims that the bounds are only a hint, they actually
+    // use them as the temporary layer bounds during rendering the layer, so
+    // we set them as if a clip operation were performed.
     tracker_.clipRect(*bounds, ClipOp::kIntersect, false);
   }
 }
@@ -1213,7 +1225,7 @@ void DisplayListBuilder::DrawDisplayList(const sk_sp<DisplayList> display_list,
       auto rtree = display_list->rtree();
       if (rtree) {
         std::list<SkRect> rects =
-            rtree->searchAndConsolidateRects(bounds, false);
+            rtree->searchAndConsolidateRects(GetLocalClipBounds(), false);
         accumulated = false;
         for (const SkRect& rect : rects) {
           // TODO (https://github.com/flutter/flutter/issues/114919): Attributes
@@ -1290,6 +1302,48 @@ void DisplayListBuilder::DrawTextBlob(const sk_sp<SkTextBlob>& blob,
   SetAttributesFromPaint(paint, DisplayListOpFlags::kDrawTextBlobFlags);
   drawTextBlob(blob, x, y);
 }
+
+void DisplayListBuilder::drawTextFrame(
+    const std::shared_ptr<impeller::TextFrame>& text_frame,
+    SkScalar x,
+    SkScalar y) {
+  DisplayListAttributeFlags flags = kDrawTextBlobFlags;
+  OpResult result = PaintResult(current_, flags);
+  if (result == OpResult::kNoEffect) {
+    return;
+  }
+  impeller::Rect bounds = text_frame->GetBounds();
+  SkRect sk_bounds = SkRect::MakeLTRB(bounds.GetLeft(), bounds.GetTop(),
+                                      bounds.GetRight(), bounds.GetBottom());
+  bool unclipped = AccumulateOpBounds(sk_bounds.makeOffset(x, y), flags);
+  // TODO(https://github.com/flutter/flutter/issues/82202): Remove once the
+  // unit tests can use Fuchsia's font manager instead of the empty default.
+  // Until then we might encounter empty bounds for otherwise valid text and
+  // thus we ignore the results from AccumulateOpBounds.
+#if defined(OS_FUCHSIA)
+  unclipped = true;
+#endif  // OS_FUCHSIA
+  if (unclipped) {
+    Push<DrawTextFrameOp>(0, 1, text_frame, x, y);
+    // There is no way to query if the glyphs of a text blob overlap and
+    // there are no current guarantees from either Skia or Impeller that
+    // they will protect overlapping glyphs from the effects of overdraw
+    // so we must make the conservative assessment that this DL layer is
+    // not compatible with group opacity inheritance.
+    UpdateLayerOpacityCompatibility(false);
+    UpdateLayerResult(result);
+  }
+}
+
+void DisplayListBuilder::DrawTextFrame(
+    const std::shared_ptr<impeller::TextFrame>& text_frame,
+    SkScalar x,
+    SkScalar y,
+    const DlPaint& paint) {
+  SetAttributesFromPaint(paint, DisplayListOpFlags::kDrawTextBlobFlags);
+  drawTextFrame(text_frame, x, y);
+}
+
 void DisplayListBuilder::DrawShadow(const SkPath& path,
                                     const DlColor color,
                                     const SkScalar elevation,

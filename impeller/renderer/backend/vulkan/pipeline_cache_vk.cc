@@ -9,6 +9,7 @@
 #include <sstream>
 
 #include "flutter/fml/mapping.h"
+#include "impeller/base/validation.h"
 
 namespace impeller {
 
@@ -184,6 +185,10 @@ void PipelineCacheVK::PersistCacheToDisk() const {
     VALIDATION_LOG << "Could not persist pipeline cache to disk.";
     return;
   }
+}
+
+const CapabilitiesVK* PipelineCacheVK::GetCapabilities() const {
+  return CapabilitiesVK::Cast(caps_.get());
 }
 
 }  // namespace impeller

@@ -37,8 +37,6 @@ constexpr float kStops[] = {
     0.5,
     1.0,
 };
-static std::vector<uint32_t> color_vector(kColors, kColors + 3);
-static std::vector<float> stops_vector(kStops, kStops + 3);
 
 // clang-format off
 constexpr float kRotateColorMatrix[20] = {
@@ -216,7 +214,7 @@ static std::shared_ptr<const DlVertices> TestVertices2 =
 
 static sk_sp<DisplayList> MakeTestDisplayList(int w, int h, SkColor color) {
   DisplayListBuilder builder;
-  builder.DrawRect(SkRect::MakeWH(w, h), DlPaint(color));
+  builder.DrawRect(SkRect::MakeWH(w, h), DlPaint(DlColor(color)));
   return builder.Build();
 }
 static sk_sp<DisplayList> TestDisplayList1 =
@@ -244,18 +242,6 @@ struct DisplayListInvocation {
   DlInvoker invoker;
   bool supports_group_opacity_ = false;
 
-  bool sk_version_matches() {
-    return (static_cast<int>(op_count_) == sk_op_count_ &&
-            byte_count_ == sk_byte_count_);
-  }
-
-  // A negative sk_op_count means "do not test this op".
-  // Used mainly for these cases:
-  // - we cannot encode a DrawShadowRec (Skia private header)
-  // - SkCanvas cannot receive a DisplayList
-  // - SkCanvas may or may not inline an SkPicture
-  bool sk_testing_invalid() { return sk_op_count_ < 0; }
-
   bool is_empty() { return byte_count_ == 0; }
 
   bool supports_group_opacity() { return supports_group_opacity_; }
@@ -266,11 +252,6 @@ struct DisplayListInvocation {
   // byte count for the ops with DisplayList overhead, comparable
   // to |DisplayList.byte_count().
   size_t byte_count() { return sizeof(DisplayList) + byte_count_; }
-
-  int sk_op_count() { return sk_op_count_; }
-  // byte count for the ops with DisplayList overhead as translated
-  // through an SkCanvas interface, comparable to |DisplayList.byte_count().
-  size_t sk_byte_count() { return sizeof(DisplayList) + sk_byte_count_; }
 
   void Invoke(DlOpReceiver& builder) { invoker(builder); }
 

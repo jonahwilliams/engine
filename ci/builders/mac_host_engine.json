@@ -47,21 +47,21 @@
             },
             "properties": {
                 "$flutter/osx_sdk": {
-                    "sdk_version": "14e222b"
+                    "sdk_version": "14e300c"
                 }
             },
             "tests": [
                 {
                     "language": "python3",
                     "name": "Host Tests for host_debug",
+                    "script": "flutter/testing/run_tests.py",
                     "parameters": [
                         "--variant",
                         "host_debug",
                         "--type",
-                        "dart,engine",
+                        "dart,dart-host,engine",
                         "--engine-capture-core-dump"
-                    ],
-                    "script": "flutter/testing/run_tests.py"
+                    ]
                 }
             ]
         },
@@ -106,21 +106,21 @@
             },
             "properties": {
                 "$flutter/osx_sdk": {
-                    "sdk_version": "14e222b"
+                    "sdk_version": "14e300c"
                 }
             },
             "tests": [
                 {
                     "language": "python3",
                     "name": "Host Tests for host_profile",
+                    "script": "flutter/testing/run_tests.py",
                     "parameters": [
                         "--variant",
                         "host_profile",
                         "--type",
-                        "dart,engine",
+                        "dart,dart-host,engine",
                         "--engine-capture-core-dump"
-                    ],
-                    "script": "flutter/testing/run_tests.py"
+                    ]
                 }
             ]
         },
@@ -146,7 +146,7 @@
             "dependencies": [
                 {
                     "dependency": "goldctl",
-                    "version": "git_revision:3a77d0b12c697a840ca0c7705208e8622dc94603"
+                    "version": "git_revision:dddc0623e63150cbbafdcb273d4048f329e1dd09"
                 }
             ],
             "gclient_variables": {
@@ -176,20 +176,20 @@
             },
             "properties": {
                 "$flutter/osx_sdk": {
-                    "sdk_version": "14e222b"
+                    "sdk_version": "14e300c"
                 }
             },
             "tests": [
                 {
                     "language": "python3",
                     "name": "Impeller-golden, dart and engine tests for host_release",
+                    "script": "flutter/testing/run_tests.py",
                     "parameters": [
                         "--variant",
                         "host_release",
                         "--type",
-                        "dart,engine,impeller-golden"
-                    ],
-                    "script": "flutter/testing/run_tests.py"
+                        "dart,dart-host,engine,impeller-golden"
+                    ]
                 }
             ]
         },
@@ -237,7 +237,7 @@
             },
             "properties": {
                 "$flutter/osx_sdk": {
-                    "sdk_version": "14e222b"
+                    "sdk_version": "14e300c"
                 }
             }
         },
@@ -280,7 +280,7 @@
             },
             "properties": {
                 "$flutter/osx_sdk": {
-                    "sdk_version": "14e222b"
+                    "sdk_version": "14e300c"
                 }
             }
         },
@@ -325,7 +325,7 @@
             },
             "properties": {
                 "$flutter/osx_sdk": {
-                    "sdk_version": "14e222b"
+                    "sdk_version": "14e300c"
                 }
             }
         }

@@ -24,7 +24,7 @@ class FakeDelegate : public PlatformView::Delegate {
   void OnPlatformViewDestroyed() override {}
   void OnPlatformViewScheduleFrame() override {}
   void OnPlatformViewSetNextFrameCallback(const fml::closure& closure) override {}
-  void OnPlatformViewSetViewportMetrics(const ViewportMetrics& metrics) override {}
+  void OnPlatformViewSetViewportMetrics(int64_t view_id, const ViewportMetrics& metrics) override {}
   const flutter::Settings& OnPlatformViewGetSettings() const override { return settings_; }
   void OnPlatformViewDispatchPlatformMessage(std::unique_ptr<PlatformMessage> message) override {}
   void OnPlatformViewDispatchPointerDataPacket(std::unique_ptr<PointerDataPacket> packet) override {
@@ -65,6 +65,7 @@ flutter::FakeDelegate fake_delegate;
 - (void)setUp {
   fml::MessageLoop::EnsureInitializedForCurrentThread();
   auto thread_task_runner = fml::MessageLoop::GetCurrent().GetTaskRunner();
+  auto sync_switch = std::make_shared<fml::SyncSwitch>();
   flutter::TaskRunners runners(/*label=*/self.name.UTF8String,
                                /*platform=*/thread_task_runner,
                                /*raster=*/thread_task_runner,
@@ -76,7 +77,7 @@ flutter::FakeDelegate fake_delegate;
       /*platform_views_controller=*/nil,
       /*task_runners=*/runners,
       /*worker_task_runner=*/nil,
-      /*is_gpu_disabled_sync_switch=*/nil);
+      /*is_gpu_disabled_sync_switch=*/sync_switch);
   weak_factory = std::make_unique<fml::WeakPtrFactory<flutter::PlatformView>>(platform_view.get());
 }
 
@@ -98,6 +99,7 @@ flutter::FakeDelegate fake_delegate;
   fake_delegate.settings_.msaa_samples = 4;
 
   auto thread_task_runner = fml::MessageLoop::GetCurrent().GetTaskRunner();
+  auto sync_switch = std::make_shared<fml::SyncSwitch>();
   flutter::TaskRunners runners(/*label=*/self.name.UTF8String,
                                /*platform=*/thread_task_runner,
                                /*raster=*/thread_task_runner,
@@ -109,7 +111,7 @@ flutter::FakeDelegate fake_delegate;
       /*platform_views_controller=*/nil,
       /*task_runners=*/runners,
       /*worker_task_runner=*/nil,
-      /*is_gpu_disabled_sync_switch=*/nil);
+      /*is_gpu_disabled_sync_switch=*/sync_switch);
 
   XCTAssertEqual(msaa_4x_platform_view->GetIosContext()->GetMsaaSampleCount(),
                  MsaaSampleCount::kFour);

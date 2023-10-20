@@ -14,8 +14,6 @@
 #include "flutter/flow/raster_cache.h"
 #include "flutter/fml/macros.h"
 #include "flutter/fml/time/time_delta.h"
-#include "third_party/skia/include/core/SkPicture.h"
-#include "third_party/skia/include/core/SkSize.h"
 
 class GrDirectContext;
 
@@ -94,6 +92,27 @@ class LayerTree {
   std::vector<RasterCacheItem*> raster_cache_items_;
 
   FML_DISALLOW_COPY_AND_ASSIGN(LayerTree);
+};
+
+// The information to draw a layer tree to a specified view.
+struct LayerTreeTask {
+ public:
+  LayerTreeTask(int64_t view_id,
+                std::unique_ptr<LayerTree> layer_tree,
+                float device_pixel_ratio)
+      : view_id(view_id),
+        layer_tree(std::move(layer_tree)),
+        device_pixel_ratio(device_pixel_ratio) {}
+
+  /// The target view to draw to.
+  int64_t view_id;
+  /// The target layer tree to be drawn.
+  std::unique_ptr<LayerTree> layer_tree;
+  /// The pixel ratio of the target view.
+  float device_pixel_ratio;
+
+ private:
+  FML_DISALLOW_COPY_AND_ASSIGN(LayerTreeTask);
 };
 
 }  // namespace flutter

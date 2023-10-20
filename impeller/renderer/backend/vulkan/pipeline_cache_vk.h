@@ -6,10 +6,8 @@
 
 #include "flutter/fml/file.h"
 #include "flutter/fml/macros.h"
-#include "impeller/base/thread.h"
 #include "impeller/renderer/backend/vulkan/capabilities_vk.h"
 #include "impeller/renderer/backend/vulkan/device_holder.h"
-#include "impeller/renderer/backend/vulkan/vk.h"
 
 namespace impeller {
 
@@ -30,6 +28,8 @@ class PipelineCacheVK {
   vk::UniquePipeline CreatePipeline(const vk::GraphicsPipelineCreateInfo& info);
 
   vk::UniquePipeline CreatePipeline(const vk::ComputePipelineCreateInfo& info);
+
+  const CapabilitiesVK* GetCapabilities() const;
 
   void PersistCacheToDisk() const;
 

@@ -5,7 +5,7 @@ by defining a combination of *sub-builds*, *archives*, *generators* and *depende
 makes it simple to shard sub-builds by mapping build inputs to workflows, and listing
 the sub-build-generated artifacts explicitly. The Build Definition Language, Engine
 Recipes V2 and the generation of artifacts using GN+Ninja set the groundwork
-for efficient builds with dependency reusability.  
+for efficient builds with dependency reusability.
 
 **Author: Godofredo Contreras (godofredoc)**\
 **Go Link: flutter.dev/go/engine-build-definition-language**\
@@ -56,7 +56,7 @@ in the `config_name` under `properties`:
     properties:
       config_name: mac_android_aot_engine
       $flutter/osx_sdk : >-
-        { "sdk_version": "14e222b" }
+        { "sdk_version": "14e300c" }
 
 ```
 
@@ -104,6 +104,26 @@ are located have to be checked into the
 A configuration file defines a top-level builder that will show up as a column
 in the
 [Flutter Dashboard](https://flutter-dashboard.appspot.com/#/build?repo=engine&branch=master).
+
+
+### Magic variables
+
+Magic variables are special environment variables that can be used as parameters
+for generators and test commands in the local and global contexts.
+
+Magic environment variables have the following limitations:
+only `${FLUTTER_LOGS_DIR}` is currently supported and it needs to be used
+alone within the parameter string(e.g. `["${FLUTTER_LOGS_DIR}"]` is OK
+but `["path=${FLUTTER_LOGS_DIR}"]` is not).
+
+The current list of supported magic variables is:
+
+* `${FLUTTER_LOGS_DIR}` - translated to the path of the temporary
+  folder where logs are being placed.
+* `${LUCI_WORKDIR}` - translated to the LUCI chroot working directory.
+* `${LUCI_CLEANUP}` - translated to the LUCI chroot temp directory.
+* `${REVISION}` - translated to the engine commit in postsubmit. In presubmit
+  it is translated to an empty string.
 
 ### Build
 
@@ -297,7 +317,9 @@ default is empty which means no interpreter will be used to run the script
 and it is assumed the script is already an executable with the right
 permissions to run in the target platform.
 * **name** - the name of the step running the script.
-* **parameters** - flags or parameters passed to the script.
+* **parameters** - flags or parameters passed to the script. Parameters
+accept magic environment variables(placeholders replaced before executing
+the test).
 * **Script** - the path to the script to execute relative to the checkout
 directory.
 * **contexts** - a list of available contexts to add to the text execution step.
@@ -443,7 +465,7 @@ Engine test example:
 {
   "tests": [
     {
-       "name": "test: lint android_debug_arm64",
+       "name": "test: clang_tidy android_debug_arm64",
        "recipe": "engine_v2/tester_engine",
        "drone_dimensions": [
          "device_type=none",
@@ -455,7 +477,7 @@ Engine test example:
        ],
        "tasks": [
          {
-            "name": "test: lint android_debug_arm64",
+            "name": "test: clang_tidy android_debug_arm64",
             "parameters": [
               "--variant",
               "android_debug_arm64",
@@ -464,9 +486,9 @@ Engine test example:
               "--shard-variants=host_debug"
             ],
             "max_attempts": 1,
-            "script": "flutter/ci/lint.sh"
+            "script": "flutter/ci/clang_tidy.sh"
          }
-       ] 
+       ]
     }
   ]
 }
@@ -492,7 +514,7 @@ Example task configuration:
 
 ```json
 {
-    "name": "test: lint android_debug_arm64",
+    "name": "test: clang_tidy android_debug_arm64",
     "parameters": [
        "--variant",
        "android_debug_arm64",
@@ -501,7 +523,7 @@ Example task configuration:
        "--shard-variants=host_debug"
     ],
     "max_attempts": 1,
-    "script": "flutter/ci/lint.sh"
+    "script": "flutter/ci/clang_tidy.sh"
 }
 ```
 
@@ -538,11 +560,6 @@ interfering with the production artifacts.
         "destination": "ios/artifacts.zip",
         "realm": "production"
     },
-    {
-        "source": "out/debug/ios-objcdoc.zip",
-        "destination": "ios-objcdoc.zip",
-        "realm": "experimental"
-    }
 ]
 ```
 

@@ -24,6 +24,7 @@ source_set("graphics") {
     "//flutter/assets",
     "//flutter/display_list",
     "//flutter/fml",
+    "//flutter/shell/common:base64",
     "//flutter/shell/version:version",
     "//third_party/boringssl",
     "//third_party/rapidjson",
@@ -32,6 +33,7 @@ source_set("graphics") {
 
   public_configs = [ "//flutter:config" ]
   if (shell_enable_vulkan) {
-    public_configs += [ "//flutter/vulkan:vulkan_config" ]
+    public_deps =
+        [ "//third_party/vulkan-deps/vulkan-headers/src:vulkan_headers" ]
   }
 }

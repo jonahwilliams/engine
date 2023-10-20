@@ -29,7 +29,10 @@ final Set<String> skippedPaths = <String>{
   r'flutter/lib/web_ui/dev', // these are build tools; they do not end up in Engine artifacts
   r'flutter/prebuilts',
   r'flutter/sky/packages/sky_engine/LICENSE',
+  r'flutter/third_party/glfw/deps', // Only used by examples and tests; not linked in build.
+  r'flutter/third_party/glfw/docs',
   r'flutter/third_party/gn',
+  r'flutter/third_party/imgui',
   r'flutter/third_party/ninja', // build system
   r'flutter/third_party/test_shaders', // for tests only
   r'flutter/third_party/txt/third_party/fonts',
@@ -37,12 +40,15 @@ final Set<String> skippedPaths = <String>{
   r'flutter/web_sdk', // this code is not linked into Flutter apps; it's only used by engine tests and tools
   r'fuchsia/sdk/linux/docs',
   r'fuchsia/sdk/linux/meta',
+  r'fuchsia/sdk/linux/NOTICE.fuchsia', // covers things that contribute to the Fuchsia SDK; see fxb/94240
+  r'fuchsia/sdk/linux/packages/blobs', // See https://github.com/flutter/flutter/issues/134042.
   r'fuchsia/sdk/linux/tools',
   r'fuchsia/sdk/mac/docs',
   r'fuchsia/sdk/mac/meta',
+  r'fuchsia/sdk/mac/NOTICE.fuchsia',
   r'fuchsia/sdk/mac/tools',
   r'out', // output of build
-  r'third_party/android_embedding_dependencies', // testing framework for android
+  r'third_party/android_embedding_dependencies', // Not shipped. Used only for the build-time classpath, and for the in-tree testing framework for Android
   r'third_party/android_tools', // excluded on advice
   r'third_party/angle/android',
   r'third_party/angle/doc',
@@ -95,8 +101,6 @@ final Set<String> skippedPaths = <String>{
   r'third_party/fontconfig', // not used in standard configurations
   r'third_party/freetype2/builds',
   r'third_party/freetype2/src/tools',
-  r'third_party/glfw/deps', // Only used by examples and tests; not linked in build.
-  r'third_party/glfw/docs',
   r'third_party/gradle',
   r'third_party/harfbuzz/docs',
   r'third_party/harfbuzz/util', // utils are command line tools that do not end up in the binary
@@ -109,7 +113,6 @@ final Set<String> skippedPaths = <String>{
   r'third_party/icu/source/data/brkitr/dictionaries/cjdict.txt', // explicitly handled by ICU license
   r'third_party/icu/source/data/brkitr/dictionaries/laodict.txt', // explicitly handled by ICU license
   r'third_party/icu/source/data/dtd',
-  r'third_party/imgui',
   r'third_party/inja/doc', // documentation
   r'third_party/inja/third_party/amalgamate', // only used at build time
   r'third_party/inja/third_party/include/doctest', // seems to be a unit test library
@@ -182,6 +185,7 @@ final Set<String> skippedPaths = <String>{
   r'third_party/skia/third_party/lua', // not linked in
   r'third_party/skia/third_party/vello', // not linked in
   r'third_party/skia/tools', // contains nothing that ends up in the binary executable
+  r'third_party/stb',
   r'third_party/swiftshader', // only used on hosts for tests
   r'third_party/tinygltf',
   r'third_party/vulkan-deps/glslang/LICENSE', // excluded to make sure we don't accidentally apply it as a default license

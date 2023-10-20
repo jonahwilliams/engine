@@ -44,6 +44,13 @@ bool RuntimeEffectContents::CanInheritOpacity(const Entity& entity) const {
 bool RuntimeEffectContents::Render(const ContentContext& renderer,
                                    const Entity& entity,
                                    RenderPass& pass) const {
+// TODO(jonahwilliams): FragmentProgram API is not fully wired up on Android.
+// Disable until this is complete so that integration tests and benchmarks can
+// run m3 applications.
+#ifdef FML_OS_ANDROID
+  return true;
+#else
+
   auto context = renderer.GetContext();
   auto library = context->GetShaderLibrary();
 
@@ -144,9 +151,9 @@ bool RuntimeEffectContents::Render(const ContentContext& renderer,
   }
 
   Command cmd;
-  cmd.label = "RuntimeEffectContents";
+  DEBUG_COMMAND_INFO(cmd, "RuntimeEffectContents");
   cmd.pipeline = pipeline;
-  cmd.stencil_reference = entity.GetStencilDepth();
+  cmd.stencil_reference = entity.GetClipDepth();
   cmd.BindVertices(geometry_result.vertex_buffer);
 
   //--------------------------------------------------------------------------
@@ -254,6 +261,7 @@ bool RuntimeEffectContents::Render(const ContentContext& renderer,
     return restore.Render(renderer, entity, pass);
   }
   return true;
+#endif  // FML_OS_ANDROID
 }
 
 }  // namespace impeller

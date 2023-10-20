@@ -8,33 +8,28 @@
 #include <cstring>
 #include <memory>
 #include <optional>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
 #include "flutter/fml/logging.h"
 #include "flutter/fml/trace_event.h"
+#include "impeller/aiks/color_filter.h"
 #include "impeller/core/formats.h"
-#include "impeller/display_list/dl_image_impeller.h"
 #include "impeller/display_list/dl_vertices_geometry.h"
 #include "impeller/display_list/nine_patch_converter.h"
 #include "impeller/display_list/skia_conversions.h"
-#include "impeller/entity/contents/conical_gradient_contents.h"
 #include "impeller/entity/contents/filters/filter_contents.h"
 #include "impeller/entity/contents/filters/inputs/filter_input.h"
-#include "impeller/entity/contents/linear_gradient_contents.h"
-#include "impeller/entity/contents/radial_gradient_contents.h"
 #include "impeller/entity/contents/runtime_effect_contents.h"
-#include "impeller/entity/contents/scene_contents.h"
-#include "impeller/entity/contents/sweep_gradient_contents.h"
-#include "impeller/entity/contents/tiled_texture_contents.h"
 #include "impeller/entity/entity.h"
-#include "impeller/entity/geometry/geometry.h"
 #include "impeller/geometry/path.h"
 #include "impeller/geometry/path_builder.h"
 #include "impeller/geometry/scalar.h"
 #include "impeller/geometry/sigma.h"
-#include "impeller/typographer/backends/skia/text_frame_skia.h"
+
+#if IMPELLER_ENABLE_3D
+#include "impeller/entity/contents/scene_contents.h"
+#endif  // IMPELLER_ENABLE_3D
 
 namespace impeller {
 
@@ -185,7 +180,9 @@ void DlDispatcher::setAntiAlias(bool aa) {
 }
 
 // |flutter::DlOpReceiver|
-void DlDispatcher::setDither(bool dither) {}
+void DlDispatcher::setDither(bool dither) {
+  paint_.dither = dither;
+}
 
 static Paint::Style ToStyle(flutter::DlDrawStyle style) {
   switch (style) {
@@ -266,30 +263,6 @@ static std::vector<Color> ToColors(const flutter::DlColor colors[], int count) {
   return result;
 }
 
-// Convert display list colors + stops into impeller colors and stops, taking
-// care to ensure that the stops always start with 0.0 and end with 1.0.
-template <typename T>
-static void ConvertStops(T* gradient,
-                         std::vector<Color>* colors,
-                         std::vector<float>* stops) {
-  FML_DCHECK(gradient->stop_count() >= 2);
-
-  auto* dl_colors = gradient->colors();
-  auto* dl_stops = gradient->stops();
-  if (dl_stops[0] != 0.0) {
-    colors->emplace_back(skia_conversions::ToColor(dl_colors[0]));
-    stops->emplace_back(0);
-  }
-  for (auto i = 0; i < gradient->stop_count(); i++) {
-    colors->emplace_back(skia_conversions::ToColor(dl_colors[i]));
-    stops->emplace_back(dl_stops[i]);
-  }
-  if (stops->back() != 1.0) {
-    colors->emplace_back(colors->back());
-    stops->emplace_back(1.0);
-  }
-}
-
 static std::optional<ColorSource::Type> ToColorSourceType(
     flutter::DlColorSourceType type) {
   switch (type) {
@@ -346,7 +319,7 @@ void DlDispatcher::setColorSource(const flutter::DlColorSource* source) {
       auto end_point = skia_conversions::ToPoint(linear->end_point());
       std::vector<Color> colors;
       std::vector<float> stops;
-      ConvertStops(linear, &colors, &stops);
+      skia_conversions::ConvertStops(linear, colors, stops);
 
       auto tile_mode = ToTileMode(linear->tile_mode());
       auto matrix = ToMatrix(linear->matrix());
@@ -367,7 +340,7 @@ void DlDispatcher::setColorSource(const flutter::DlColorSource* source) {
       SkScalar focus_radius = conical_gradient->start_radius();
       std::vector<Color> colors;
       std::vector<float> stops;
-      ConvertStops(conical_gradient, &colors, &stops);
+      skia_conversions::ConvertStops(conical_gradient, colors, stops);
 
       auto tile_mode = ToTileMode(conical_gradient->tile_mode());
       auto matrix = ToMatrix(conical_gradient->matrix());
@@ -385,7 +358,7 @@ void DlDispatcher::setColorSource(const flutter::DlColorSource* source) {
       auto radius = radialGradient->radius();
       std::vector<Color> colors;
       std::vector<float> stops;
-      ConvertStops(radialGradient, &colors, &stops);
+      skia_conversions::ConvertStops(radialGradient, colors, stops);
 
       auto tile_mode = ToTileMode(radialGradient->tile_mode());
       auto matrix = ToMatrix(radialGradient->matrix());
@@ -404,7 +377,7 @@ void DlDispatcher::setColorSource(const flutter::DlColorSource* source) {
       auto end_angle = Degrees(sweepGradient->end());
       std::vector<Color> colors;
       std::vector<float> stops;
-      ConvertStops(sweepGradient, &colors, &stops);
+      skia_conversions::ConvertStops(sweepGradient, colors, stops);
 
       auto tile_mode = ToTileMode(sweepGradient->tile_mode());
       auto matrix = ToMatrix(sweepGradient->matrix());
@@ -474,46 +447,35 @@ void DlDispatcher::setColorSource(const flutter::DlColorSource* source) {
   }
 }
 
-static std::optional<Paint::ColorFilterProc> ToColorFilterProc(
+static std::shared_ptr<ColorFilter> ToColorFilter(
     const flutter::DlColorFilter* filter) {
   if (filter == nullptr) {
-    return std::nullopt;
+    return nullptr;
   }
   switch (filter->type()) {
     case flutter::DlColorFilterType::kBlend: {
       auto dl_blend = filter->asBlend();
       auto blend_mode = ToBlendMode(dl_blend->mode());
       auto color = skia_conversions::ToColor(dl_blend->color());
-      return [blend_mode, color](FilterInput::Ref input) {
-        return ColorFilterContents::MakeBlend(blend_mode, {std::move(input)},
-                                              color);
-      };
+      return ColorFilter::MakeBlend(blend_mode, color);
     }
     case flutter::DlColorFilterType::kMatrix: {
       const flutter::DlMatrixColorFilter* dl_matrix = filter->asMatrix();
       impeller::ColorMatrix color_matrix;
       dl_matrix->get_matrix(color_matrix.array);
-      return [color_matrix](FilterInput::Ref input) {
-        return ColorFilterContents::MakeColorMatrix({std::move(input)},
-                                                    color_matrix);
-      };
+      return ColorFilter::MakeMatrix(color_matrix);
     }
     case flutter::DlColorFilterType::kSrgbToLinearGamma:
-      return [](FilterInput::Ref input) {
-        return ColorFilterContents::MakeSrgbToLinearFilter({std::move(input)});
-      };
+      return ColorFilter::MakeSrgbToLinear();
     case flutter::DlColorFilterType::kLinearToSrgbGamma:
-      return [](FilterInput::Ref input) {
-        return ColorFilterContents::MakeLinearToSrgbFilter({std::move(input)});
-      };
+      return ColorFilter::MakeLinearToSrgb();
   }
-  return std::nullopt;
+  return nullptr;
 }
 
 // |flutter::DlOpReceiver|
 void DlDispatcher::setColorFilter(const flutter::DlColorFilter* filter) {
-  // Needs https://github.com/flutter/flutter/issues/95434
-  paint_.color_filter = ToColorFilterProc(filter);
+  paint_.color_filter = ToColorFilter(filter);
 }
 
 // |flutter::DlOpReceiver|
@@ -565,10 +527,10 @@ void DlDispatcher::setMaskFilter(const flutter::DlMaskFilter* filter) {
   }
 }
 
-static std::optional<Paint::ImageFilterProc> ToImageFilterProc(
+static std::shared_ptr<ImageFilter> ToImageFilter(
     const flutter::DlImageFilter* filter) {
   if (filter == nullptr) {
-    return std::nullopt;
+    return nullptr;
   }
 
   switch (filter->type()) {
@@ -577,101 +539,66 @@ static std::optional<Paint::ImageFilterProc> ToImageFilterProc(
       auto sigma_x = Sigma(blur->sigma_x());
       auto sigma_y = Sigma(blur->sigma_y());
       auto tile_mode = ToTileMode(blur->tile_mode());
-
-      return [sigma_x, sigma_y, tile_mode](const FilterInput::Ref& input,
-                                           const Matrix& effect_transform,
-                                           bool is_subpass) {
-        return FilterContents::MakeGaussianBlur(
-            input, sigma_x, sigma_y, FilterContents::BlurStyle::kNormal,
-            tile_mode, effect_transform);
-      };
-
-      break;
+      return ImageFilter::MakeBlur(
+          sigma_x, sigma_y, FilterContents::BlurStyle::kNormal, tile_mode);
     }
     case flutter::DlImageFilterType::kDilate: {
       auto dilate = filter->asDilate();
       FML_DCHECK(dilate);
       if (dilate->radius_x() < 0 || dilate->radius_y() < 0) {
-        return std::nullopt;
+        return nullptr;
       }
       auto radius_x = Radius(dilate->radius_x());
       auto radius_y = Radius(dilate->radius_y());
-      return [radius_x, radius_y](FilterInput::Ref input,
-                                  const Matrix& effect_transform,
-                                  bool is_subpass) {
-        return FilterContents::MakeMorphology(
-            std::move(input), radius_x, radius_y,
-            FilterContents::MorphType::kDilate, effect_transform);
-      };
-      break;
+      return ImageFilter::MakeDilate(radius_x, radius_y);
     }
     case flutter::DlImageFilterType::kErode: {
       auto erode = filter->asErode();
       FML_DCHECK(erode);
       if (erode->radius_x() < 0 || erode->radius_y() < 0) {
-        return std::nullopt;
+        return nullptr;
       }
       auto radius_x = Radius(erode->radius_x());
       auto radius_y = Radius(erode->radius_y());
-      return [radius_x, radius_y](FilterInput::Ref input,
-                                  const Matrix& effect_transform,
-                                  bool is_subpass) {
-        return FilterContents::MakeMorphology(
-            std::move(input), radius_x, radius_y,
-            FilterContents::MorphType::kErode, effect_transform);
-      };
-      break;
+      return ImageFilter::MakeErode(radius_x, radius_y);
     }
     case flutter::DlImageFilterType::kMatrix: {
       auto matrix_filter = filter->asMatrix();
       FML_DCHECK(matrix_filter);
       auto matrix = ToMatrix(matrix_filter->matrix());
       auto desc = ToSamplerDescriptor(matrix_filter->sampling());
-      return [matrix, desc](FilterInput::Ref input,
-                            const Matrix& effect_transform, bool is_subpass) {
-        return FilterContents::MakeMatrixFilter(std::move(input), matrix, desc,
-                                                effect_transform, is_subpass);
-      };
-      break;
+      return ImageFilter::MakeMatrix(matrix, desc);
     }
     case flutter::DlImageFilterType::kCompose: {
       auto compose = filter->asCompose();
       FML_DCHECK(compose);
-      auto outer = compose->outer();
-      auto inner = compose->inner();
-      auto outer_proc = ToImageFilterProc(outer.get());
-      auto inner_proc = ToImageFilterProc(inner.get());
-      if (!outer_proc.has_value()) {
-        return inner_proc;
+      auto outer_dl_filter = compose->outer();
+      auto inner_dl_filter = compose->inner();
+      auto outer_filter = ToImageFilter(outer_dl_filter.get());
+      auto inner_filter = ToImageFilter(inner_dl_filter.get());
+      if (!outer_filter) {
+        return inner_filter;
       }
-      if (!inner_proc.has_value()) {
-        return outer_proc;
+      if (!inner_filter) {
+        return outer_filter;
       }
-      FML_DCHECK(outer_proc.has_value() && inner_proc.has_value());
-      return [outer_filter = outer_proc.value(),
-              inner_filter = inner_proc.value()](FilterInput::Ref input,
-                                                 const Matrix& effect_transform,
-                                                 bool is_subpass) {
-        auto contents =
-            inner_filter(std::move(input), effect_transform, is_subpass);
-        contents = outer_filter(FilterInput::Make(contents), effect_transform,
-                                is_subpass);
-        return contents;
-      };
-      break;
+      FML_DCHECK(outer_filter && inner_filter);
+
+      return ImageFilter::MakeCompose(*inner_filter, *outer_filter);
     }
     case flutter::DlImageFilterType::kColorFilter: {
       auto color_filter_image_filter = filter->asColorFilter();
       FML_DCHECK(color_filter_image_filter);
-      auto color_filter_proc =
-          ToColorFilterProc(color_filter_image_filter->color_filter().get());
-      if (!color_filter_proc.has_value()) {
-        return std::nullopt;
+      auto color_filter =
+          ToColorFilter(color_filter_image_filter->color_filter().get());
+      if (!color_filter) {
+        return nullptr;
       }
-      return [color_filter = color_filter_proc.value()](
-                 FilterInput::Ref input, const Matrix& effect_transform,
-                 bool is_subpass) { return color_filter(std::move(input)); };
-      break;
+      // When color filters are used as image filters, set the color filter's
+      // "absorb opacity" flag to false. For image filters, the snapshot
+      // opacity needs to be deferred until the result of the filter chain is
+      // being blended with the layer.
+      return ImageFilter::MakeFromColorFilter(*color_filter);
     }
     case flutter::DlImageFilterType::kLocalMatrix: {
       auto local_matrix_filter = filter->asLocalMatrix();
@@ -679,29 +606,20 @@ static std::optional<Paint::ImageFilterProc> ToImageFilterProc(
       auto internal_filter = local_matrix_filter->image_filter();
       FML_DCHECK(internal_filter);
 
-      auto image_filter_proc = ToImageFilterProc(internal_filter.get());
-      if (!image_filter_proc.has_value()) {
-        return std::nullopt;
+      auto image_filter = ToImageFilter(internal_filter.get());
+      if (!image_filter) {
+        return nullptr;
       }
 
       auto matrix = ToMatrix(local_matrix_filter->matrix());
-
-      return [matrix, filter_proc = image_filter_proc.value()](
-                 FilterInput::Ref input, const Matrix& effect_transform,
-                 bool is_subpass) {
-        std::shared_ptr<FilterContents> filter =
-            filter_proc(std::move(input), effect_transform, is_subpass);
-        return FilterContents::MakeLocalMatrixFilter(FilterInput::Make(filter),
-                                                     matrix);
-      };
-      break;
+      return ImageFilter::MakeLocalMatrix(matrix, *image_filter);
     }
   }
 }
 
 // |flutter::DlOpReceiver|
 void DlDispatcher::setImageFilter(const flutter::DlImageFilter* filter) {
-  paint_.image_filter = ToImageFilterProc(filter);
+  paint_.image_filter = ToImageFilter(filter);
 }
 
 // |flutter::DlOpReceiver|
@@ -715,7 +633,7 @@ void DlDispatcher::saveLayer(const SkRect* bounds,
                              const flutter::DlImageFilter* backdrop) {
   auto paint = options.renders_with_attributes() ? paint_ : Paint{};
   canvas_.SaveLayer(paint, skia_conversions::ToRect(bounds),
-                    ToImageFilterProc(backdrop));
+                    ToImageFilter(backdrop));
 }
 
 // |flutter::DlOpReceiver|
@@ -897,19 +815,29 @@ void DlDispatcher::drawDRRect(const SkRRect& outer, const SkRRect& inner) {
 // |flutter::DlOpReceiver|
 void DlDispatcher::drawPath(const SkPath& path) {
   SkRect rect;
-  SkRRect rrect;
-  SkRect oval;
-  if (path.isRect(&rect)) {
+
+  // We can't "optimize" a path into a rectangle if it's open.
+  bool closed;
+  if (path.isRect(&rect, &closed) && closed) {
     canvas_.DrawRect(skia_conversions::ToRect(rect), paint_);
-  } else if (path.isRRect(&rrect) && rrect.isSimple()) {
+    return;
+  }
+
+  SkRRect rrect;
+  if (path.isRRect(&rrect) && rrect.isSimple()) {
     canvas_.DrawRRect(skia_conversions::ToRect(rrect.rect()),
                       rrect.getSimpleRadii().fX, paint_);
-  } else if (path.isOval(&oval) && oval.width() == oval.height()) {
+    return;
+  }
+
+  SkRect oval;
+  if (path.isOval(&oval) && oval.width() == oval.height()) {
     canvas_.DrawCircle(skia_conversions::ToPoint(oval.center()),
                        oval.width() * 0.5, paint_);
-  } else {
-    canvas_.DrawPath(skia_conversions::ToPath(path), paint_);
+    return;
   }
+
+  canvas_.DrawPath(skia_conversions::ToPath(path), paint_);
 }
 
 // |flutter::DlOpReceiver|
@@ -966,8 +894,7 @@ void DlDispatcher::drawPoints(PointMode mode,
 // |flutter::DlOpReceiver|
 void DlDispatcher::drawVertices(const flutter::DlVertices* vertices,
                                 flutter::DlBlendMode dl_mode) {
-  canvas_.DrawVertices(DlVerticesGeometry::MakeVertices(vertices),
-                       ToBlendMode(dl_mode), paint_);
+  canvas_.DrawVertices(MakeVertices(vertices), ToBlendMode(dl_mode), paint_);
 }
 
 // |flutter::DlOpReceiver|
@@ -1056,6 +983,10 @@ void DlDispatcher::drawDisplayList(
   Matrix saved_initial_matrix = initial_matrix_;
   int restore_count = canvas_.GetSaveCount();
 
+  // The display list may alter the clip, which must be restored to the current
+  // clip at the end of playback.
+  canvas_.Save();
+
   // Establish a new baseline for interpreting the new DL.
   // Matrix and clip are left untouched, the current
   // transform is saved as the new base matrix, and paint
@@ -1074,7 +1005,9 @@ void DlDispatcher::drawDisplayList(
     canvas_.SaveLayer(save_paint);
   }
 
-  if (display_list->has_rtree()) {
+  // TODO(131445): Remove this restriction if we can correctly cull with
+  // perspective transforms.
+  if (display_list->has_rtree() && !initial_matrix_.HasPerspective()) {
     // The canvas remembers the screen-space culling bounds clipped by
     // the surface and the history of clip calls. DisplayList can cull
     // the ops based on a rectangle expressed in its "destination bounds"
@@ -1104,10 +1037,17 @@ void DlDispatcher::drawDisplayList(
 void DlDispatcher::drawTextBlob(const sk_sp<SkTextBlob> blob,
                                 SkScalar x,
                                 SkScalar y) {
-  Scalar scale = canvas_.GetCurrentTransformation().GetMaxBasisLengthXY();
-  canvas_.DrawTextFrame(TextFrameFromTextBlob(blob, scale),  //
-                        impeller::Point{x, y},               //
-                        paint_                               //
+  // When running with Impeller enabled Skia text blobs are converted to
+  // Impeller text frames in paragraph_skia.cc
+  UNIMPLEMENTED;
+}
+
+void DlDispatcher::drawTextFrame(const std::shared_ptr<TextFrame>& text_frame,
+                                 SkScalar x,
+                                 SkScalar y) {
+  canvas_.DrawTextFrame(text_frame,             //
+                        impeller::Point{x, y},  //
+                        paint_                  //
   );
 }
 

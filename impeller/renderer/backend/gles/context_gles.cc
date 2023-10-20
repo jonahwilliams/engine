@@ -6,6 +6,7 @@
 
 #include "impeller/base/config.h"
 #include "impeller/base/validation.h"
+#include "impeller/renderer/backend/gles/command_buffer_gles.h"
 
 namespace impeller {
 
@@ -52,37 +53,23 @@ ContextGLES::ContextGLES(std::unique_ptr<ProcTableGLES> gl,
     }
   }
 
+  device_capabilities_ = reactor_->GetProcTable().GetCapabilities();
+
   // Create the sampler library.
   {
     sampler_library_ =
-        std::shared_ptr<SamplerLibraryGLES>(new SamplerLibraryGLES());
-  }
-
-  // Create the device capabilities.
-  {
-    device_capabilities_ =
-        CapabilitiesBuilder()
-            .SetHasThreadingRestrictions(true)
-            .SetSupportsOffscreenMSAA(false)
-            .SetSupportsSSBO(false)
-            .SetSupportsBufferToTextureBlits(false)
-            .SetSupportsTextureToTextureBlits(
-                reactor_->GetProcTable().BlitFramebuffer.IsAvailable())
-            .SetSupportsFramebufferFetch(false)
-            .SetDefaultColorFormat(PixelFormat::kR8G8B8A8UNormInt)
-            .SetDefaultStencilFormat(PixelFormat::kS8UInt)
-            .SetSupportsCompute(false)
-            .SetSupportsComputeSubgroups(false)
-            .SetSupportsReadFromResolve(false)
-            .SetSupportsReadFromOnscreenTexture(false)
-            .SetSupportsDecalTileMode(false)
-            .Build();
+        std::shared_ptr<SamplerLibraryGLES>(new SamplerLibraryGLES(
+            device_capabilities_->SupportsDecalSamplerAddressMode()));
   }
 
   is_valid_ = true;
 }
 
 ContextGLES::~ContextGLES() = default;
+
+Context::BackendType ContextGLES::GetBackendType() const {
+  return Context::BackendType::kOpenGLES;
+}
 
 const ReactorGLES::Ref& ContextGLES::GetReactor() const {
   return reactor_;
@@ -106,6 +93,8 @@ bool ContextGLES::RemoveReactorWorker(ReactorGLES::WorkerID id) {
 bool ContextGLES::IsValid() const {
   return is_valid_;
 }
+
+void ContextGLES::Shutdown() {}
 
 // |Context|
 std::string ContextGLES::DescribeGpuModel() const {
