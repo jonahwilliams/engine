@@ -6,11 +6,11 @@
 
 #include <functional>
 #include <optional>
-#include <set>
 #include <tuple>
 #include <vector>
 
 #include "impeller/geometry/path_component.h"
+#include "impeller/geometry/rect.h"
 
 namespace impeller {
 
@@ -196,11 +196,8 @@ class Path {
 
   FillType fill_ = FillType::kNonZero;
   Convexity convexity_ = Convexity::kUnknown;
-  std::vector<ComponentIndexPair> components_;
-  std::vector<LinearPathComponent> linears_;
-  std::vector<QuadraticPathComponent> quads_;
-  std::vector<CubicPathComponent> cubics_;
-  std::vector<ContourComponent> contours_;
+  std::vector<PathComponent> components_;
+  std::vector<PathContour> contours_;
 
   std::optional<Rect> computed_bounds_;
 };

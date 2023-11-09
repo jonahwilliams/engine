@@ -7,9 +7,9 @@
 #include <type_traits>
 #include <variant>
 #include <vector>
+#include <optional>
 
 #include "impeller/geometry/point.h"
-#include "impeller/geometry/rect.h"
 #include "impeller/geometry/scalar.h"
 
 namespace impeller {
@@ -23,6 +23,27 @@ namespace impeller {
 // should be divided by Matrix::GetMaxBasisLength to avoid generating too few
 // points for the given scale.
 static constexpr Scalar kDefaultCurveTolerance = .1f;
+
+enum class PathComponentType : uint8_t {
+  kLinear = 0,
+  kQuadradic,
+  kCubic,
+};
+
+struct PathComponent {
+  PathComponentType type;
+  Point p1;
+  Point p2;
+  Point cp1;
+  Point cp2;
+};
+
+struct PathContour {
+  size_t start;
+  size_t end;
+  bool closed;
+  Point dest;
+};
 
 struct LinearPathComponent {
   Point p1;
@@ -51,15 +72,15 @@ struct LinearPathComponent {
 struct QuadraticPathComponent {
   // Start point.
   Point p1;
-  // Control point.
-  Point cp;
   // End point.
   Point p2;
+  // Control point.
+  Point cp;
 
   QuadraticPathComponent() {}
 
-  QuadraticPathComponent(Point ap1, Point acp, Point ap2)
-      : p1(ap1), cp(acp), p2(ap2) {}
+  QuadraticPathComponent(Point ap1, Point ap2, Point acp)
+      : p1(ap1), p2(ap2), cp(acp) {}
 
   Point Solve(Scalar time) const;
 
@@ -104,7 +125,7 @@ struct CubicPathComponent {
 
   CubicPathComponent() {}
 
-  CubicPathComponent(const QuadraticPathComponent& q)
+  explicit CubicPathComponent(const QuadraticPathComponent& q)
       : p1(q.p1),
         cp1(q.p1 + (q.cp - q.p1) * (2.0 / 3.0)),
         cp2(q.p2 + (q.cp - q.p2) * (2.0 / 3.0)),
@@ -149,7 +170,7 @@ struct ContourComponent {
 
   ContourComponent() {}
 
-  ContourComponent(Point p, bool is_closed = false)
+  explicit ContourComponent(Point p, bool is_closed = false)
       : destination(p), is_closed(is_closed) {}
 
   bool operator==(const ContourComponent& other) const {

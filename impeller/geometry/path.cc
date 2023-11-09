@@ -62,64 +62,51 @@ void Path::SetConvexity(Convexity value) {
 }
 
 void Path::Shift(Point shift) {
-  size_t currentIndex = 0;
-  for (const auto& component : components_) {
-    switch (component.type) {
-      case ComponentType::kLinear:
-        linears_[component.index].p1 += shift;
-        linears_[component.index].p2 += shift;
-        break;
-      case ComponentType::kQuadratic:
-        quads_[component.index].cp += shift;
-        quads_[component.index].p1 += shift;
-        quads_[component.index].p2 += shift;
-        break;
-      case ComponentType::kCubic:
-        cubics_[component.index].cp1 += shift;
-        cubics_[component.index].cp2 += shift;
-        cubics_[component.index].p1 += shift;
-        cubics_[component.index].p2 += shift;
-        break;
-      case ComponentType::kContour:
-        contours_[component.index].destination += shift;
-        break;
-    }
-    currentIndex++;
+  for (auto& component : components_) {
+    component.p1 += shift;
+    component.p2 += shift;
+    component.cp1 += shift;
+    component.cp2 += shift;
   }
 }
 
 Path& Path::AddLinearComponent(Point p1, Point p2) {
-  linears_.emplace_back(p1, p2);
-  components_.emplace_back(ComponentType::kLinear, linears_.size() - 1);
+  components_.emplace_back(
+      PathComponent{.type = PathComponentType::kLinear, .p1 = p1, .p2 = p2});
   return *this;
 }
 
 Path& Path::AddQuadraticComponent(Point p1, Point cp, Point p2) {
-  quads_.emplace_back(p1, cp, p2);
-  components_.emplace_back(ComponentType::kQuadratic, quads_.size() - 1);
+  components_.emplace_back(PathComponent{
+      .type = PathComponentType::kQuadradic, .p1 = p1, .p2 = p2, .cp1 = cp});
   return *this;
 }
 
 Path& Path::AddCubicComponent(Point p1, Point cp1, Point cp2, Point p2) {
-  cubics_.emplace_back(p1, cp1, cp2, p2);
-  components_.emplace_back(ComponentType::kCubic, cubics_.size() - 1);
+  components_.emplace_back(PathComponent{.type = PathComponentType::kCubic,
+                                         .p1 = p1,
+                                         .p2 = p2,
+                                         .cp1 = cp1,
+                                         .cp2 = cp2});
   return *this;
 }
 
-Path& Path::AddContourComponent(Point destination, bool is_closed) {
-  if (components_.size() > 0 &&
-      components_.back().type == ComponentType::kContour) {
-    // Never insert contiguous contours.
-    contours_.back() = ContourComponent(destination, is_closed);
-  } else {
-    contours_.emplace_back(ContourComponent(destination, is_closed));
-    components_.emplace_back(ComponentType::kContour, contours_.size() - 1);
-  }
-  return *this;
-}
+// Path& Path::AddContourComponent(Point destination, bool is_closed) {
+//   if (contours_.size() > 0 && contours_.back().end == components_.size() - 1) {
+//     // Never insert contiguous contours.
+//     contours_.back().dest = destination;
+//     contours_.back().closed = is_closed;
+//   } else {
+//     contours_.emplace_back(PathContour{.start = components_.size() - 1,
+//                                        .end = 0,
+//                                        .closed = is_closed,
+//                                        .dest = destination});
+//   }
+//   return *this;
+// }
 
 void Path::SetContourClosed(bool is_closed) {
-  contours_.back().is_closed = is_closed;
+  contours_.back().closed = is_closed;
 }
 
 void Path::EnumerateComponents(
