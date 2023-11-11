@@ -88,6 +88,13 @@ class Geometry {
       Scalar radius,
       bool round);
 
+  static GeometryRef MakeLine(const std::shared_ptr<PerFrameAllocator>& allocator,
+                              Point p0,
+                              Point p1,
+                              Scalar width,
+                              Cap cap);
+
+
   virtual GeometryResult GetPositionBuffer(const ContentContext& renderer,
                                            const Entity& entity,
                                            RenderPass& pass) = 0;

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <memory>
+#include <type_traits>
 
 namespace impeller {
 
@@ -21,6 +22,9 @@ class PerFrameAllocator
 
   template <typename T>
   T* AllocateObjectOrDie() {
+    // Its not safe to placement new allocate without calling dtor if the class
+    // has a non-trivial dtor.
+   // static_assert(std::is_trivially_destructible<T>::value);
     auto* buf = AllocateOrDie(sizeof(T));
     return new (buf) T;
   }

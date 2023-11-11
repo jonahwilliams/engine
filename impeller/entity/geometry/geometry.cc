@@ -8,43 +8,13 @@
 
 #include "impeller/entity/geometry/cover_geometry.h"
 #include "impeller/entity/geometry/fill_path_geometry.h"
+#include "impeller/entity/geometry/line_geometry.h"
 #include "impeller/entity/geometry/point_field_geometry.h"
 #include "impeller/entity/geometry/rect_geometry.h"
 #include "impeller/entity/geometry/stroke_path_geometry.h"
 #include "impeller/geometry/rect.h"
 
 namespace impeller {
-
-/// Given a convex polyline, create a triangle fan structure.
-std::pair<std::vector<Point>, std::vector<uint16_t>> TessellateConvex(
-    Path::Polyline polyline) {
-  std::vector<Point> output;
-  std::vector<uint16_t> indices;
-
-  for (auto j = 0u; j < polyline.contours.size(); j++) {
-    auto [start, end] = polyline.GetContourPointBounds(j);
-    auto center = polyline.points[start];
-
-    // Some polygons will not self close and an additional triangle
-    // must be inserted, others will self close and we need to avoid
-    // inserting an extra triangle.
-    if (polyline.points[end - 1] == polyline.points[start]) {
-      end--;
-    }
-    output.emplace_back(center);
-    output.emplace_back(polyline.points[start + 1]);
-
-    for (auto i = start + 2; i < end; i++) {
-      const auto& point_b = polyline.points[i];
-      output.emplace_back(point_b);
-
-      indices.emplace_back(0);
-      indices.emplace_back(i - 1);
-      indices.emplace_back(i);
-    }
-  }
-  return std::make_pair(output, indices);
-}
 
 VertexBufferBuilder<TextureFillVertexShader::PerVertexData>
 ComputeUVGeometryCPU(
@@ -166,6 +136,19 @@ GeometryRef Geometry::MakeRect(
     Rect rect) {
   auto* geom = allocator->AllocateObjectOrDie<RectGeometry>();
   geom->SetRect(rect);
+  return geom;
+}
+
+GeometryRef Geometry::MakeLine(const std::shared_ptr<PerFrameAllocator>& allocator, Point p0,
+                                             Point p1,
+                                             Scalar width,
+                                             Cap cap) {
+  auto* geom = allocator->AllocateObjectOrDie<LineGeometry>();
+  geom->SetP0(p0);
+  geom->SetP1(p1);
+  geom->SetWidth(width);
+  geom->SetCap(cap);
+
   return geom;
 }
 

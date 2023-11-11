@@ -227,6 +227,29 @@ bool Canvas::AttemptDrawBlurredRRect(const Rect& rect,
   return true;
 }
 
+void Canvas::DrawLine(const Point& p0, const Point& p1, const Paint& paint) {
+  if (paint.stroke_cap == Cap::kRound) {
+    auto path = PathBuilder{}
+                    .AddLine((p0), (p1))
+                    .SetConvexity(Convexity::kConvex)
+                    .TakePath();
+    Paint stroke_paint = paint;
+    stroke_paint.style = Paint::Style::kStroke;
+    DrawPath(path, stroke_paint);
+    return;
+  }
+
+  Entity entity;
+  entity.SetTransformation(GetCurrentTransformation());
+  entity.SetClipDepth(GetClipDepth());
+  entity.SetBlendMode(paint.blend_mode);
+  entity.SetContents(paint.WithFilters(paint.CreateContentsForGeometry(
+      allocator_, Geometry::MakeLine(allocator_, p0, p1, paint.stroke_width,
+                                     paint.stroke_cap))));
+
+  GetCurrentPass().AddEntity(entity);
+}
+
 void Canvas::DrawRect(Rect rect, const Paint& paint) {
   if (paint.style == Paint::Style::kStroke) {
     DrawPath(PathBuilder{}.AddRect(rect).TakePath(), paint);
@@ -241,8 +264,8 @@ void Canvas::DrawRect(Rect rect, const Paint& paint) {
   entity.SetTransformation(GetCurrentTransformation());
   entity.SetClipDepth(GetClipDepth());
   entity.SetBlendMode(paint.blend_mode);
-  entity.SetContents(paint.WithFilters(
-      paint.CreateContentsForGeometry(allocator_, Geometry::MakeRect(allocator_, rect))));
+  entity.SetContents(paint.WithFilters(paint.CreateContentsForGeometry(
+      allocator_, Geometry::MakeRect(allocator_, rect))));
 
   GetCurrentPass().AddEntity(entity);
 }
@@ -262,8 +285,8 @@ void Canvas::DrawRRect(Rect rect, Point corner_radii, const Paint& paint) {
     entity.SetTransformation(GetCurrentTransformation());
     entity.SetClipDepth(GetClipDepth());
     entity.SetBlendMode(paint.blend_mode);
-    entity.SetContents(paint.WithFilters(paint.CreateContentsForGeometry(allocator_,
-        Geometry::MakeFillPath(allocator_, path))));
+    entity.SetContents(paint.WithFilters(paint.CreateContentsForGeometry(
+        allocator_, Geometry::MakeFillPath(allocator_, path))));
 
     GetCurrentPass().AddEntity(entity);
     return;
@@ -433,7 +456,8 @@ void Canvas::DrawPoints(const std::vector<Point>& points,
   entity.SetTransformation(GetCurrentTransformation());
   entity.SetClipDepth(GetClipDepth());
   entity.SetBlendMode(paint.blend_mode);
-  entity.SetContents(paint.WithFilters(paint.CreateContentsForGeometry(allocator_,
+  entity.SetContents(paint.WithFilters(paint.CreateContentsForGeometry(
+      allocator_,
       Geometry::MakePointField(allocator_, points, radius,
                                /*round=*/point_style == PointStyle::kRound))));
 
@@ -614,8 +638,8 @@ void Canvas::DrawVertices(const std::shared_ptr<VerticesGeometry>& vertices,
   // If there are no vertex color or texture coordinates. Or if there
   // are vertex coordinates then only if the contents are an image.
   if (UseColorSourceContents(vertices, paint)) {
-    auto contents =
-        paint.CreateContentsForGeometry(allocator_, vertices.get());  // Leak for now
+    auto contents = paint.CreateContentsForGeometry(
+        allocator_, vertices.get());  // Leak for now
     entity.SetContents(paint.WithFilters(std::move(contents)));
     GetCurrentPass().AddEntity(entity);
     return;
@@ -624,8 +648,8 @@ void Canvas::DrawVertices(const std::shared_ptr<VerticesGeometry>& vertices,
   auto src_paint = paint;
   src_paint.color = paint.color.WithAlpha(1.0);
 
-  std::shared_ptr<Contents> src_contents =
-      src_paint.CreateContentsForGeometry(allocator_, vertices.get());  // Leak for now
+  std::shared_ptr<Contents> src_contents = src_paint.CreateContentsForGeometry(
+      allocator_, vertices.get());  // Leak for now
   if (vertices->HasTextureCoordinates()) {
     // If the color source has an intrinsic size, then we use that to
     // create the src contents as a simplification. Otherwise we use
@@ -644,8 +668,8 @@ void Canvas::DrawVertices(const std::shared_ptr<VerticesGeometry>& vertices,
           // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
           vertices->GetTextureCoordinateCoverge().value_or(cvg.value());
     }
-    src_contents = src_paint.CreateContentsForGeometry(allocator_,
-        Geometry::MakeRect(allocator_, src_coverage));
+    src_contents = src_paint.CreateContentsForGeometry(
+        allocator_, Geometry::MakeRect(allocator_, src_coverage));
   }
 
   auto contents = std::make_shared<VerticesContents>();
