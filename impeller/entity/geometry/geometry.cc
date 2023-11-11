@@ -111,37 +111,62 @@ GeometryResult Geometry::GetPositionUVBuffer(Rect texture_coverage,
   return {};
 }
 
-std::unique_ptr<Geometry> Geometry::MakeFillPath(
+GeometryRef Geometry::MakeFillPath(
+    const std::shared_ptr<PerFrameAllocator>& allocator,
     const Path& path,
     std::optional<Rect> inner_rect) {
-  return std::make_unique<FillPathGeometry>(path, inner_rect);
+  auto* geom = allocator->AllocateObjectOrDie<FillPathGeometry>();
+  geom->SetPath(path);
+  geom->SetInnerRect(inner_rect);
+  return geom;
 }
 
-std::unique_ptr<Geometry> Geometry::MakePointField(std::vector<Point> points,
-                                                   Scalar radius,
-                                                   bool round) {
-  return std::make_unique<PointFieldGeometry>(std::move(points), radius, round);
+GeometryRef Geometry::MakePointField(
+    const std::shared_ptr<PerFrameAllocator>& allocator,
+    const std::vector<Point>& points,
+    Scalar radius,
+    bool round) {
+  auto* geom = allocator->AllocateObjectOrDie<PointFieldGeometry>();
+  geom->SetPoints(points);
+  geom->SetRadius(radius);
+  geom->SetRound(round);
+
+  return geom;
 }
 
-std::unique_ptr<Geometry> Geometry::MakeStrokePath(const Path& path,
-                                                   Scalar stroke_width,
-                                                   Scalar miter_limit,
-                                                   Cap stroke_cap,
-                                                   Join stroke_join) {
+GeometryRef Geometry::MakeStrokePath(
+    const std::shared_ptr<PerFrameAllocator>& allocator,
+    const Path& path,
+    Scalar stroke_width,
+    Scalar miter_limit,
+    Cap stroke_cap,
+    Join stroke_join) {
   // Skia behaves like this.
   if (miter_limit < 0) {
     miter_limit = 4.0;
   }
-  return std::make_unique<StrokePathGeometry>(path, stroke_width, miter_limit,
-                                              stroke_cap, stroke_join);
+
+  auto* geom = allocator->AllocateObjectOrDie<StrokePathGeometry>();
+  geom->SetPath(path);
+  geom->SetStrokeWidth(stroke_width);
+  geom->SetMiterLimit(miter_limit);
+  geom->SetStrokeCap(stroke_cap);
+  geom->SetStrokeJoin(stroke_join);
+  return geom;
 }
 
-std::unique_ptr<Geometry> Geometry::MakeCover() {
-  return std::make_unique<CoverGeometry>();
+GeometryRef Geometry::MakeCover(
+    const std::shared_ptr<PerFrameAllocator>& allocator) {
+  auto* geom = allocator->AllocateObjectOrDie<CoverGeometry>();
+  return geom;
 }
 
-std::unique_ptr<Geometry> Geometry::MakeRect(Rect rect) {
-  return std::make_unique<RectGeometry>(rect);
+GeometryRef Geometry::MakeRect(
+    const std::shared_ptr<PerFrameAllocator>& allocator,
+    Rect rect) {
+  auto* geom = allocator->AllocateObjectOrDie<RectGeometry>();
+  geom->SetRect(rect);
+  return geom;
 }
 
 bool Geometry::CoversArea(const Matrix& transform, const Rect& rect) const {

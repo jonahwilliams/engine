@@ -175,7 +175,8 @@ void Canvas::DrawPath(const Path& path, const Paint& paint) {
   entity.SetTransformation(GetCurrentTransformation());
   entity.SetClipDepth(GetClipDepth());
   entity.SetBlendMode(paint.blend_mode);
-  entity.SetContents(paint.WithFilters(paint.CreateContentsForEntity(path)));
+  entity.SetContents(
+      paint.WithFilters(paint.CreateContentsForEntity(allocator_, path)));
 
   GetCurrentPass().AddEntity(entity);
 }
@@ -185,7 +186,7 @@ void Canvas::DrawPaint(const Paint& paint) {
   entity.SetTransformation(GetCurrentTransformation());
   entity.SetClipDepth(GetClipDepth());
   entity.SetBlendMode(paint.blend_mode);
-  entity.SetContents(paint.CreateContentsForEntity({}, true));
+  entity.SetContents(paint.CreateContentsForEntity(allocator_, {}, true));
 
   GetCurrentPass().AddEntity(entity);
 }
@@ -241,7 +242,7 @@ void Canvas::DrawRect(Rect rect, const Paint& paint) {
   entity.SetClipDepth(GetClipDepth());
   entity.SetBlendMode(paint.blend_mode);
   entity.SetContents(paint.WithFilters(
-      paint.CreateContentsForGeometry(Geometry::MakeRect(rect))));
+      paint.CreateContentsForGeometry(allocator_, Geometry::MakeRect(allocator_, rect))));
 
   GetCurrentPass().AddEntity(entity);
 }
@@ -261,8 +262,8 @@ void Canvas::DrawRRect(Rect rect, Point corner_radii, const Paint& paint) {
     entity.SetTransformation(GetCurrentTransformation());
     entity.SetClipDepth(GetClipDepth());
     entity.SetBlendMode(paint.blend_mode);
-    entity.SetContents(paint.WithFilters(
-        paint.CreateContentsForGeometry(Geometry::MakeFillPath(path))));
+    entity.SetContents(paint.WithFilters(paint.CreateContentsForGeometry(allocator_,
+        Geometry::MakeFillPath(allocator_, path))));
 
     GetCurrentPass().AddEntity(entity);
     return;
@@ -288,7 +289,7 @@ void Canvas::DrawCircle(Point center, Scalar radius, const Paint& paint) {
 }
 
 void Canvas::ClipPath(const Path& path, Entity::ClipOperation clip_op) {
-  ClipGeometry(Geometry::MakeFillPath(path), clip_op);
+  ClipGeometry(Geometry::MakeFillPath(allocator_, path), clip_op);
   if (clip_op == Entity::ClipOperation::kIntersect) {
     auto bounds = path.GetBoundingBox();
     if (bounds.has_value()) {
@@ -298,7 +299,7 @@ void Canvas::ClipPath(const Path& path, Entity::ClipOperation clip_op) {
 }
 
 void Canvas::ClipRect(const Rect& rect, Entity::ClipOperation clip_op) {
-  auto geometry = Geometry::MakeRect(rect);
+  auto geometry = Geometry::MakeRect(allocator_, rect);
   auto& cull_rect = xformation_stack_.back().cull_rect;
   if (clip_op == Entity::ClipOperation::kIntersect &&                        //
       cull_rect.has_value() &&                                               //
@@ -307,7 +308,7 @@ void Canvas::ClipRect(const Rect& rect, Entity::ClipOperation clip_op) {
     return;  // This clip will do nothing, so skip it.
   }
 
-  ClipGeometry(std::move(geometry), clip_op);
+  ClipGeometry(geometry, clip_op);
   switch (clip_op) {
     case Entity::ClipOperation::kIntersect:
       IntersectCulling(rect);
@@ -334,7 +335,7 @@ void Canvas::ClipRRect(const Rect& rect,
   std::optional<Rect> inner_rect = (flat_on_LR && flat_on_TB)
                                        ? rect.Expand(-corner_radii)
                                        : std::make_optional<Rect>();
-  auto geometry = Geometry::MakeFillPath(path, inner_rect);
+  auto geometry = Geometry::MakeFillPath(allocator_, path, inner_rect);
   auto& cull_rect = xformation_stack_.back().cull_rect;
   if (clip_op == Entity::ClipOperation::kIntersect &&                        //
       cull_rect.has_value() &&                                               //
@@ -343,7 +344,7 @@ void Canvas::ClipRRect(const Rect& rect,
     return;  // This clip will do nothing, so skip it.
   }
 
-  ClipGeometry(std::move(geometry), clip_op);
+  ClipGeometry(geometry, clip_op);
   switch (clip_op) {
     case Entity::ClipOperation::kIntersect:
       IntersectCulling(rect);
@@ -368,10 +369,9 @@ void Canvas::ClipRRect(const Rect& rect,
   }
 }
 
-void Canvas::ClipGeometry(std::unique_ptr<Geometry> geometry,
-                          Entity::ClipOperation clip_op) {
+void Canvas::ClipGeometry(GeometryRef geometry, Entity::ClipOperation clip_op) {
   auto contents = std::make_shared<ClipContents>();
-  contents->SetGeometry(std::move(geometry));
+  contents->SetGeometry(geometry);
   contents->SetClipOperation(clip_op);
 
   Entity entity;
@@ -421,7 +421,7 @@ void Canvas::RestoreClip() {
   GetCurrentPass().AddEntity(entity);
 }
 
-void Canvas::DrawPoints(std::vector<Point> points,
+void Canvas::DrawPoints(const std::vector<Point>& points,
                         Scalar radius,
                         const Paint& paint,
                         PointStyle point_style) {
@@ -433,8 +433,8 @@ void Canvas::DrawPoints(std::vector<Point> points,
   entity.SetTransformation(GetCurrentTransformation());
   entity.SetClipDepth(GetClipDepth());
   entity.SetBlendMode(paint.blend_mode);
-  entity.SetContents(paint.WithFilters(paint.CreateContentsForGeometry(
-      Geometry::MakePointField(std::move(points), radius,
+  entity.SetContents(paint.WithFilters(paint.CreateContentsForGeometry(allocator_,
+      Geometry::MakePointField(allocator_, points, radius,
                                /*round=*/point_style == PointStyle::kRound))));
 
   GetCurrentPass().AddEntity(entity);
@@ -518,6 +518,7 @@ void Canvas::DrawImageRect(const std::shared_ptr<Image>& image,
 Picture Canvas::EndRecordingAsPicture() {
   Picture picture;
   picture.pass = std::move(base_pass_);
+  picture.lifetime = allocator_->ExtendLifetime();
 
   Reset();
   Initialize(initial_cull_rect_);
@@ -613,7 +614,8 @@ void Canvas::DrawVertices(const std::shared_ptr<VerticesGeometry>& vertices,
   // If there are no vertex color or texture coordinates. Or if there
   // are vertex coordinates then only if the contents are an image.
   if (UseColorSourceContents(vertices, paint)) {
-    auto contents = paint.CreateContentsForGeometry(vertices);
+    auto contents =
+        paint.CreateContentsForGeometry(allocator_, vertices.get());  // Leak for now
     entity.SetContents(paint.WithFilters(std::move(contents)));
     GetCurrentPass().AddEntity(entity);
     return;
@@ -623,7 +625,7 @@ void Canvas::DrawVertices(const std::shared_ptr<VerticesGeometry>& vertices,
   src_paint.color = paint.color.WithAlpha(1.0);
 
   std::shared_ptr<Contents> src_contents =
-      src_paint.CreateContentsForGeometry(vertices);
+      src_paint.CreateContentsForGeometry(allocator_, vertices.get());  // Leak for now
   if (vertices->HasTextureCoordinates()) {
     // If the color source has an intrinsic size, then we use that to
     // create the src contents as a simplification. Otherwise we use
@@ -642,8 +644,8 @@ void Canvas::DrawVertices(const std::shared_ptr<VerticesGeometry>& vertices,
           // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
           vertices->GetTextureCoordinateCoverge().value_or(cvg.value());
     }
-    src_contents =
-        src_paint.CreateContentsForGeometry(Geometry::MakeRect(src_coverage));
+    src_contents = src_paint.CreateContentsForGeometry(allocator_,
+        Geometry::MakeRect(allocator_, src_coverage));
   }
 
   auto contents = std::make_shared<VerticesContents>();

@@ -36,11 +36,17 @@ namespace impeller {
 #define UNIMPLEMENTED \
   FML_DLOG(ERROR) << "Unimplemented detail in " << __FUNCTION__;
 
-DlDispatcher::DlDispatcher() = default;
+DlDispatcher::DlDispatcher(const std::shared_ptr<PerFrameAllocator>& allocator) {
+  canvas_.SetAllocator(allocator);
+}
 
-DlDispatcher::DlDispatcher(Rect cull_rect) : canvas_(cull_rect) {}
+DlDispatcher::DlDispatcher(Rect cull_rect, const std::shared_ptr<PerFrameAllocator>& allocator) : canvas_(cull_rect) {
+  canvas_.SetAllocator(allocator);
+}
 
-DlDispatcher::DlDispatcher(IRect cull_rect) : canvas_(cull_rect) {}
+DlDispatcher::DlDispatcher(IRect cull_rect, const std::shared_ptr<PerFrameAllocator>& allocator) : canvas_(cull_rect) {
+  canvas_.SetAllocator(allocator);
+}
 
 DlDispatcher::~DlDispatcher() = default;
 

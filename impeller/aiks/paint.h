@@ -43,6 +43,7 @@ struct Paint {
     Sigma sigma;
 
     std::shared_ptr<FilterContents> CreateMaskBlur(
+        const std::shared_ptr<PerFrameAllocator>& allocator,
         std::shared_ptr<ColorSourceContents> color_source_contents,
         const std::shared_ptr<ColorFilter>& color_filter) const;
 
@@ -88,11 +89,14 @@ struct Paint {
       std::shared_ptr<Contents> input,
       const Matrix& effect_transform = Matrix()) const;
 
-  std::shared_ptr<Contents> CreateContentsForEntity(const Path& path = {},
-                                                    bool cover = false) const;
+  std::shared_ptr<Contents> CreateContentsForEntity(
+      const std::shared_ptr<PerFrameAllocator>& allocator,
+      const Path& path = {},
+      bool cover = false) const;
 
   std::shared_ptr<Contents> CreateContentsForGeometry(
-      std::shared_ptr<Geometry> geometry) const;
+      const std::shared_ptr<PerFrameAllocator>& allocator,
+      GeometryRef geometry) const;
 
   /// @brief   Whether this paint has a color filter that can apply opacity
   bool HasColorFilter() const;

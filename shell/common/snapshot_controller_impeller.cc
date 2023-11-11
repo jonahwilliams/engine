@@ -34,7 +34,7 @@ sk_sp<DlImage> SnapshotControllerImpeller::DoMakeRasterSnapshot(
     const sk_sp<DisplayList>& display_list,
     SkISize size) {
   TRACE_EVENT0("flutter", __FUNCTION__);
-  impeller::DlDispatcher dispatcher;
+  impeller::DlDispatcher dispatcher(GetDelegate().GetAiksContext()->GetContentContext().GetAllocator());
   display_list->Dispatch(dispatcher);
   impeller::Picture picture = dispatcher.EndRecordingAsPicture();
   auto context = GetDelegate().GetAiksContext();

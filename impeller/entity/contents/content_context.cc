@@ -8,6 +8,7 @@
 
 #include "impeller/base/strings.h"
 #include "impeller/core/formats.h"
+#include "impeller/entity/contents/frame_allocator.h"
 #include "impeller/entity/contents/framebuffer_blend_contents.h"
 #include "impeller/entity/entity.h"
 #include "impeller/entity/render_target_cache.h"
@@ -177,6 +178,7 @@ ContentContext::ContentContext(
     : context_(std::move(context)),
       lazy_glyph_atlas_(
           std::make_shared<LazyGlyphAtlas>(std::move(typographer_context))),
+      per_frame_allocator_(std::make_shared<PerFrameAllocator>()),
       tessellator_(std::make_shared<Tessellator>()),
 #if IMPELLER_ENABLE_3D
       scene_context_(std::make_shared<scene::SceneContext>(context_)),

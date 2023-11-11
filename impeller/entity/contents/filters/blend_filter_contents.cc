@@ -408,7 +408,7 @@ std::optional<Entity> BlendFilterContents::CreateForegroundPorterDuffBlend(
 
   if (blend_mode == BlendMode::kSource) {
     auto contents = std::make_shared<SolidColorContents>();
-    contents->SetGeometry(Geometry::MakeRect(coverage));
+    // contents->SetGeometry(Geometry::MakeRect(coverage)); TODO
     contents->SetColor(foreground_color);
 
     Entity foreground_entity;
@@ -632,8 +632,9 @@ static std::optional<Entity> PipelineBlend(
 
     if (foreground_color.has_value()) {
       auto contents = std::make_shared<SolidColorContents>();
-      contents->SetGeometry(
-          Geometry::MakeRect(Rect::MakeSize(pass.GetRenderTargetSize())));
+      // contents->SetGeometry(
+      //     Geometry::MakeRect(Rect::MakeSize(pass.GetRenderTargetSize())));
+      // TODO
       contents->SetColor(foreground_color.value());
 
       Entity foreground_entity;

@@ -7,6 +7,7 @@
 #include "impeller/core/formats.h"
 #include "impeller/core/vertex_buffer.h"
 #include "impeller/entity/contents/content_context.h"
+#include "impeller/entity/contents/frame_allocator.h"
 #include "impeller/entity/entity.h"
 #include "impeller/entity/texture_fill.vert.h"
 #include "impeller/renderer/render_pass.h"
@@ -51,30 +52,41 @@ GeometryResult ComputeUVGeometryForRect(Rect source_rect,
 std::pair<std::vector<Point>, std::vector<uint16_t>> TessellateConvex(
     Path::Polyline polyline);
 
+class Geometry;
+
+using GeometryRef = Geometry*;
+
 class Geometry {
  public:
   Geometry();
 
   virtual ~Geometry();
 
-  static std::unique_ptr<Geometry> MakeFillPath(
+  static GeometryRef MakeFillPath(
+      const std::shared_ptr<PerFrameAllocator>& allocator,
       const Path& path,
       std::optional<Rect> inner_rect = std::nullopt);
 
-  static std::unique_ptr<Geometry> MakeStrokePath(
+  static GeometryRef MakeStrokePath(
+      const std::shared_ptr<PerFrameAllocator>& allocator,
       const Path& path,
       Scalar stroke_width = 0.0,
       Scalar miter_limit = 4.0,
       Cap stroke_cap = Cap::kButt,
       Join stroke_join = Join::kMiter);
 
-  static std::unique_ptr<Geometry> MakeCover();
+  static GeometryRef MakeCover(
+      const std::shared_ptr<PerFrameAllocator>& allocator);
 
-  static std::unique_ptr<Geometry> MakeRect(Rect rect);
+  static GeometryRef MakeRect(
+      const std::shared_ptr<PerFrameAllocator>& allocator,
+      Rect rect);
 
-  static std::unique_ptr<Geometry> MakePointField(std::vector<Point> points,
-                                                  Scalar radius,
-                                                  bool round);
+  static GeometryRef MakePointField(
+      const std::shared_ptr<PerFrameAllocator>& allocator,
+      const std::vector<Point>& points,
+      Scalar radius,
+      bool round);
 
   virtual GeometryResult GetPositionBuffer(const ContentContext& renderer,
                                            const Entity& entity,
@@ -104,5 +116,7 @@ class Geometry {
 
   virtual bool IsAxisAlignedRect() const;
 };
+
+using GeometryRef = Geometry*;
 
 }  // namespace impeller

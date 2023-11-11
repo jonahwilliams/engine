@@ -10,9 +10,13 @@ namespace impeller {
 
 class RectGeometry : public Geometry {
  public:
-  explicit RectGeometry(Rect rect);
+  RectGeometry();
 
   ~RectGeometry();
+
+  void SetRect(const Rect& rect) {
+    rect_ = rect;
+  }
 
   // |Geometry|
   bool CoversArea(const Matrix& transform, const Rect& rect) const override;

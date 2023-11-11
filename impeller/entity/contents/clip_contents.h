@@ -21,7 +21,7 @@ class ClipContents final : public Contents {
 
   ~ClipContents();
 
-  void SetGeometry(std::unique_ptr<Geometry> geometry);
+  void SetGeometry(GeometryRef geometry);
 
   void SetClipOperation(Entity::ClipOperation clip_op);
 
@@ -48,7 +48,7 @@ class ClipContents final : public Contents {
   void SetInheritedOpacity(Scalar opacity) override;
 
  private:
-  std::unique_ptr<Geometry> geometry_;
+  GeometryRef geometry_;
   Entity::ClipOperation clip_op_ = Entity::ClipOperation::kIntersect;
 
   ClipContents(const ClipContents&) = delete;

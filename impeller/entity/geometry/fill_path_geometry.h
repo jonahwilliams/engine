@@ -14,13 +14,20 @@ namespace impeller {
 /// @brief A geometry that is created from a filled path object.
 class FillPathGeometry : public Geometry {
  public:
-  explicit FillPathGeometry(const Path& path,
-                            std::optional<Rect> inner_rect = std::nullopt);
+  FillPathGeometry();
 
   ~FillPathGeometry();
 
   // |Geometry|
   bool CoversArea(const Matrix& transform, const Rect& rect) const override;
+
+  void SetPath(const Path& path) {
+    path_ = path;
+  }
+
+  void SetInnerRect(std::optional<Rect> inner_rect) {
+    inner_rect_ = inner_rect;
+  }
 
  private:
   // |Geometry|
@@ -42,7 +49,7 @@ class FillPathGeometry : public Geometry {
                                      RenderPass& pass) override;
 
   Path path_;
-  std::optional<Rect> inner_rect_;
+  std::optional<Rect> inner_rect_ = std::nullopt;
 
   FillPathGeometry(const FillPathGeometry&) = delete;
 

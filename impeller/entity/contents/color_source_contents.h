@@ -39,12 +39,12 @@ class ColorSourceContents : public Contents {
   //----------------------------------------------------------------------------
   /// @brief  Set the geometry that this contents will use to render.
   ///
-  void SetGeometry(std::shared_ptr<Geometry> geometry);
+  void SetGeometry(GeometryRef geometry);
 
   //----------------------------------------------------------------------------
   /// @brief  Get the geometry that this contents will use to render.
   ///
-  const std::shared_ptr<Geometry>& GetGeometry() const;
+  GeometryRef GetGeometry() const;
 
   //----------------------------------------------------------------------------
   /// @brief  Set the effect transform for this color source.
@@ -102,7 +102,7 @@ class ColorSourceContents : public Contents {
   void SetInheritedOpacity(Scalar opacity) override;
 
  private:
-  std::shared_ptr<Geometry> geometry_;
+  GeometryRef geometry_;
   Matrix inverse_matrix_;
   Scalar opacity_ = 1.0;
   Scalar inherited_opacity_ = 1.0;

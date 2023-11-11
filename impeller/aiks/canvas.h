@@ -16,6 +16,7 @@
 #include "impeller/aiks/paint.h"
 #include "impeller/aiks/picture.h"
 #include "impeller/core/sampler_descriptor.h"
+#include "impeller/entity/contents/frame_allocator.h"
 #include "impeller/entity/entity_pass.h"
 #include "impeller/entity/geometry/geometry.h"
 #include "impeller/entity/geometry/vertices_geometry.h"
@@ -109,7 +110,7 @@ class Canvas {
 
   void DrawCircle(Point center, Scalar radius, const Paint& paint);
 
-  void DrawPoints(std::vector<Point>,
+  void DrawPoints(const std::vector<Point>& points,
                   Scalar radius,
                   const Paint& paint,
                   PointStyle point_style);
@@ -157,6 +158,10 @@ class Canvas {
                  std::optional<Rect> cull_rect,
                  const Paint& paint);
 
+  void SetAllocator(const std::shared_ptr<PerFrameAllocator>& allocator) {
+    allocator_ = allocator;
+  }
+
   Picture EndRecordingAsPicture();
 
  private:
@@ -164,6 +169,7 @@ class Canvas {
   EntityPass* current_pass_ = nullptr;
   std::deque<CanvasStackEntry> xformation_stack_;
   std::optional<Rect> initial_cull_rect_;
+  std::shared_ptr<PerFrameAllocator> allocator_;
 
   void Initialize(std::optional<Rect> cull_rect);
 
@@ -173,7 +179,7 @@ class Canvas {
 
   size_t GetClipDepth() const;
 
-  void ClipGeometry(std::unique_ptr<Geometry> geometry,
+  void ClipGeometry(GeometryRef geometry,
                     Entity::ClipOperation clip_op);
 
   void IntersectCulling(Rect clip_bounds);

@@ -10,9 +10,15 @@ namespace impeller {
 
 class PointFieldGeometry : public Geometry {
  public:
-  PointFieldGeometry(std::vector<Point> points, Scalar radius, bool round);
+  PointFieldGeometry();
 
   ~PointFieldGeometry();
+
+  void SetPoints(const std::vector<Point>& points) { points_ = points; }
+
+  void SetRadius(Scalar value) { radius_ = value; }
+
+  void SetRound(bool value) { round_ = value; }
 
   static size_t ComputeCircleDivisions(Scalar scaled_radius, bool round);
 

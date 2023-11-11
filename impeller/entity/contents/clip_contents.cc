@@ -22,8 +22,8 @@ ClipContents::ClipContents() = default;
 
 ClipContents::~ClipContents() = default;
 
-void ClipContents::SetGeometry(std::unique_ptr<Geometry> geometry) {
-  geometry_ = std::move(geometry);
+void ClipContents::SetGeometry(GeometryRef geometry) {
+  geometry_ = geometry;
 }
 
 void ClipContents::SetClipOperation(Entity::ClipOperation clip_op) {

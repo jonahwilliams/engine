@@ -9,6 +9,7 @@
 #include "impeller/entity/contents/color_source_contents.h"
 #include "impeller/entity/contents/filters/color_filter_contents.h"
 #include "impeller/entity/contents/filters/filter_contents.h"
+#include "impeller/entity/contents/frame_allocator.h"
 #include "impeller/entity/contents/solid_color_contents.h"
 #include "impeller/entity/geometry/geometry.h"
 
@@ -26,25 +27,29 @@ constexpr ColorMatrix kColorInversion = {
 };
 // clang-format on
 
-std::shared_ptr<Contents> Paint::CreateContentsForEntity(const Path& path,
-                                                         bool cover) const {
-  std::unique_ptr<Geometry> geometry;
+std::shared_ptr<Contents> Paint::CreateContentsForEntity(
+    const std::shared_ptr<PerFrameAllocator>& allocator,
+    const Path& path,
+    bool cover) const {
+  GeometryRef geometry;
   switch (style) {
     case Style::kFill:
-      geometry = cover ? Geometry::MakeCover() : Geometry::MakeFillPath(path);
+      geometry = cover ? Geometry::MakeCover(allocator)
+                       : Geometry::MakeFillPath(allocator, path);
       break;
     case Style::kStroke:
-      geometry =
-          cover ? Geometry::MakeCover()
-                : Geometry::MakeStrokePath(path, stroke_width, stroke_miter,
-                                           stroke_cap, stroke_join);
+      geometry = cover ? Geometry::MakeCover(allocator)
+                       : Geometry::MakeStrokePath(allocator, path, stroke_width,
+                                                  stroke_miter, stroke_cap,
+                                                  stroke_join);
       break;
   }
-  return CreateContentsForGeometry(std::move(geometry));
+  return CreateContentsForGeometry(allocator, geometry);
 }
 
 std::shared_ptr<Contents> Paint::CreateContentsForGeometry(
-    std::shared_ptr<Geometry> geometry) const {
+    const std::shared_ptr<PerFrameAllocator>& allocator,
+    GeometryRef geometry) const {
   auto contents = color_source.GetContents(*this);
 
   // Attempt to apply the color filter on the CPU first.
@@ -57,13 +62,13 @@ std::shared_ptr<Contents> Paint::CreateContentsForGeometry(
     needs_color_filter = false;
   }
 
-  contents->SetGeometry(std::move(geometry));
+  contents->SetGeometry(geometry);
   if (mask_blur_descriptor.has_value()) {
     // If there's a mask blur and we need to apply the color filter on the GPU,
     // we need to be careful to only apply the color filter to the source
     // colors. CreateMaskBlur is able to handle this case.
     return mask_blur_descriptor->CreateMaskBlur(
-        contents, needs_color_filter ? color_filter : nullptr);
+        allocator, contents, needs_color_filter ? color_filter : nullptr);
   }
 
   return contents;
@@ -139,6 +144,7 @@ std::shared_ptr<Contents> Paint::WithColorFilter(
 }
 
 std::shared_ptr<FilterContents> Paint::MaskBlurDescriptor::CreateMaskBlur(
+    const std::shared_ptr<PerFrameAllocator>& allocator,
     std::shared_ptr<ColorSourceContents> color_source_contents,
     const std::shared_ptr<ColorFilter>& color_filter) const {
   // If it's a solid color and there is no color filter, then we can just get
@@ -169,7 +175,7 @@ std::shared_ptr<FilterContents> Paint::MaskBlurDescriptor::CreateMaskBlur(
     expanded_local_bounds = Rect();
   }
   color_source_contents->SetGeometry(
-      Geometry::MakeRect(*expanded_local_bounds));
+      Geometry::MakeRect(allocator, *expanded_local_bounds));
 
   std::shared_ptr<Contents> color_contents = color_source_contents;
 

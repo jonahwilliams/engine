@@ -8,16 +8,17 @@
 #include "flutter/fml/macros.h"
 #include "impeller/aiks/canvas_type.h"
 #include "impeller/aiks/paint.h"
+#include "impeller/entity/contents/frame_allocator.h"
 
 namespace impeller {
 
 class DlDispatcher final : public flutter::DlOpReceiver {
  public:
-  DlDispatcher();
+  explicit DlDispatcher(const std::shared_ptr<PerFrameAllocator>& allocator);
 
-  explicit DlDispatcher(Rect cull_rect);
+  explicit DlDispatcher(Rect cull_rect, const std::shared_ptr<PerFrameAllocator>& allocator);
 
-  explicit DlDispatcher(IRect cull_rect);
+  explicit DlDispatcher(IRect cull_rect, const std::shared_ptr<PerFrameAllocator>& allocator);
 
   ~DlDispatcher();
 

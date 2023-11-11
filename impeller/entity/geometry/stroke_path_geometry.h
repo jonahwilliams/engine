@@ -11,11 +11,7 @@ namespace impeller {
 /// @brief A geometry that is created from a stroked path object.
 class StrokePathGeometry : public Geometry {
  public:
-  StrokePathGeometry(const Path& path,
-                     Scalar stroke_width,
-                     Scalar miter_limit,
-                     Cap stroke_cap,
-                     Join stroke_join);
+  StrokePathGeometry();
 
   ~StrokePathGeometry();
 
@@ -26,6 +22,26 @@ class StrokePathGeometry : public Geometry {
   Cap GetStrokeCap() const;
 
   Join GetStrokeJoin() const;
+
+  void SetPath(const Path& path) {
+    path_ = path;
+  }
+
+  void SetStrokeWidth(Scalar value) {
+    stroke_width_ = value;
+  }
+
+  void SetMiterLimit(Scalar value) {
+    miter_limit_ = value;
+  }
+
+  void SetStrokeCap(Cap cap) {
+    stroke_cap_ = cap;
+  }
+
+  void SetStrokeJoin(Join join) {
+    stroke_join_ = join;
+  }
 
  private:
   using VS = SolidFillVertexShader;

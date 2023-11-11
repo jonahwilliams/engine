@@ -6,7 +6,7 @@
 
 namespace impeller {
 
-RectGeometry::RectGeometry(Rect rect) : rect_(rect) {}
+RectGeometry::RectGeometry() {}
 
 RectGeometry::~RectGeometry() = default;
 

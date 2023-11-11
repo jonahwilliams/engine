@@ -15,6 +15,7 @@
 #include "flutter/fml/macros.h"
 #include "impeller/base/validation.h"
 #include "impeller/core/formats.h"
+#include "impeller/entity/contents/frame_allocator.h"
 #include "impeller/entity/entity.h"
 #include "impeller/renderer/capabilities.h"
 #include "impeller/renderer/pipeline.h"
@@ -679,9 +680,14 @@ class ContentContext {
     return render_target_cache_;
   }
 
+  std::shared_ptr<PerFrameAllocator> GetAllocator() const {
+    return per_frame_allocator_;
+  }
+
  private:
   std::shared_ptr<Context> context_;
   std::shared_ptr<LazyGlyphAtlas> lazy_glyph_atlas_;
+  std::shared_ptr<PerFrameAllocator> per_frame_allocator_;
 
   template <class PipelineT>
   class Variants {

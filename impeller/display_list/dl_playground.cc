@@ -44,7 +44,7 @@ bool DlPlayground::OpenPlaygroundHere(DisplayListPlaygroundCallback callback) {
 
         auto list = callback();
 
-        DlDispatcher dispatcher;
+        DlDispatcher dispatcher(context.GetContentContext().GetAllocator());
         list->Dispatch(dispatcher);
         auto picture = dispatcher.EndRecordingAsPicture();
 

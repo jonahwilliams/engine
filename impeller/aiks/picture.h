@@ -11,6 +11,7 @@
 #include "flutter/fml/macros.h"
 #include "impeller/aiks/aiks_context.h"
 #include "impeller/aiks/image.h"
+#include "impeller/entity/contents/frame_allocator.h"
 #include "impeller/entity/entity.h"
 #include "impeller/entity/entity_pass.h"
 
@@ -18,6 +19,7 @@ namespace impeller {
 
 struct Picture {
   std::unique_ptr<EntityPass> pass;
+  std::shared_ptr<FrameLifetime> lifetime;
 
   std::optional<Snapshot> Snapshot(AiksContext& context);
 
