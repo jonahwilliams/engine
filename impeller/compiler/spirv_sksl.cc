@@ -11,6 +11,9 @@ using namespace SPIRV_CROSS_NAMESPACE;
 namespace impeller {
 namespace compiler {
 
+// See:
+// https://github.com/KhronosGroup/SPIRV-Cross/blob/42aac916ab5db0cbaf55c2d41f4d063f4ce3955a/spirv_glsl.cpp#L3725-L3738
+
 // This replaces the SPIRV_CROSS_THROW which aborts and drops the
 // error message in non-debug modes.
 void report_and_exit(const std::string& msg) {
@@ -34,6 +37,7 @@ std::string CompilerSkSL::compile() {
   options.vulkan_semantics = false;
   options.enable_420pack_extension = false;
   options.flatten_multidimensional_arrays = true;
+  options.emit_uniform_buffer_as_plain_uniforms = true;
 
   backend.allow_precision_qualifiers = false;
   backend.basic_int16_type = "short";
@@ -188,17 +192,6 @@ void CompilerSkSL::detect_unsupported_resources() {
       auto& var = id.get<SPIRVariable>();
       auto& type = get<SPIRType>(var.basetype);
 
-      // UBOs and SSBOs are not supported.
-      if (var.storage != StorageClassFunction && type.pointer &&
-          type.storage == StorageClassUniform && !is_hidden_variable(var) &&
-          (ir.meta[type.self].decoration.decoration_flags.get(
-               DecorationBlock) ||
-           ir.meta[type.self].decoration.decoration_flags.get(
-               DecorationBufferBlock))) {
-        FLUTTER_CROSS_THROW("SkSL does not support UBOs or SSBOs: '" +
-                            get_name(var.self) + "'");
-      }
-
       // Push constant blocks are not supported.
       if (!is_hidden_variable(var) && var.storage != StorageClassFunction &&
           type.pointer && type.storage == StorageClassPushConstant) {
@@ -237,6 +230,24 @@ bool CompilerSkSL::emit_uniform_resources() {
     auto& var = get<SPIRVariable>(id);
     emit_uniform(var);
   }
+
+  // Output UBOs and SSBOs
+  ir.for_each_typed_id<SPIRVariable>([&](uint32_t, SPIRVariable& var) {
+    auto& type = this->get<SPIRType>(var.basetype);
+
+    bool is_block_storage = type.storage == StorageClassStorageBuffer ||
+                            type.storage == StorageClassUniform ||
+                            type.storage == StorageClassShaderRecordBufferKHR;
+    bool has_block_flags =
+        ir.meta[type.self].decoration.decoration_flags.get(DecorationBlock) ||
+        ir.meta[type.self].decoration.decoration_flags.get(
+            DecorationBufferBlock);
+
+    if (var.storage != StorageClassFunction && type.pointer &&
+        is_block_storage && !is_hidden_variable(var) && has_block_flags) {
+      emit_buffer_block(var);
+    }
+  });
 
   return emitted;
 }
