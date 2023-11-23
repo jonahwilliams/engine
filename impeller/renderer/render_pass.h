@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "impeller/core/device_buffer.h"
 #include "impeller/core/formats.h"
 #include "impeller/renderer/command.h"
 #include "impeller/renderer/command_buffer.h"
@@ -45,6 +46,10 @@ class RenderPass {
   }
 
   HostBuffer& GetTransientsBuffer();
+
+  std::shared_ptr<HostBuffer> GetDeviceBufferForTracking() const {
+    return transients_buffer_;
+  }
 
   //----------------------------------------------------------------------------
   /// @brief      Record a command for subsequent encoding to the underlying

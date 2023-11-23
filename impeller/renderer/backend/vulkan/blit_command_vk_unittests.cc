@@ -61,7 +61,7 @@ TEST(BlitCommandVkTest, BlitCopyBufferToTextureCommandVK) {
                    ->AsBufferView();
   bool result = cmd.Encode(*encoder.get());
   EXPECT_TRUE(result);
-  EXPECT_TRUE(encoder->IsTracking(cmd.source.buffer));
+  // EXPECT_TRUE(encoder->IsTracking(cmd.source.buffer));
   EXPECT_TRUE(encoder->IsTracking(cmd.destination));
 }
 

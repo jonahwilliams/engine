@@ -18,7 +18,7 @@ std::shared_ptr<const DeviceBuffer> DeviceBuffer::GetDeviceBuffer(
 
 BufferView DeviceBuffer::AsBufferView() const {
   BufferView view;
-  view.buffer = shared_from_this();
+  view.buffer = this;
   view.contents = OnGetContents();
   view.range = {0u, desc_.size};
   return view;

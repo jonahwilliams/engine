@@ -12,8 +12,8 @@
 namespace impeller {
 
 bool ComputeCommand::BindResource(ShaderStage stage,
-                                  const ShaderUniformSlot& slot,
-                                  const ShaderMetadata& metadata,
+                                  const ShaderUniformSlot* slot,
+                                  const ShaderMetadata* metadata,
                                   const BufferView& view) {
   if (stage != ShaderStage::kCompute) {
     VALIDATION_LOG << "Use Command for non-compute shader stages.";
@@ -23,14 +23,22 @@ bool ComputeCommand::BindResource(ShaderStage stage,
     return false;
   }
 
-  bindings.buffers[slot.ext_res_0] = {.slot = slot, .view = {&metadata, view}};
+  bindings.buffers[slot->ext_res_0] = {.slot = slot, .view = {metadata, view}};
   return true;
 }
 
+// |ResourceBinder|
+bool ComputeCommand::BindResource(ShaderStage stage,
+                  const ShaderUniformSlot& slot,
+                  const ShaderMetadata& metadata,
+          const BufferView& view)  {
+            return true;
+          }
+
 bool ComputeCommand::BindResource(
     ShaderStage stage,
-    const SampledImageSlot& slot,
-    const ShaderMetadata& metadata,
+    const SampledImageSlot* slot,
+    const ShaderMetadata* metadata,
     const std::shared_ptr<const Texture>& texture,
     const std::shared_ptr<const Sampler>& sampler) {
   if (stage != ShaderStage::kCompute) {
@@ -43,14 +51,14 @@ bool ComputeCommand::BindResource(
   if (!texture || !texture->IsValid()) {
     return false;
   }
-  if (!slot.HasSampler() || !slot.HasTexture()) {
+  if (!slot->HasSampler() || !slot->HasTexture()) {
     return true;
   }
 
-  bindings.sampled_images[slot.sampler_index] = TextureAndSampler{
+  bindings.sampled_images[slot->sampler_index] = TextureAndSampler{
       .slot = slot,
-      .texture = {&metadata, texture},
-      .sampler = {&metadata, sampler},
+      .texture = {metadata, texture},
+      .sampler = {metadata, sampler},
   };
 
   return false;

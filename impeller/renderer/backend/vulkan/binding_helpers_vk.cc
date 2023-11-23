@@ -33,7 +33,7 @@ static bool BindImages(const Bindings& bindings,
       return false;
     }
 
-    const SampledImageSlot& slot = data.slot;
+    const SampledImageSlot* slot = data.slot;
 
     vk::DescriptorImageInfo image_info;
     image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
@@ -43,7 +43,7 @@ static bool BindImages(const Bindings& bindings,
 
     vk::WriteDescriptorSet write_set;
     write_set.dstSet = vk_desc_set;
-    write_set.dstBinding = slot.binding;
+    write_set.dstBinding = slot->binding;
     write_set.descriptorCount = 1u;
     write_set.descriptorType = vk::DescriptorType::eCombinedImageSampler;
     write_set.pImageInfo = &images.back();
@@ -89,22 +89,22 @@ static bool BindBuffers(const Bindings& bindings,
 
     // TODO(jonahwilliams): remove this part by storing more data in
     // ShaderUniformSlot.
-    const ShaderUniformSlot& uniform = data.slot;
+    const ShaderUniformSlot* uniform = data.slot;
     auto layout_it =
         std::find_if(desc_set.begin(), desc_set.end(),
                      [&uniform](const DescriptorSetLayout& layout) {
-                       return layout.binding == uniform.binding;
+                       return layout.binding == uniform->binding;
                      });
     if (layout_it == desc_set.end()) {
       VALIDATION_LOG << "Failed to get descriptor set layout for binding "
-                     << uniform.binding;
+                     << uniform->binding;
       return false;
     }
     auto layout = *layout_it;
 
     vk::WriteDescriptorSet write_set;
     write_set.dstSet = vk_desc_set;
-    write_set.dstBinding = uniform.binding;
+    write_set.dstBinding = uniform->binding;
     write_set.descriptorCount = 1u;
     write_set.descriptorType = ToVKDescriptorType(layout.descriptor_type);
     write_set.pBufferInfo = &buffers.back();

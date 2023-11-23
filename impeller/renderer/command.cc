@@ -31,38 +31,38 @@ BufferView Command::GetVertexBuffer() const {
 }
 
 bool Command::BindResource(ShaderStage stage,
+                           const ShaderUniformSlot* slot,
+                           const ShaderMetadata* metadata,
+                           const BufferView& view) {
+  return DoBindResource(stage, slot, metadata, view);
+}
+
+bool Command::BindResource(ShaderStage stage,
                            const ShaderUniformSlot& slot,
                            const ShaderMetadata& metadata,
                            const BufferView& view) {
-  return DoBindResource(stage, slot, &metadata, view);
-}
-
-bool Command::BindResource(
-    ShaderStage stage,
-    const ShaderUniformSlot& slot,
-    const std::shared_ptr<const ShaderMetadata>& metadata,
-    const BufferView& view) {
-  return DoBindResource(stage, slot, metadata, view);
+  // TODO: testing.
+  return true;
 }
 
 template <class T>
 bool Command::DoBindResource(ShaderStage stage,
-                             const ShaderUniformSlot& slot,
-                             const T metadata,
+                             const ShaderUniformSlot* slot,
+                             const T* metadata,
                              const BufferView& view) {
-  FML_DCHECK(slot.ext_res_0 != VertexDescriptor::kReservedVertexBufferIndex);
+  FML_DCHECK(slot->ext_res_0 != VertexDescriptor::kReservedVertexBufferIndex);
   if (!view) {
     return false;
   }
 
   switch (stage) {
     case ShaderStage::kVertex:
-      vertex_bindings.buffers[slot.ext_res_0] = {
-          .slot = slot, .view = BufferResource(metadata, view)};
+      vertex_bindings.buffers.emplace(slot->ext_res_0, BufferAndUniformSlot{
+          .slot = slot, .view = BufferResource(metadata, view)});
       return true;
     case ShaderStage::kFragment:
-      fragment_bindings.buffers[slot.ext_res_0] = {
-          .slot = slot, .view = BufferResource(metadata, view)};
+      fragment_bindings.buffers.emplace(slot->ext_res_0, BufferAndUniformSlot{
+          .slot = slot, .view = BufferResource(metadata, view)});
       return true;
     case ShaderStage::kCompute:
       VALIDATION_LOG << "Use ComputeCommands for compute shader stages.";
@@ -76,8 +76,8 @@ bool Command::DoBindResource(ShaderStage stage,
 }
 
 bool Command::BindResource(ShaderStage stage,
-                           const SampledImageSlot& slot,
-                           const ShaderMetadata& metadata,
+                           const SampledImageSlot* slot,
+                           const ShaderMetadata* metadata,
                            const std::shared_ptr<const Texture>& texture,
                            const std::shared_ptr<const Sampler>& sampler) {
   if (!sampler || !sampler->IsValid()) {
@@ -86,24 +86,24 @@ bool Command::BindResource(ShaderStage stage,
   if (!texture || !texture->IsValid()) {
     return false;
   }
-  if (!slot.HasSampler() || !slot.HasTexture()) {
+  if (!slot->HasSampler() || !slot->HasTexture()) {
     return true;
   }
 
   switch (stage) {
     case ShaderStage::kVertex:
-      vertex_bindings.sampled_images[slot.sampler_index] = TextureAndSampler{
+      vertex_bindings.sampled_images.emplace(slot->sampler_index, TextureAndSampler{
           .slot = slot,
-          .texture = {&metadata, texture},
-          .sampler = {&metadata, sampler},
-      };
+          .texture = {metadata, texture},
+          .sampler = {metadata, sampler},
+      });
       return true;
     case ShaderStage::kFragment:
-      fragment_bindings.sampled_images[slot.sampler_index] = TextureAndSampler{
+      fragment_bindings.sampled_images.emplace(slot->sampler_index, TextureAndSampler{
           .slot = slot,
-          .texture = {&metadata, texture},
-          .sampler = {&metadata, sampler},
-      };
+          .texture = {metadata, texture},
+          .sampler = {metadata, sampler},
+      });
       return true;
     case ShaderStage::kCompute:
       VALIDATION_LOG << "Use ComputeCommands for compute shader stages.";

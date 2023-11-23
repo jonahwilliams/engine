@@ -10,7 +10,7 @@
 namespace impeller {
 
 struct BufferView {
-  std::shared_ptr<const Buffer> buffer;
+  const Buffer* buffer;
   uint8_t* contents;
   Range range;
 

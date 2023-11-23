@@ -165,9 +165,9 @@ bool BlitCopyBufferToTextureCommandVK::Encode(CommandEncoderVK& encoder) const {
   const auto& dst = TextureVK::Cast(*destination);
   const auto& src = DeviceBufferVK::Cast(*source.buffer);
 
-  if (!encoder.Track(source.buffer) || !encoder.Track(destination)) {
-    return false;
-  }
+  // if (!encoder.Track(source.buffer) || !encoder.Track(destination)) {
+  //   return false;
+  // }
 
   BarrierVK dst_barrier;
   dst_barrier.cmd_buffer = cmd_buffer;

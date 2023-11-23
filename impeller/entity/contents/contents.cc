@@ -135,15 +135,16 @@ bool Contents::ShouldRender(const Entity& entity,
   if (!clip_coverage.has_value()) {
     return false;
   }
+  return true;
 
-  auto coverage = GetCoverage(entity);
-  if (!coverage.has_value()) {
-    return false;
-  }
-  if (coverage == Rect::MakeMaximum()) {
-    return true;
-  }
-  return clip_coverage->IntersectsWithRect(coverage.value());
+  // auto coverage = GetCoverage(entity);
+  // if (!coverage.has_value()) {
+  //   return false;
+  // }
+  // if (coverage == Rect::MakeMaximum()) {
+  //   return true;
+  // }
+  // return clip_coverage->IntersectsWithRect(coverage.value());
 }
 
 void Contents::SetCoverageHint(std::optional<Rect> coverage_hint) {

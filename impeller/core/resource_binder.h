@@ -27,13 +27,18 @@ struct ResourceBinder {
   virtual ~ResourceBinder() = default;
 
   virtual bool BindResource(ShaderStage stage,
-                            const ShaderUniformSlot& slot,
-                            const ShaderMetadata& metadata,
+                            const ShaderUniformSlot* slot,
+                            const ShaderMetadata* metadata,
                             const BufferView& view) = 0;
 
   virtual bool BindResource(ShaderStage stage,
-                            const SampledImageSlot& slot,
-                            const ShaderMetadata& metadata,
+                          const ShaderUniformSlot& slot,
+                          const ShaderMetadata& metadata,
+                          const BufferView& view) = 0;
+
+  virtual bool BindResource(ShaderStage stage,
+                            const SampledImageSlot* slot,
+                            const ShaderMetadata* metadata,
                             const std::shared_ptr<const Texture>& texture,
                             const std::shared_ptr<const Sampler>& sampler) = 0;
 };

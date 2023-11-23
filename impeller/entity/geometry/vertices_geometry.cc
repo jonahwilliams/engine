@@ -112,107 +112,109 @@ GeometryResult VerticesGeometry::GetPositionBuffer(
     const ContentContext& renderer,
     const Entity& entity,
     RenderPass& pass) const {
-  auto index_count = indices_.size();
-  auto vertex_count = vertices_.size();
+      return {};
+  // auto index_count = indices_.size();
+  // auto vertex_count = vertices_.size();
 
-  size_t total_vtx_bytes = vertex_count * sizeof(float) * 2;
-  size_t total_idx_bytes = index_count * sizeof(uint16_t);
+  // size_t total_vtx_bytes = vertex_count * sizeof(float) * 2;
+  // size_t total_idx_bytes = index_count * sizeof(uint16_t);
 
-  DeviceBufferDescriptor buffer_desc;
-  buffer_desc.size = total_vtx_bytes + total_idx_bytes;
-  buffer_desc.storage_mode = StorageMode::kHostVisible;
+  // DeviceBufferDescriptor buffer_desc;
+  // buffer_desc.size = total_vtx_bytes + total_idx_bytes;
+  // buffer_desc.storage_mode = StorageMode::kHostVisible;
 
-  auto buffer =
-      renderer.GetContext()->GetResourceAllocator()->CreateBuffer(buffer_desc);
+  // auto buffer =
+  //     renderer.GetContext()->GetResourceAllocator()->CreateBuffer(buffer_desc);
 
-  if (!buffer->CopyHostBuffer(
-          reinterpret_cast<const uint8_t*>(vertices_.data()),
-          Range{0, total_vtx_bytes}, 0)) {
-    return {};
-  }
-  if (index_count > 0 &&
-      !buffer->CopyHostBuffer(
-          reinterpret_cast<uint8_t*>(const_cast<uint16_t*>(indices_.data())),
-          Range{0, total_idx_bytes}, total_vtx_bytes)) {
-    return {};
-  }
+  // if (!buffer->CopyHostBuffer(
+  //         reinterpret_cast<const uint8_t*>(vertices_.data()),
+  //         Range{0, total_vtx_bytes}, 0)) {
+  //   return {};
+  // }
+  // if (index_count > 0 &&
+  //     !buffer->CopyHostBuffer(
+  //         reinterpret_cast<uint8_t*>(const_cast<uint16_t*>(indices_.data())),
+  //         Range{0, total_idx_bytes}, total_vtx_bytes)) {
+  //   return {};
+  // }
 
-  return GeometryResult{
-      .type = GetPrimitiveType(),
-      .vertex_buffer =
-          {
-              .vertex_buffer = {.buffer = buffer,
-                                .range = Range{0, total_vtx_bytes}},
-              .index_buffer = {.buffer = buffer,
-                               .range =
-                                   Range{total_vtx_bytes, total_idx_bytes}},
-              .vertex_count = index_count > 0 ? index_count : vertex_count,
-              .index_type =
-                  index_count > 0 ? IndexType::k16bit : IndexType::kNone,
-          },
-      .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
-                   entity.GetTransform(),
-      .prevent_overdraw = false,
-  };
+  // return GeometryResult{
+  //     .type = GetPrimitiveType(),
+  //     .vertex_buffer =
+  //         {
+  //             .vertex_buffer = {.buffer = buffer,
+  //                               .range = Range{0, total_vtx_bytes}},
+  //             .index_buffer = {.buffer = buffer,
+  //                              .range =
+  //                                  Range{total_vtx_bytes, total_idx_bytes}},
+  //             .vertex_count = index_count > 0 ? index_count : vertex_count,
+  //             .index_type =
+  //                 index_count > 0 ? IndexType::k16bit : IndexType::kNone,
+  //         },
+  //     .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
+  //                  entity.GetTransform(),
+  //     .prevent_overdraw = false,
+  // };
 }
 
 GeometryResult VerticesGeometry::GetPositionColorBuffer(
     const ContentContext& renderer,
     const Entity& entity,
     RenderPass& pass) {
-  using VS = GeometryColorPipeline::VertexShader;
+  return {};
+  // using VS = GeometryColorPipeline::VertexShader;
 
-  auto index_count = indices_.size();
-  auto vertex_count = vertices_.size();
+  // auto index_count = indices_.size();
+  // auto vertex_count = vertices_.size();
 
-  std::vector<VS::PerVertexData> vertex_data(vertex_count);
-  {
-    for (auto i = 0u; i < vertex_count; i++) {
-      vertex_data[i] = {
-          .position = vertices_[i],
-          .color = colors_[i],
-      };
-    }
-  }
+  // std::vector<VS::PerVertexData> vertex_data(vertex_count);
+  // {
+  //   for (auto i = 0u; i < vertex_count; i++) {
+  //     vertex_data[i] = {
+  //         .position = vertices_[i],
+  //         .color = colors_[i],
+  //     };
+  //   }
+  // }
 
-  size_t total_vtx_bytes = vertex_data.size() * sizeof(VS::PerVertexData);
-  size_t total_idx_bytes = index_count * sizeof(uint16_t);
+  // size_t total_vtx_bytes = vertex_data.size() * sizeof(VS::PerVertexData);
+  // size_t total_idx_bytes = index_count * sizeof(uint16_t);
 
-  DeviceBufferDescriptor buffer_desc;
-  buffer_desc.size = total_vtx_bytes + total_idx_bytes;
-  buffer_desc.storage_mode = StorageMode::kHostVisible;
+  // DeviceBufferDescriptor buffer_desc;
+  // buffer_desc.size = total_vtx_bytes + total_idx_bytes;
+  // buffer_desc.storage_mode = StorageMode::kHostVisible;
 
-  auto buffer =
-      renderer.GetContext()->GetResourceAllocator()->CreateBuffer(buffer_desc);
+  // auto buffer =
+  //     renderer.GetContext()->GetResourceAllocator()->CreateBuffer(buffer_desc);
 
-  if (!buffer->CopyHostBuffer(reinterpret_cast<uint8_t*>(vertex_data.data()),
-                              Range{0, total_vtx_bytes}, 0)) {
-    return {};
-  }
-  if (index_count > 0 &&
-      !buffer->CopyHostBuffer(
-          reinterpret_cast<uint8_t*>(const_cast<uint16_t*>(indices_.data())),
-          Range{0, total_idx_bytes}, total_vtx_bytes)) {
-    return {};
-  }
+  // if (!buffer->CopyHostBuffer(reinterpret_cast<uint8_t*>(vertex_data.data()),
+  //                             Range{0, total_vtx_bytes}, 0)) {
+  //   return {};
+  // }
+  // if (index_count > 0 &&
+  //     !buffer->CopyHostBuffer(
+  //         reinterpret_cast<uint8_t*>(const_cast<uint16_t*>(indices_.data())),
+  //         Range{0, total_idx_bytes}, total_vtx_bytes)) {
+  //   return {};
+  // }
 
-  return GeometryResult{
-      .type = GetPrimitiveType(),
-      .vertex_buffer =
-          {
-              .vertex_buffer = {.buffer = buffer,
-                                .range = Range{0, total_vtx_bytes}},
-              .index_buffer = {.buffer = buffer,
-                               .range =
-                                   Range{total_vtx_bytes, total_idx_bytes}},
-              .vertex_count = index_count > 0 ? index_count : vertex_count,
-              .index_type =
-                  index_count > 0 ? IndexType::k16bit : IndexType::kNone,
-          },
-      .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
-                   entity.GetTransform(),
-      .prevent_overdraw = false,
-  };
+  // return GeometryResult{
+  //     .type = GetPrimitiveType(),
+  //     .vertex_buffer =
+  //         {
+  //             .vertex_buffer = {.buffer = buffer,
+  //                               .range = Range{0, total_vtx_bytes}},
+  //             .index_buffer = {.buffer = buffer,
+  //                              .range =
+  //                                  Range{total_vtx_bytes, total_idx_bytes}},
+  //             .vertex_count = index_count > 0 ? index_count : vertex_count,
+  //             .index_type =
+  //                 index_count > 0 ? IndexType::k16bit : IndexType::kNone,
+  //         },
+  //     .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
+  //                  entity.GetTransform(),
+  //     .prevent_overdraw = false,
+  // };
 }
 
 GeometryResult VerticesGeometry::GetPositionUVBuffer(
@@ -221,69 +223,70 @@ GeometryResult VerticesGeometry::GetPositionUVBuffer(
     const ContentContext& renderer,
     const Entity& entity,
     RenderPass& pass) const {
-  using VS = TexturePipeline::VertexShader;
+  // using VS = TexturePipeline::VertexShader;
+  return {};
 
-  auto index_count = indices_.size();
-  auto vertex_count = vertices_.size();
-  auto uv_transform =
-      texture_coverage.GetNormalizingTransform() * effect_transform;
-  auto has_texture_coordinates = HasTextureCoordinates();
-  std::vector<VS::PerVertexData> vertex_data(vertex_count);
-  {
-    for (auto i = 0u; i < vertex_count; i++) {
-      auto vertex = vertices_[i];
-      auto texture_coord =
-          has_texture_coordinates ? texture_coordinates_[i] : vertices_[i];
-      auto uv = uv_transform * texture_coord;
-      // From experimentation we need to clamp these values to < 1.0 or else
-      // there can be flickering.
-      vertex_data[i] = {
-          .position = vertex,
-          .texture_coords =
-              Point(std::clamp(uv.x, 0.0f, 1.0f - kEhCloseEnough),
-                    std::clamp(uv.y, 0.0f, 1.0f - kEhCloseEnough)),
-      };
-    }
-  }
+  // auto index_count = indices_.size();
+  // auto vertex_count = vertices_.size();
+  // auto uv_transform =
+  //     texture_coverage.GetNormalizingTransform() * effect_transform;
+  // auto has_texture_coordinates = HasTextureCoordinates();
+  // std::vector<VS::PerVertexData> vertex_data(vertex_count);
+  // {
+  //   for (auto i = 0u; i < vertex_count; i++) {
+  //     auto vertex = vertices_[i];
+  //     auto texture_coord =
+  //         has_texture_coordinates ? texture_coordinates_[i] : vertices_[i];
+  //     auto uv = uv_transform * texture_coord;
+  //     // From experimentation we need to clamp these values to < 1.0 or else
+  //     // there can be flickering.
+  //     vertex_data[i] = {
+  //         .position = vertex,
+  //         .texture_coords =
+  //             Point(std::clamp(uv.x, 0.0f, 1.0f - kEhCloseEnough),
+  //                   std::clamp(uv.y, 0.0f, 1.0f - kEhCloseEnough)),
+  //     };
+  //   }
+  // }
 
-  size_t total_vtx_bytes = vertex_data.size() * sizeof(VS::PerVertexData);
-  size_t total_idx_bytes = index_count * sizeof(uint16_t);
+  // size_t total_vtx_bytes = vertex_data.size() * sizeof(VS::PerVertexData);
+  // size_t total_idx_bytes = index_count * sizeof(uint16_t);
 
-  DeviceBufferDescriptor buffer_desc;
-  buffer_desc.size = total_vtx_bytes + total_idx_bytes;
-  buffer_desc.storage_mode = StorageMode::kHostVisible;
+  // DeviceBufferDescriptor buffer_desc;
+  // buffer_desc.size = total_vtx_bytes + total_idx_bytes;
+  // buffer_desc.storage_mode = StorageMode::kHostVisible;
 
-  auto buffer =
-      renderer.GetContext()->GetResourceAllocator()->CreateBuffer(buffer_desc);
+  // auto buffer =
+  //     renderer.GetContext()->GetResourceAllocator()->CreateBuffer(buffer_desc);
 
-  if (!buffer->CopyHostBuffer(reinterpret_cast<uint8_t*>(vertex_data.data()),
-                              Range{0, total_vtx_bytes}, 0)) {
-    return {};
-  }
-  if (index_count > 0u &&
-      !buffer->CopyHostBuffer(
-          reinterpret_cast<uint8_t*>(const_cast<uint16_t*>(indices_.data())),
-          Range{0, total_idx_bytes}, total_vtx_bytes)) {
-    return {};
-  }
+  // if (!buffer->CopyHostBuffer(reinterpret_cast<uint8_t*>(vertex_data.data()),
+  //                             Range{0, total_vtx_bytes}, 0)) {
+  //   return {};
+  // }
+  // if (index_count > 0u &&
+  //     !buffer->CopyHostBuffer(
+  //         reinterpret_cast<uint8_t*>(const_cast<uint16_t*>(indices_.data())),
+  //         Range{0, total_idx_bytes}, total_vtx_bytes)) {
+  //   return {};
+  // }
 
-  return GeometryResult{
-      .type = GetPrimitiveType(),
-      .vertex_buffer =
-          {
-              .vertex_buffer = {.buffer = buffer,
-                                .range = Range{0, total_vtx_bytes}},
-              .index_buffer = {.buffer = buffer,
-                               .range =
-                                   Range{total_vtx_bytes, total_idx_bytes}},
-              .vertex_count = index_count > 0 ? index_count : vertex_count,
-              .index_type =
-                  index_count > 0 ? IndexType::k16bit : IndexType::kNone,
-          },
-      .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
-                   entity.GetTransform(),
-      .prevent_overdraw = false,
-  };
+  // return GeometryResult{
+  //     .type = GetPrimitiveType(),
+  //     .vertex_buffer =
+  //         {
+  //             .vertex_buffer = {.buffer = buffer,
+  //                               .range = Range{0, total_vtx_bytes}},
+  //             .index_buffer = {.buffer = buffer,
+  //                              .range =
+  //                                  Range{total_vtx_bytes, total_idx_bytes}},
+  //             .vertex_count = index_count > 0 ? index_count : vertex_count,
+  //             .index_type =
+  //                 index_count > 0 ? IndexType::k16bit : IndexType::kNone,
+  //         },
+  //     .transform = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
+  //                  entity.GetTransform(),
+  //     .prevent_overdraw = false,
+  // };
 }
 
 GeometryVertexType VerticesGeometry::GetVertexType() const {

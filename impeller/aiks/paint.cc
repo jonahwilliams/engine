@@ -71,6 +71,7 @@ std::shared_ptr<Contents> Paint::CreateContentsForGeometry(
 
 std::shared_ptr<Contents> Paint::WithFilters(
     std::shared_ptr<Contents> input) const {
+  return input;
   input = WithColorFilter(input, ColorFilterContents::AbsorbOpacity::kYes);
   auto image_filter =
       WithImageFilter(input, Matrix(), Entity::RenderingMode::kDirect);

@@ -201,7 +201,7 @@ bool RuntimeEffectContents::Render(const ContentContext& renderer,
         ShaderUniformSlot uniform_slot;
         uniform_slot.name = uniform.name.c_str();
         uniform_slot.ext_res_0 = uniform.location;
-        cmd.BindResource(ShaderStage::kFragment, uniform_slot, metadata,
+        cmd.BindResource(ShaderStage::kFragment, &uniform_slot, nullptr,
                          buffer_view);
         buffer_index++;
         buffer_offset += uniform.GetSize();
@@ -242,7 +242,7 @@ bool RuntimeEffectContents::Render(const ContentContext& renderer,
         image_slot.name = uniform.name.c_str();
         image_slot.texture_index = uniform.location - minimum_sampler_index;
         image_slot.sampler_index = uniform.location - minimum_sampler_index;
-        cmd.BindResource(ShaderStage::kFragment, image_slot, metadata,
+        cmd.BindResource(ShaderStage::kFragment, &image_slot, nullptr,
                          input.texture, sampler);
 
         sampler_index++;

@@ -486,6 +486,9 @@ bool RenderPassVK::OnEncodeCommands(const Context& context) const {
     return false;
   }
 
+  auto transients = GetDeviceBufferForTracking();
+  encoder->Track(transients);
+
   render_target_.IterateAllAttachments(
       [&encoder](const auto& attachment) -> bool {
         encoder->Track(attachment.texture);
