@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "impeller/base/validation.h"
+#include "impeller/core/device_buffer.h"
 #include "impeller/core/texture_descriptor.h"
 
 namespace impeller {
@@ -100,6 +101,33 @@ bool TextureMTL::OnSetContents(const uint8_t* contents,
                     bytesPerRow:desc.GetBytesPerRow()             //
                   bytesPerImage:desc.GetByteSizeOfBaseMipLevel()  //
   ];
+
+  return true;
+}
+
+// |Texture|
+bool TextureMTL::OnSetContents(std::shared_ptr<DeviceBuffer> buffer,
+                               size_t slice) {
+  if (!IsValid() || !buffer || is_wrapped_ || is_drawable_) {
+    return false;
+  }
+
+  // Out of bounds access.
+  const auto& desc = GetTextureDescriptor();
+  if (buffer->GetDeviceBufferDescriptor().size !=
+      desc.GetByteSizeOfBaseMipLevel()) {
+    return false;
+  }
+  return true;
+  // const auto region =
+  //     MTLRegionMake2D(0u, 0u, desc.size.width, desc.size.height);
+  // [aquire_proc_() replaceRegion:region                            //
+  //                   mipmapLevel:0u                                //
+  //                         slice:slice                             //
+  //                     withBytes:buffer->OnGetContents()           //
+  //                   bytesPerRow:desc.GetBytesPerRow()             //
+  //                 bytesPerImage:desc.GetByteSizeOfBaseMipLevel()  //
+  // ];
 
   return true;
 }

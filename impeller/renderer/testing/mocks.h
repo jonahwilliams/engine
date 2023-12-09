@@ -179,6 +179,10 @@ class MockTexture : public Texture {
               OnSetContents,
               (std::shared_ptr<const fml::Mapping> mapping, size_t slice),
               (override));
+  MOCK_METHOD(bool,
+              OnSetContents,
+              (std::shared_ptr<DeviceBuffer> buffer, size_t slice),
+              (override));
 };
 
 class MockCapabilities : public Capabilities {

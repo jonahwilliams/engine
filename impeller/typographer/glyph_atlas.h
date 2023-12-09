@@ -10,6 +10,7 @@
 #include <unordered_map>
 
 #include "flutter/fml/macros.h"
+#include "impeller/core/device_buffer.h"
 #include "impeller/core/texture.h"
 #include "impeller/geometry/rect.h"
 #include "impeller/renderer/pipeline.h"
@@ -157,17 +158,26 @@ class GlyphAtlasContext {
   /// @brief      Retrieve the previous (if any) rect packer.
   std::shared_ptr<RectanglePacker> GetRectPacker() const;
 
+  const std::shared_ptr<DeviceBuffer>& GetStagingBuffer() const {
+    return staging_buffer_;
+  }
+
   //----------------------------------------------------------------------------
   /// @brief      Update the context with a newly constructed glyph atlas.
   void UpdateGlyphAtlas(std::shared_ptr<GlyphAtlas> atlas, ISize size);
 
   void UpdateRectPacker(std::shared_ptr<RectanglePacker> rect_packer);
 
+  void UpdateStagingBuffer(std::shared_ptr<DeviceBuffer> staging_buffer) {
+    staging_buffer_ = std::move(staging_buffer);
+  }
+
  protected:
   GlyphAtlasContext();
 
  private:
   std::shared_ptr<GlyphAtlas> atlas_;
+  std::shared_ptr<DeviceBuffer> staging_buffer_;
   ISize atlas_size_;
   std::shared_ptr<RectanglePacker> rect_packer_;
 

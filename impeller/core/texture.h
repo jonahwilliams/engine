@@ -13,6 +13,8 @@
 
 namespace impeller {
 
+class DeviceBuffer;
+
 class Texture {
  public:
   virtual ~Texture();
@@ -25,6 +27,10 @@ class Texture {
                                  bool is_opaque = false);
 
   [[nodiscard]] bool SetContents(std::shared_ptr<const fml::Mapping> mapping,
+                                 size_t slice = 0,
+                                 bool is_opaque = false);
+
+  [[nodiscard]] bool SetContents(std::shared_ptr<DeviceBuffer> mapping,
                                  size_t slice = 0,
                                  bool is_opaque = false);
 
@@ -56,6 +62,9 @@ class Texture {
   [[nodiscard]] virtual bool OnSetContents(
       std::shared_ptr<const fml::Mapping> mapping,
       size_t slice) = 0;
+
+  [[nodiscard]] virtual bool OnSetContents(std::shared_ptr<DeviceBuffer> buffer,
+                                           size_t slice) = 0;
 
   bool mipmap_generated_ = false;
 

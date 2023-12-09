@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "impeller/renderer/backend/metal/device_buffer_mtl.h"
+#include <Metal/Metal.h>
 
 #include "flutter/fml/logging.h"
 #include "impeller/base/validation.h"

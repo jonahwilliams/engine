@@ -339,6 +339,41 @@ TEST_P(TypographerTest, RectanglePackerAddsNonoverlapingRectangles) {
   ASSERT_EQ(packer->percentFull(), 0);
 }
 
+TEST_P(TypographerTest, GlyphAtlasSizeIsTreatedAsAHighWaterMark) {
+  auto context = TypographerContextSkia::Make();
+  auto atlas_context = context->CreateGlyphAtlasContext();
+  ASSERT_TRUE(context && context->IsValid());
+  SkFont sk_font = flutter::testing::CreateTestFontOfSize(12);
+  auto blob = SkTextBlob::MakeFromString("abcdefghijklmnopqrstuvqxyz", sk_font);
+  ASSERT_TRUE(blob);
+  auto atlas = CreateGlyphAtlas(
+      *GetContext(), context.get(), GlyphAtlas::Type::kColorBitmap, 16.0f,
+      atlas_context, *MakeTextFrameFromTextBlobSkia(blob));
+  auto old_packer = atlas_context->GetRectPacker();
+
+  ASSERT_NE(atlas, nullptr);
+  ASSERT_NE(atlas->GetTexture(), nullptr);
+  ASSERT_EQ(atlas, atlas_context->GetGlyphAtlas());
+  FML_LOG(ERROR) << atlas->GetTexture()->GetSize();
+
+  auto* first_texture = atlas->GetTexture().get();
+
+  // Now create a new glyph atlas with much fewer contents
+
+  auto blob2 = SkTextBlob::MakeFromString("1", sk_font);
+  auto next_atlas = CreateGlyphAtlas(
+      *GetContext(), context.get(), GlyphAtlas::Type::kColorBitmap, 1.0f,
+      atlas_context, *MakeTextFrameFromTextBlobSkia(blob2));
+  ASSERT_EQ(atlas, next_atlas);
+  auto* second_texture = next_atlas->GetTexture().get();
+
+  auto new_packer = atlas_context->GetRectPacker();
+
+  ASSERT_EQ(second_texture, first_texture);
+  ASSERT_EQ(old_packer, new_packer);
+  FML_LOG(ERROR) << atlas->GetTexture()->GetSize();
+}
+
 }  // namespace testing
 }  // namespace impeller
 

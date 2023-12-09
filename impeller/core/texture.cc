@@ -5,6 +5,7 @@
 #include "impeller/core/texture.h"
 
 #include "impeller/base/validation.h"
+#include "impeller/core/device_buffer.h"
 
 namespace impeller {
 
@@ -39,6 +40,24 @@ bool Texture::SetContents(std::shared_ptr<const fml::Mapping> mapping,
     return false;
   }
   if (!OnSetContents(std::move(mapping), slice)) {
+    return false;
+  }
+  coordinate_system_ = TextureCoordinateSystem::kUploadFromHost;
+  is_opaque_ = is_opaque;
+  return true;
+}
+
+bool Texture::SetContents(std::shared_ptr<DeviceBuffer> buffer,
+                          size_t slice,
+                          bool is_opaque) {
+  if (!IsSliceValid(slice)) {
+    VALIDATION_LOG << "Invalid slice for texture.";
+    return false;
+  }
+  if (!buffer) {
+    return false;
+  }
+  if (!OnSetContents(std::move(buffer), slice)) {
     return false;
   }
   coordinate_system_ = TextureCoordinateSystem::kUploadFromHost;

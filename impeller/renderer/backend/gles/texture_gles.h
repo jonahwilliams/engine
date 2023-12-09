@@ -79,6 +79,12 @@ class TextureGLES final : public Texture,
                      size_t slice) override;
 
   // |Texture|
+  bool OnSetContents(std::shared_ptr<DeviceBuffer> buffer,
+                     size_t slice) override {
+    return true;
+  }
+
+  // |Texture|
   bool IsValid() const override;
 
   // |Texture|

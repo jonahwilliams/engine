@@ -29,6 +29,9 @@ class TestImpellerTexture : public Texture {
                      size_t slice) {
     return true;
   }
+  bool OnSetContents(std::shared_ptr<DeviceBuffer> mapping, size_t slice) {
+    return true;
+  }
 };
 
 class TestImpellerDeviceBuffer : public DeviceBuffer {

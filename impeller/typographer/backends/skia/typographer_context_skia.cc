@@ -11,6 +11,10 @@
 #include "flutter/fml/trace_event.h"
 #include "impeller/base/allocation.h"
 #include "impeller/core/allocator.h"
+#include "impeller/core/device_buffer.h"
+#include "impeller/core/device_buffer_descriptor.h"
+#include "impeller/core/formats.h"
+#include "impeller/geometry/size.h"
 #include "impeller/typographer/backends/skia/glyph_atlas_context_skia.h"
 #include "impeller/typographer/backends/skia/typeface_skia.h"
 #include "impeller/typographer/rectangle_packer.h"
@@ -253,24 +257,24 @@ static std::shared_ptr<SkBitmap> CreateAtlasBitmap(const GlyphAtlas& atlas,
   return bitmap;
 }
 
-static bool UpdateGlyphTextureAtlas(std::shared_ptr<SkBitmap> bitmap,
-                                    const std::shared_ptr<Texture>& texture) {
+static bool UpdateGlyphTextureAtlas(
+    const std::shared_ptr<SkBitmap>& bitmap,
+    const std::shared_ptr<Texture>& texture,
+    const std::shared_ptr<DeviceBuffer>& device_buffer) {
   TRACE_EVENT0("impeller", __FUNCTION__);
-
   FML_DCHECK(bitmap != nullptr);
-  auto texture_descriptor = texture->GetTextureDescriptor();
 
-  auto mapping = std::make_shared<fml::NonOwnedMapping>(
-      reinterpret_cast<const uint8_t*>(bitmap->getAddr(0, 0)),  // data
-      texture_descriptor.GetByteSizeOfBaseMipLevel(),           // size
-      [bitmap](auto, auto) mutable { bitmap.reset(); }          // proc
-  );
-
-  return texture->SetContents(mapping);
+  if (!device_buffer->CopyHostBuffer(
+          reinterpret_cast<const uint8_t*>(bitmap->getAddr(0, 0)),
+          {0, device_buffer->GetDeviceBufferDescriptor().size})) {
+    return false;
+  }
+  return texture->SetContents(device_buffer);
 }
 
 static std::shared_ptr<Texture> UploadGlyphTextureAtlas(
     const std::shared_ptr<Allocator>& allocator,
+    GlyphAtlasContextSkia& skia_context,
     std::shared_ptr<SkBitmap> bitmap,
     const ISize& atlas_size,
     PixelFormat format) {
@@ -283,7 +287,7 @@ static std::shared_ptr<Texture> UploadGlyphTextureAtlas(
   const auto& pixmap = bitmap->pixmap();
 
   TextureDescriptor texture_descriptor;
-  texture_descriptor.storage_mode = StorageMode::kHostVisible;
+  texture_descriptor.storage_mode = StorageMode::kDevicePrivate;
   texture_descriptor.format = format;
   texture_descriptor.size = atlas_size;
 
@@ -298,13 +302,16 @@ static std::shared_ptr<Texture> UploadGlyphTextureAtlas(
   }
   texture->SetLabel("GlyphAtlas");
 
-  auto mapping = std::make_shared<fml::NonOwnedMapping>(
+  auto mapping = std::make_unique<fml::NonOwnedMapping>(
       reinterpret_cast<const uint8_t*>(bitmap->getAddr(0, 0)),  // data
       texture_descriptor.GetByteSizeOfBaseMipLevel(),           // size
       [bitmap](auto, auto) mutable { bitmap.reset(); }          // proc
   );
 
-  if (!texture->SetContents(mapping)) {
+  auto device_buffer = allocator->CreateBufferWithCopy(*mapping);
+
+  skia_context.UpdateStagingBuffer(device_buffer);
+  if (!texture->SetContents(device_buffer)) {
     return nullptr;
   }
   return texture;
@@ -383,7 +390,8 @@ std::shared_ptr<GlyphAtlas> TypographerContextSkia::CreateGlyphAtlas(
     // ---------------------------------------------------------------------------
     // Step 5a: Update the existing texture with the updated bitmap.
     // ---------------------------------------------------------------------------
-    if (!UpdateGlyphTextureAtlas(bitmap, last_atlas->GetTexture())) {
+    if (!UpdateGlyphTextureAtlas(bitmap, last_atlas->GetTexture(),
+                                 atlas_context_skia.GetStagingBuffer())) {
       return nullptr;
     }
     return last_atlas;
@@ -404,13 +412,20 @@ std::shared_ptr<GlyphAtlas> TypographerContextSkia::CreateGlyphAtlas(
     }
   }
   auto glyph_atlas = std::make_shared<GlyphAtlas>(type);
-  auto atlas_size = OptimumAtlasSizeForFontGlyphPairs(
+  auto potential_atlas_size = OptimumAtlasSizeForFontGlyphPairs(
       font_glyph_pairs,                                             //
       glyph_positions,                                              //
       atlas_context,                                                //
       type,                                                         //
       context.GetResourceAllocator()->GetMaxTextureSizeSupported()  //
   );
+
+  // Treat the previous atlas size as a high-water mark, and potentially
+  // reuse the texture and device buffer.
+  ISize atlas_size = ISize{std::max(potential_atlas_size.width,
+                                    atlas_context_skia.GetAtlasSize().width),
+                           std::max(potential_atlas_size.height,
+                                    atlas_context_skia.GetAtlasSize().height)};
 
   atlas_context->UpdateGlyphAtlas(glyph_atlas, atlas_size);
   if (atlas_size.IsEmpty()) {
@@ -449,6 +464,20 @@ std::shared_ptr<GlyphAtlas> TypographerContextSkia::CreateGlyphAtlas(
   // ---------------------------------------------------------------------------
   // Step 7b: Upload the atlas as a texture.
   // ---------------------------------------------------------------------------
+
+  // If the new atlas size is the same size as the previous texture, then reuse
+  // both the texture and staging buffer instead of creating new ones.
+  if (last_atlas && last_atlas->GetTexture() &&
+      atlas_size == last_atlas->GetTexture()->GetSize()) {
+    if (!UpdateGlyphTextureAtlas(bitmap, last_atlas->GetTexture(),
+                                 atlas_context_skia.GetStagingBuffer())) {
+      return nullptr;
+    }
+
+    glyph_atlas->SetTexture(last_atlas->GetTexture());
+    return glyph_atlas;
+  }
+
   PixelFormat format;
   switch (type) {
     case GlyphAtlas::Type::kAlphaBitmap:
@@ -458,8 +487,9 @@ std::shared_ptr<GlyphAtlas> TypographerContextSkia::CreateGlyphAtlas(
       format = PixelFormat::kR8G8B8A8UNormInt;
       break;
   }
-  auto texture = UploadGlyphTextureAtlas(context.GetResourceAllocator(), bitmap,
-                                         atlas_size, format);
+  auto texture =
+      UploadGlyphTextureAtlas(context.GetResourceAllocator(),
+                              atlas_context_skia, bitmap, atlas_size, format);
   if (!texture) {
     return nullptr;
   }

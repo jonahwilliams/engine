@@ -117,6 +117,86 @@ bool TextureVK::OnSetContents(std::shared_ptr<const fml::Mapping> mapping,
   return OnSetContents(mapping->GetMapping(), mapping->GetSize(), slice);
 }
 
+// |Texture|
+bool TextureVK::OnSetContents(std::shared_ptr<DeviceBuffer> buffer,
+                              size_t slice) {
+  if (!IsValid() || !buffer) {
+    return false;
+  }
+
+  const auto& desc = GetTextureDescriptor();
+  const auto& buffer_desc = buffer->GetDeviceBufferDescriptor();
+
+  // Out of bounds access.
+  if (buffer_desc.size != desc.GetByteSizeOfBaseMipLevel()) {
+    VALIDATION_LOG << "Illegal to set contents for invalid size.";
+    return false;
+  }
+
+  auto context = context_.lock();
+  if (!context) {
+    VALIDATION_LOG << "Context died before setting contents on texture.";
+    return false;
+  }
+
+  if (!buffer) {
+    VALIDATION_LOG << "Could not create staging buffer.";
+    return false;
+  }
+
+  auto cmd_buffer = context->CreateCommandBuffer();
+
+  if (!cmd_buffer) {
+    return false;
+  }
+
+  const auto encoder = CommandBufferVK::Cast(*cmd_buffer).GetEncoder();
+
+  if (!encoder->Track(buffer) || !encoder->Track(source_)) {
+    return false;
+  }
+
+  const auto& vk_cmd_buffer = encoder->GetCommandBuffer();
+
+  BarrierVK barrier;
+  barrier.cmd_buffer = vk_cmd_buffer;
+  barrier.new_layout = vk::ImageLayout::eTransferDstOptimal;
+  barrier.src_access = {};
+  barrier.src_stage = vk::PipelineStageFlagBits::eTopOfPipe;
+  barrier.dst_access = vk::AccessFlagBits::eTransferWrite;
+  barrier.dst_stage = vk::PipelineStageFlagBits::eTransfer;
+
+  if (!SetLayout(barrier)) {
+    return false;
+  }
+
+  vk::BufferImageCopy copy;
+  copy.bufferOffset = 0u;
+  copy.bufferRowLength = 0u;    // 0u means tightly packed per spec.
+  copy.bufferImageHeight = 0u;  // 0u means tightly packed per spec.
+  copy.imageOffset.x = 0u;
+  copy.imageOffset.y = 0u;
+  copy.imageOffset.z = 0u;
+  copy.imageExtent.width = desc.size.width;
+  copy.imageExtent.height = desc.size.height;
+  copy.imageExtent.depth = 1u;
+  copy.imageSubresource.aspectMask =
+      ToImageAspectFlags(GetTextureDescriptor().format);
+  copy.imageSubresource.mipLevel = 0u;
+  copy.imageSubresource.baseArrayLayer = slice;
+  copy.imageSubresource.layerCount = 1u;
+
+  vk_cmd_buffer.copyBufferToImage(
+      DeviceBufferVK::Cast(*buffer).GetBuffer(),  // src buffer
+      GetImage(),                                 // dst image
+      barrier.new_layout,                         // dst image layout
+      1u,                                         // region count
+      &copy                                       // regions
+  );
+
+  return cmd_buffer->SubmitCommands();
+}
+
 bool TextureVK::IsValid() const {
   return !!source_;
 }

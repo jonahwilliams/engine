@@ -54,6 +54,10 @@ class TextureVK final : public Texture, public BackendCast<TextureVK, Texture> {
                      size_t slice) override;
 
   // |Texture|
+  bool OnSetContents(std::shared_ptr<DeviceBuffer> buffer,
+                     size_t slice) override;
+
+  // |Texture|
   bool IsValid() const override;
 
   // |Texture|
