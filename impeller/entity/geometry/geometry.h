@@ -5,11 +5,15 @@
 #ifndef FLUTTER_IMPELLER_ENTITY_GEOMETRY_GEOMETRY_H_
 #define FLUTTER_IMPELLER_ENTITY_GEOMETRY_GEOMETRY_H_
 
+#include <optional>
+#include <variant>
+
 #include "impeller/core/formats.h"
 #include "impeller/core/vertex_buffer.h"
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/entity.h"
 #include "impeller/entity/texture_fill.vert.h"
+#include "impeller/geometry/scalar.h"
 #include "impeller/renderer/render_pass.h"
 #include "impeller/renderer/vertex_buffer_builder.h"
 
@@ -55,57 +59,120 @@ GeometryResult ComputeUVGeometryForRect(Rect source_rect,
                                         const Entity& entity,
                                         RenderPass& pass);
 
-class Geometry {
+struct FillPathData {
+  Path path;
+  std::optional<Rect> inner_rect;
+};
+
+struct StrokePathData {
+  Path path;
+  Scalar stroke_width;
+  Scalar miter_limit;
+  Cap stroke_cap;
+  Join stroke_join;
+};
+
+struct CoverData {};
+
+struct RectData {
+  Rect rect;
+};
+
+// Geometry class that can generate vertices (with or without texture
+// coordinates) for filled ellipses. Generating vertices for a stroked
+// ellipse would require a lot more work since the line width must be
+// applied perpendicular to the distorted ellipse shape.
+struct EllipseData {
+  Rect rect;
+};
+
+struct LineData {
+  Point p0;
+  Point p1;
+  Scalar width;
+  Cap cap;
+};
+
+struct CircleData {
+  Point center;
+  Scalar radius;
+  Scalar stroke_width;
+};
+
+struct RoundRectData {
+  Rect rect;
+  Size size;
+};
+
+struct PointFieldData {
+  std::vector<Point> points;
+  Scalar radius;
+  bool round;
+};
+
+class VerticesGeometry;
+
+using GeometryData = std::variant<FillPathData,
+                                  StrokePathData,
+                                  CoverData,
+                                  RectData,
+                                  EllipseData,
+                                  LineData,
+                                  CircleData,
+                                  RoundRectData,
+                                  PointFieldData>;
+
+class Geometry final {
  public:
-  static std::shared_ptr<Geometry> MakeFillPath(
-      Path path,
-      std::optional<Rect> inner_rect = std::nullopt);
+  Geometry() : data_(RectData{.rect = Rect::MakeLTRB(0, 0, 0, 0)}) {};
 
-  static std::shared_ptr<Geometry> MakeStrokePath(
-      Path path,
-      Scalar stroke_width = 0.0,
-      Scalar miter_limit = 4.0,
-      Cap stroke_cap = Cap::kButt,
-      Join stroke_join = Join::kMiter);
+  static Scalar ComputePixelHalfWidth(const Matrix& transform, Scalar width);
 
-  static std::shared_ptr<Geometry> MakeCover();
+  static Geometry MakeFillPath(Path path,
+                               std::optional<Rect> inner_rect = std::nullopt);
 
-  static std::shared_ptr<Geometry> MakeRect(const Rect& rect);
+  static Geometry MakeStrokePath(Path path,
+                                 Scalar stroke_width = 0.0,
+                                 Scalar miter_limit = 4.0,
+                                 Cap stroke_cap = Cap::kButt,
+                                 Join stroke_join = Join::kMiter);
 
-  static std::shared_ptr<Geometry> MakeOval(const Rect& rect);
+  static Geometry MakeCover();
 
-  static std::shared_ptr<Geometry> MakeLine(const Point& p0,
-                                            const Point& p1,
-                                            Scalar width,
-                                            Cap cap);
+  static Geometry MakeRect(const Rect& rect);
 
-  static std::shared_ptr<Geometry> MakeCircle(const Point& center,
-                                              Scalar radius);
+  static Geometry MakeOval(const Rect& rect);
 
-  static std::shared_ptr<Geometry> MakeStrokedCircle(const Point& center,
-                                                     Scalar radius,
-                                                     Scalar stroke_width);
+  static Geometry MakeLine(const Point& p0,
+                           const Point& p1,
+                           Scalar width,
+                           Cap cap);
 
-  static std::shared_ptr<Geometry> MakeRoundRect(const Rect& rect,
-                                                 const Size& radii);
+  static Geometry MakeCircle(const Point& center, Scalar radius);
 
-  static std::shared_ptr<Geometry> MakePointField(std::vector<Point> points,
-                                                  Scalar radius,
-                                                  bool round);
+  static Geometry MakeStrokedCircle(const Point& center,
+                                    Scalar radius,
+                                    Scalar stroke_width);
 
-  virtual GeometryResult GetPositionBuffer(const ContentContext& renderer,
-                                           const Entity& entity,
-                                           RenderPass& pass) const = 0;
+  static Geometry MakeRoundRect(const Rect& rect, const Size& radii);
 
-  virtual GeometryResult GetPositionUVBuffer(Rect texture_coverage,
-                                             Matrix effect_transform,
-                                             const ContentContext& renderer,
-                                             const Entity& entity,
-                                             RenderPass& pass) const = 0;
+  static Geometry MakePointField(std::vector<Point> points,
+                                 Scalar radius,
+                                 bool round);
 
-  virtual GeometryVertexType GetVertexType() const = 0;
+  GeometryResult GetPositionBuffer(const ContentContext& renderer,
+                                   const Entity& entity,
+                                   RenderPass& pass) const;
 
-  virtual std::optional<Rect> GetCoverage(const Matrix& transform) const = 0;
+  GeometryResult GetPositionUVBuffer(Rect texture_coverage,
+                                     Matrix effect_transform,
+                                     const ContentContext& renderer,
+                                     const Entity& entity,
+                                     RenderPass& pass) const;
+
+  GeometryVertexType GetVertexType() const;
+
+  std::optional<Rect> GetCoverage(const Matrix& transform) const;
 
   /// @brief    Determines if this geometry, transformed by the given
   ///           `transform`, will completely cover all surface area of the given
@@ -117,11 +184,10 @@ class Geometry {
   /// @returns  `true` if the transformed geometry is guaranteed to cover the
   ///           given `rect`. May return `false` in many undetected cases where
   ///           the transformed geometry does in fact cover the `rect`.
-  virtual bool CoversArea(const Matrix& transform, const Rect& rect) const;
+  bool CoversArea(const Matrix& transform, const Rect& rect) const;
 
-  virtual bool IsAxisAlignedRect() const;
+  bool IsAxisAlignedRect() const;
 
- protected:
   static GeometryResult ComputePositionGeometry(
       const Tessellator::VertexGenerator& generator,
       const Entity& entity,
@@ -132,6 +198,11 @@ class Geometry {
       const Matrix& uv_transform,
       const Entity& entity,
       RenderPass& pass);
+
+ private:
+  explicit Geometry(GeometryData data);
+
+  GeometryData data_;
 };
 
 }  // namespace impeller

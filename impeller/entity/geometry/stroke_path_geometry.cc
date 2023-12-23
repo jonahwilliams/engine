@@ -4,41 +4,43 @@
 
 #include "impeller/entity/geometry/stroke_path_geometry.h"
 
+#include "impeller/entity/geometry/geometry.h"
 #include "impeller/geometry/path_builder.h"
 
 namespace impeller {
 
-StrokePathGeometry::StrokePathGeometry(Path path,
-                                       Scalar stroke_width,
-                                       Scalar miter_limit,
-                                       Cap stroke_cap,
-                                       Join stroke_join)
-    : path_(std::move(path)),
-      stroke_width_(stroke_width),
-      miter_limit_(miter_limit),
-      stroke_cap_(stroke_cap),
-      stroke_join_(stroke_join) {}
+using VS = SolidFillVertexShader;
 
-StrokePathGeometry::~StrokePathGeometry() = default;
+using CapProc =
+    std::function<void(VertexBufferBuilder<VS::PerVertexData>& vtx_builder,
+                       const Point& position,
+                       const Point& offset,
+                       Scalar scale,
+                       bool reverse)>;
+using JoinProc =
+    std::function<void(VertexBufferBuilder<VS::PerVertexData>& vtx_builder,
+                       const Point& position,
+                       const Point& start_offset,
+                       const Point& end_offset,
+                       Scalar miter_limit,
+                       Scalar scale)>;
 
-Scalar StrokePathGeometry::GetStrokeWidth() const {
-  return stroke_width_;
-}
+static Scalar CreateBevelAndGetDirection(
+    VertexBufferBuilder<SolidFillVertexShader::PerVertexData>& vtx_builder,
+    const Point& position,
+    const Point& start_offset,
+    const Point& end_offset);
 
-Scalar StrokePathGeometry::GetMiterLimit() const {
-  return miter_limit_;
-}
-
-Cap StrokePathGeometry::GetStrokeCap() const {
-  return stroke_cap_;
-}
-
-Join StrokePathGeometry::GetStrokeJoin() const {
-  return stroke_join_;
-}
+static VertexBufferBuilder<SolidFillVertexShader::PerVertexData>
+CreateSolidStrokeVertices(const Path& path,
+                          Scalar stroke_width,
+                          Scalar scaled_miter_limit,
+                          const JoinProc& join_proc,
+                          const CapProc& cap_proc,
+                          Scalar scale);
 
 // static
-Scalar StrokePathGeometry::CreateBevelAndGetDirection(
+Scalar CreateBevelAndGetDirection(
     VertexBufferBuilder<SolidFillVertexShader::PerVertexData>& vtx_builder,
     const Point& position,
     const Point& start_offset,
@@ -57,9 +59,9 @@ Scalar StrokePathGeometry::CreateBevelAndGetDirection(
 }
 
 // static
-StrokePathGeometry::JoinProc StrokePathGeometry::GetJoinProc(Join stroke_join) {
+JoinProc GetJoinProc(Join stroke_join) {
   using VS = SolidFillVertexShader;
-  StrokePathGeometry::JoinProc join_proc;
+  JoinProc join_proc;
   switch (stroke_join) {
     case Join::kBevel:
       join_proc = [](VertexBufferBuilder<VS::PerVertexData>& vtx_builder,
@@ -146,9 +148,9 @@ StrokePathGeometry::JoinProc StrokePathGeometry::GetJoinProc(Join stroke_join) {
 }
 
 // static
-StrokePathGeometry::CapProc StrokePathGeometry::GetCapProc(Cap stroke_cap) {
+CapProc GetCapProc(Cap stroke_cap) {
   using VS = SolidFillVertexShader;
-  StrokePathGeometry::CapProc cap_proc;
+  CapProc cap_proc;
   switch (stroke_cap) {
     case Cap::kButt:
       cap_proc = [](VertexBufferBuilder<VS::PerVertexData>& vtx_builder,
@@ -228,13 +230,12 @@ StrokePathGeometry::CapProc StrokePathGeometry::GetCapProc(Cap stroke_cap) {
 
 // static
 VertexBufferBuilder<SolidFillVertexShader::PerVertexData>
-StrokePathGeometry::CreateSolidStrokeVertices(
-    const Path& path,
-    Scalar stroke_width,
-    Scalar scaled_miter_limit,
-    const StrokePathGeometry::JoinProc& join_proc,
-    const StrokePathGeometry::CapProc& cap_proc,
-    Scalar scale) {
+CreateSolidStrokeVertices(const Path& path,
+                          Scalar stroke_width,
+                          Scalar scaled_miter_limit,
+                          const JoinProc& join_proc,
+                          const CapProc& cap_proc,
+                          Scalar scale) {
   VertexBufferBuilder<VS::PerVertexData> vtx_builder;
   auto point_buffer = std::make_unique<std::vector<Point>>();
   // 512 is an arbitrary choice that should be big enough for most paths without
@@ -436,11 +437,11 @@ StrokePathGeometry::CreateSolidStrokeVertices(
   return vtx_builder;
 }
 
-GeometryResult StrokePathGeometry::GetPositionBuffer(
-    const ContentContext& renderer,
-    const Entity& entity,
-    RenderPass& pass) const {
-  if (stroke_width_ < 0.0) {
+GeometryResult StrokePathDataGetPositionBuffer(const StrokePathData& data,
+                                               const ContentContext& renderer,
+                                               const Entity& entity,
+                                               RenderPass& pass) {
+  if (data.stroke_width < 0.0) {
     return {};
   }
   auto determinant = entity.GetTransform().GetDeterminant();
@@ -449,12 +450,12 @@ GeometryResult StrokePathGeometry::GetPositionBuffer(
   }
 
   Scalar min_size = 1.0f / sqrt(std::abs(determinant));
-  Scalar stroke_width = std::max(stroke_width_, min_size);
+  Scalar stroke_width = std::max(data.stroke_width, min_size);
 
   auto& host_buffer = pass.GetTransientsBuffer();
   auto vertex_builder = CreateSolidStrokeVertices(
-      path_, stroke_width, miter_limit_ * stroke_width_ * 0.5,
-      GetJoinProc(stroke_join_), GetCapProc(stroke_cap_),
+      data.path, stroke_width, data.miter_limit * data.stroke_width * 0.5,
+      GetJoinProc(data.stroke_join), GetCapProc(data.stroke_cap),
       entity.GetTransform().GetMaxBasisLength());
 
   return GeometryResult{
@@ -466,13 +467,13 @@ GeometryResult StrokePathGeometry::GetPositionBuffer(
   };
 }
 
-GeometryResult StrokePathGeometry::GetPositionUVBuffer(
-    Rect texture_coverage,
-    Matrix effect_transform,
-    const ContentContext& renderer,
-    const Entity& entity,
-    RenderPass& pass) const {
-  if (stroke_width_ < 0.0) {
+GeometryResult StrokePathDataGetPositionUVBuffer(const StrokePathData& data,
+                                                 Rect texture_coverage,
+                                                 Matrix effect_transform,
+                                                 const ContentContext& renderer,
+                                                 const Entity& entity,
+                                                 RenderPass& pass) {
+  if (data.stroke_width < 0.0) {
     return {};
   }
   auto determinant = entity.GetTransform().GetDeterminant();
@@ -481,12 +482,12 @@ GeometryResult StrokePathGeometry::GetPositionUVBuffer(
   }
 
   Scalar min_size = 1.0f / sqrt(std::abs(determinant));
-  Scalar stroke_width = std::max(stroke_width_, min_size);
+  Scalar stroke_width = std::max(data.stroke_width, min_size);
 
   auto& host_buffer = pass.GetTransientsBuffer();
   auto stroke_builder = CreateSolidStrokeVertices(
-      path_, stroke_width, miter_limit_ * stroke_width_ * 0.5,
-      GetJoinProc(stroke_join_), GetCapProc(stroke_cap_),
+      data.path, stroke_width, data.miter_limit * data.stroke_width * 0.5,
+      GetJoinProc(data.stroke_join), GetCapProc(data.stroke_cap),
       entity.GetTransform().GetMaxBasisLength());
   auto vertex_builder = ComputeUVGeometryCPU(
       stroke_builder, {0, 0}, texture_coverage.size, effect_transform);
@@ -500,24 +501,24 @@ GeometryResult StrokePathGeometry::GetPositionUVBuffer(
   };
 }
 
-GeometryVertexType StrokePathGeometry::GetVertexType() const {
+GeometryVertexType StrokePathDataGetVertexType(const StrokePathData& data) {
   return GeometryVertexType::kPosition;
 }
 
-std::optional<Rect> StrokePathGeometry::GetCoverage(
-    const Matrix& transform) const {
-  auto path_bounds = path_.GetBoundingBox();
+std::optional<Rect> StrokePathDataGetCoverage(const StrokePathData& data,
+                                              const Matrix& transform) {
+  auto path_bounds = data.path.GetBoundingBox();
   if (!path_bounds.has_value()) {
     return std::nullopt;
   }
   auto path_coverage = path_bounds->TransformBounds(transform);
 
   Scalar max_radius = 0.5;
-  if (stroke_cap_ == Cap::kSquare) {
+  if (data.stroke_cap == Cap::kSquare) {
     max_radius = max_radius * kSqrt2;
   }
-  if (stroke_join_ == Join::kMiter) {
-    max_radius = std::max(max_radius, miter_limit_ * 0.5f);
+  if (data.stroke_join == Join::kMiter) {
+    max_radius = std::max(max_radius, data.miter_limit * 0.5f);
   }
   Scalar determinant = transform.GetDeterminant();
   if (determinant == 0) {
@@ -527,7 +528,7 @@ std::optional<Rect> StrokePathGeometry::GetCoverage(
   Vector2 max_radius_xy =
       transform
           .TransformDirection(Vector2(max_radius, max_radius) *
-                              std::max(stroke_width_, min_size))
+                              std::max(data.stroke_width, min_size))
           .Abs();
   return path_coverage.Expand(max_radius_xy);
 }

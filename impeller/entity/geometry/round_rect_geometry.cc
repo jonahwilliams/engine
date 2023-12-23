@@ -2,56 +2,50 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <algorithm>
-
 #include "flutter/impeller/entity/geometry/round_rect_geometry.h"
-
-#include "flutter/impeller/entity/geometry/line_geometry.h"
 
 namespace impeller {
 
-RoundRectGeometry::RoundRectGeometry(const Rect& bounds, const Size& radii)
-    : bounds_(bounds), radii_(radii) {}
-
-GeometryResult RoundRectGeometry::GetPositionBuffer(
-    const ContentContext& renderer,
-    const Entity& entity,
-    RenderPass& pass) const {
-  return ComputePositionGeometry(renderer.GetTessellator()->FilledRoundRect(
-                                     entity.GetTransform(), bounds_, radii_),
-                                 entity, pass);
+GeometryResult RoundRectDataGetPositionBuffer(const RoundRectData& data,
+                                              const ContentContext& renderer,
+                                              const Entity& entity,
+                                              RenderPass& pass) {
+  return Geometry::ComputePositionGeometry(
+      renderer.GetTessellator()->FilledRoundRect(entity.GetTransform(),
+                                                 data.rect, data.size),
+      entity, pass);
 }
 
-// |Geometry|
-GeometryResult RoundRectGeometry::GetPositionUVBuffer(
-    Rect texture_coverage,
-    Matrix effect_transform,
-    const ContentContext& renderer,
-    const Entity& entity,
-    RenderPass& pass) const {
-  return ComputePositionUVGeometry(
-      renderer.GetTessellator()->FilledRoundRect(entity.GetTransform(), bounds_,
-                                                 radii_),
+GeometryResult RoundRectDataGetPositionUVBuffer(const RoundRectData& data,
+                                                Rect texture_coverage,
+                                                Matrix effect_transform,
+                                                const ContentContext& renderer,
+                                                const Entity& entity,
+                                                RenderPass& pass) {
+  return Geometry::ComputePositionUVGeometry(
+      renderer.GetTessellator()->FilledRoundRect(entity.GetTransform(),
+                                                 data.rect, data.size),
       texture_coverage.GetNormalizingTransform() * effect_transform, entity,
       pass);
 }
 
-GeometryVertexType RoundRectGeometry::GetVertexType() const {
+GeometryVertexType RoundRectDataGetVertexType(const RoundRectData& data) {
   return GeometryVertexType::kPosition;
 }
 
-std::optional<Rect> RoundRectGeometry::GetCoverage(
-    const Matrix& transform) const {
-  return bounds_.TransformBounds(transform);
+std::optional<Rect> RoundRectDataGetCoverage(const RoundRectData& data,
+                                             const Matrix& transform) {
+  return data.rect.TransformBounds(transform);
 }
 
-bool RoundRectGeometry::CoversArea(const Matrix& transform,
-                                   const Rect& rect) const {
+bool RoundRectDataCoversArea(const RoundRectData& data,
+                             const Matrix& transform,
+                             const Rect& rect) {
   if (!transform.IsTranslationScaleOnly()) {
     return false;
   }
-  bool flat_on_tb = bounds_.GetSize().width > radii_.width * 2;
-  bool flat_on_lr = bounds_.GetSize().height > radii_.height * 2;
+  bool flat_on_tb = data.rect.GetSize().width > data.size.width * 2;
+  bool flat_on_lr = data.rect.GetSize().height > data.size.height * 2;
   if (!flat_on_tb && !flat_on_lr) {
     return false;
   }
@@ -62,14 +56,14 @@ bool RoundRectGeometry::CoversArea(const Matrix& transform,
   // "inner rect" and only doing a coverage analysis on that,
   // but this process will produce more culling results.
   if (flat_on_tb) {
-    Rect vertical_bounds = bounds_.Expand(Size{-radii_.width, 0});
+    Rect vertical_bounds = data.rect.Expand(Size{-data.size.width, 0});
     Rect coverage = vertical_bounds.TransformBounds(transform);
     if (coverage.Contains(rect)) {
       return true;
     }
   }
   if (flat_on_lr) {
-    Rect horizontal_bounds = bounds_.Expand(Size{0, -radii_.height});
+    Rect horizontal_bounds = data.rect.Expand(Size{0, -data.size.height});
     Rect coverage = horizontal_bounds.TransformBounds(transform);
     if (coverage.Contains(rect)) {
       return true;
@@ -78,7 +72,7 @@ bool RoundRectGeometry::CoversArea(const Matrix& transform,
   return false;
 }
 
-bool RoundRectGeometry::IsAxisAlignedRect() const {
+bool RoundRectDataIsAxisAlignedRect(const RoundRectData& data) {
   return false;
 }
 

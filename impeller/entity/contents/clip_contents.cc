@@ -22,8 +22,8 @@ ClipContents::ClipContents() = default;
 
 ClipContents::~ClipContents() = default;
 
-void ClipContents::SetGeometry(const std::shared_ptr<Geometry>& geometry) {
-  geometry_ = geometry;
+void ClipContents::SetGeometry(Geometry geometry) {
+  geometry_ = std::move(geometry);
 }
 
 void ClipContents::SetClipOperation(Entity::ClipOperation clip_op) {
@@ -47,10 +47,7 @@ Contents::ClipCoverage ClipContents::GetClipCoverage(
       return {.type = ClipCoverage::Type::kAppend,
               .coverage = current_clip_coverage};
     case Entity::ClipOperation::kIntersect:
-      if (!geometry_) {
-        return {.type = ClipCoverage::Type::kAppend, .coverage = std::nullopt};
-      }
-      auto coverage = geometry_->GetCoverage(entity.GetTransform());
+      auto coverage = geometry_.GetCoverage(entity.GetTransform());
       if (!coverage.has_value() || !current_clip_coverage.has_value()) {
         return {.type = ClipCoverage::Type::kAppend, .coverage = std::nullopt};
       }
@@ -120,7 +117,7 @@ bool ClipContents::Render(const ContentContext& renderer,
     options.stencil_operation = StencilOperation::kIncrementClamp;
   }
 
-  auto geometry_result = geometry_->GetPositionBuffer(renderer, entity, pass);
+  auto geometry_result = geometry_.GetPositionBuffer(renderer, entity, pass);
   options.primitive_type = geometry_result.type;
   cmd.pipeline = renderer.GetClipPipeline(options);
 

@@ -12,43 +12,28 @@
 
 namespace impeller {
 
-/// @brief A geometry that is created from a filled path object.
-class FillPathGeometry final : public Geometry {
- public:
-  explicit FillPathGeometry(Path path,
-                            std::optional<Rect> inner_rect = std::nullopt);
+/// A geometry that is created from a filled path object.
 
-  ~FillPathGeometry() = default;
+bool FillPathDataCoversArea(const FillPathData& data,
+                            const Matrix& transform,
+                            const Rect& rect);
 
-  // |Geometry|
-  bool CoversArea(const Matrix& transform, const Rect& rect) const override;
+GeometryResult FillPathDataGetPositionBuffer(const FillPathData& data,
+                                             const ContentContext& renderer,
+                                             const Entity& entity,
+                                             RenderPass& pass);
 
- private:
-  // |Geometry|
-  GeometryResult GetPositionBuffer(const ContentContext& renderer,
-                                   const Entity& entity,
-                                   RenderPass& pass) const override;
+GeometryVertexType FillPathDataGetVertexType(const FillPathData& data);
 
-  // |Geometry|
-  GeometryVertexType GetVertexType() const override;
+std::optional<Rect> FillPathDataGetCoverage(const FillPathData& data,
+                                            const Matrix& transform);
 
-  // |Geometry|
-  std::optional<Rect> GetCoverage(const Matrix& transform) const override;
-
-  // |Geometry|
-  GeometryResult GetPositionUVBuffer(Rect texture_coverage,
-                                     Matrix effect_transform,
-                                     const ContentContext& renderer,
-                                     const Entity& entity,
-                                     RenderPass& pass) const override;
-
-  Path path_;
-  std::optional<Rect> inner_rect_;
-
-  FillPathGeometry(const FillPathGeometry&) = delete;
-
-  FillPathGeometry& operator=(const FillPathGeometry&) = delete;
-};
+GeometryResult FillPathDataGetPositionUVBuffer(const FillPathData& data,
+                                               Rect texture_coverage,
+                                               Matrix effect_transform,
+                                               const ContentContext& renderer,
+                                               const Entity& entity,
+                                               RenderPass& pass);
 
 }  // namespace impeller
 

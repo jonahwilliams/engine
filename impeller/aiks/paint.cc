@@ -27,7 +27,7 @@ constexpr ColorMatrix kColorInversion = {
 // clang-format on
 
 std::shared_ptr<Contents> Paint::CreateContentsForGeometry(
-    const std::shared_ptr<Geometry>& geometry) const {
+    Geometry geometry) const {
   auto contents = color_source.GetContents(*this);
 
   // Attempt to apply the color filter on the CPU first.
@@ -40,7 +40,7 @@ std::shared_ptr<Contents> Paint::CreateContentsForGeometry(
     needs_color_filter = false;
   }
 
-  contents->SetGeometry(geometry);
+  contents->SetGeometry(std::move(geometry));
   if (mask_blur_descriptor.has_value()) {
     // If there's a mask blur and we need to apply the color filter on the GPU,
     // we need to be careful to only apply the color filter to the source
@@ -136,7 +136,8 @@ std::shared_ptr<FilterContents> Paint::MaskBlurDescriptor::CreateMaskBlur(
 
   auto mask = std::make_shared<SolidColorContents>();
   mask->SetColor(Color::White());
-  mask->SetGeometry(color_source_contents->GetGeometry());
+  // TODO
+  // mask->SetGeometry(color_source_contents->GetGeometry());
 
   /// 2. Blur the mask.
 

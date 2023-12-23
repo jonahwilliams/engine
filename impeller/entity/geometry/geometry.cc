@@ -4,9 +4,10 @@
 
 #include "impeller/entity/geometry/geometry.h"
 
-#include <memory>
 #include <optional>
+#include <variant>
 
+#include "fml/logging.h"
 #include "impeller/entity/geometry/circle_geometry.h"
 #include "impeller/entity/geometry/cover_geometry.h"
 #include "impeller/entity/geometry/ellipse_geometry.h"
@@ -19,6 +20,198 @@
 #include "impeller/geometry/rect.h"
 
 namespace impeller {
+
+Geometry::Geometry(GeometryData data) : data_(std::move(data)) {}
+
+// using GeometryData = std::variant<FillPathData,
+//                                   StrokePathData,
+//                                   CoverData,
+//                                   RectData,
+//                                   EllipseData,
+//                                   LineData,
+//                                   CircleData,
+//                                   RoundRectData,
+//                                   PointFieldData>;
+
+Scalar Geometry::ComputePixelHalfWidth(const Matrix& transform, Scalar width) {
+  auto determinant = transform.GetDeterminant();
+  if (determinant == 0) {
+    return 0.0f;
+  }
+
+  Scalar min_size = 1.0f / sqrt(std::abs(determinant));
+  return std::max(width, min_size) * 0.5f;
+}
+
+bool Geometry::IsAxisAlignedRect() const {
+  if (auto* data = std::get_if<FillPathData>(&data_)) {
+    return false;
+  }
+  if (auto* data = std::get_if<StrokePathData>(&data_)) {
+    return false;
+  }
+  if (auto* data = std::get_if<CoverData>(&data_)) {
+    return false;
+  }
+  if (auto* data = std::get_if<RectData>(&data_)) {
+    return RectDataIsAxisAlignedRect(*data);
+  }
+  if (auto* data = std::get_if<EllipseData>(&data_)) {
+    return EllipseDataIsAxisAlignedRect(*data);
+  }
+  if (auto* data = std::get_if<LineData>(&data_)) {
+    return LineDataIsAxisAlignedRect(*data);
+  }
+  if (auto* data = std::get_if<CircleData>(&data_)) {
+    return CircleDataIsAxisAlignedRect(*data);
+  }
+  if (auto* data = std::get_if<RoundRectData>(&data_)) {
+    return RoundRectDataIsAxisAlignedRect(*data);
+  }
+  if (auto* data = std::get_if<PointFieldData>(&data_)) {
+    return false;
+  }
+  FML_UNREACHABLE();
+}
+
+bool Geometry::CoversArea(const Matrix& transform, const Rect& rect) const {
+  if (auto* data = std::get_if<FillPathData>(&data_)) {
+    return FillPathDataCoversArea(*data, transform, rect);
+  }
+  if (auto* data = std::get_if<StrokePathData>(&data_)) {
+    return false;
+  }
+  if (auto* data = std::get_if<CoverData>(&data_)) {
+    return true;
+  }
+  if (auto* data = std::get_if<RectData>(&data_)) {
+    return RectDataCoversArea(*data, transform, rect);
+  }
+  if (auto* data = std::get_if<EllipseData>(&data_)) {
+    return EllipseDataCoversArea(*data, transform, rect);
+  }
+  if (auto* data = std::get_if<LineData>(&data_)) {
+    return LineDataCoversArea(*data, transform, rect);
+  }
+  if (auto* data = std::get_if<CircleData>(&data_)) {
+    return CircleDataCoversArea(*data, transform, rect);
+  }
+  if (auto* data = std::get_if<RoundRectData>(&data_)) {
+    return RoundRectDataCoversArea(*data, transform, rect);
+  }
+  if (auto* data = std::get_if<PointFieldData>(&data_)) {
+    return false;
+  }
+  FML_UNREACHABLE();
+}
+
+GeometryResult Geometry::GetPositionBuffer(const ContentContext& renderer,
+                                           const Entity& entity,
+                                           RenderPass& pass) const {
+  if (auto* data = std::get_if<FillPathData>(&data_)) {
+    return FillPathDataGetPositionBuffer(*data, renderer, entity, pass);
+  }
+  if (auto* data = std::get_if<StrokePathData>(&data_)) {
+    return StrokePathDataGetPositionBuffer(*data, renderer, entity, pass);
+  }
+  if (auto* data = std::get_if<CoverData>(&data_)) {
+    return CoverDataGetPositionBuffer(*data, renderer, entity, pass);
+  }
+  if (auto* data = std::get_if<RectData>(&data_)) {
+    return RectDataGetPositionBuffer(*data, renderer, entity, pass);
+  }
+  if (auto* data = std::get_if<EllipseData>(&data_)) {
+    return EllipseDataGetPositionBuffer(*data, renderer, entity, pass);
+  }
+  if (auto* data = std::get_if<LineData>(&data_)) {
+    return LineDataGetPositionBuffer(*data, renderer, entity, pass);
+  }
+  if (auto* data = std::get_if<CircleData>(&data_)) {
+    return CircleDataGetPositionBuffer(*data, renderer, entity, pass);
+  }
+  if (auto* data = std::get_if<RoundRectData>(&data_)) {
+    return RoundRectDataGetPositionBuffer(*data, renderer, entity, pass);
+  }
+  if (auto* data = std::get_if<PointFieldData>(&data_)) {
+    return PointFieldDataGetPositionBuffer(*data, renderer, entity, pass);
+  }
+  FML_UNREACHABLE();
+}
+
+GeometryResult Geometry::GetPositionUVBuffer(Rect texture_coverage,
+                                             Matrix effect_transform,
+                                             const ContentContext& renderer,
+                                             const Entity& entity,
+                                             RenderPass& pass) const {
+  if (auto* data = std::get_if<FillPathData>(&data_)) {
+    return FillPathDataGetPositionUVBuffer(
+        *data, texture_coverage, effect_transform, renderer, entity, pass);
+  }
+  if (auto* data = std::get_if<StrokePathData>(&data_)) {
+    return StrokePathDataGetPositionUVBuffer(
+        *data, texture_coverage, effect_transform, renderer, entity, pass);
+  }
+  if (auto* data = std::get_if<CoverData>(&data_)) {
+    return CoverDataGetPositionUVBuffer(
+        *data, texture_coverage, effect_transform, renderer, entity, pass);
+  }
+  if (auto* data = std::get_if<RectData>(&data_)) {
+    return RectDataGetPositionUVBuffer(
+        *data, texture_coverage, effect_transform, renderer, entity, pass);
+  }
+  if (auto* data = std::get_if<EllipseData>(&data_)) {
+    return EllipseDataGetPositionUVBuffer(
+        *data, texture_coverage, effect_transform, renderer, entity, pass);
+  }
+  if (auto* data = std::get_if<LineData>(&data_)) {
+    return LineDataGetPositionUVBuffer(
+        *data, texture_coverage, effect_transform, renderer, entity, pass);
+  }
+  if (auto* data = std::get_if<CircleData>(&data_)) {
+    return CircleDataGetPositionUVBuffer(
+        *data, texture_coverage, effect_transform, renderer, entity, pass);
+  }
+  if (auto* data = std::get_if<RoundRectData>(&data_)) {
+    return RoundRectDataGetPositionUVBuffer(
+        *data, texture_coverage, effect_transform, renderer, entity, pass);
+  }
+  if (auto* data = std::get_if<PointFieldData>(&data_)) {
+    return PointFieldDataGetPositionUVBuffer(
+        *data, texture_coverage, effect_transform, renderer, entity, pass);
+  }
+  FML_UNREACHABLE();
+}
+
+std::optional<Rect> Geometry::GetCoverage(const Matrix& transform) const {
+  if (auto* data = std::get_if<FillPathData>(&data_)) {
+    return FillPathDataGetCoverage(*data, transform);
+  }
+  if (auto* data = std::get_if<StrokePathData>(&data_)) {
+    return StrokePathDataGetCoverage(*data, transform);
+  }
+  if (auto* data = std::get_if<CoverData>(&data_)) {
+    return CoverDataGetCoverage(*data, transform);
+  }
+  if (auto* data = std::get_if<RectData>(&data_)) {
+    return RectDataGetCoverage(*data, transform);
+  }
+  if (auto* data = std::get_if<EllipseData>(&data_)) {
+    return EllipseDataGetCoverage(*data, transform);
+  }
+  if (auto* data = std::get_if<LineData>(&data_)) {
+    return LineDataGetCoverage(*data, transform);
+  }
+  if (auto* data = std::get_if<CircleData>(&data_)) {
+    return CircleDataGetCoverage(*data, transform);
+  }
+  if (auto* data = std::get_if<RoundRectData>(&data_)) {
+    return RoundRectDataGetCoverage(*data, transform);
+  }
+  if (auto* data = std::get_if<PointFieldData>(&data_)) {
+    return PointFieldDataGetCoverage(*data, transform);
+  }
+  FML_UNREACHABLE();
+}
 
 GeometryResult Geometry::ComputePositionGeometry(
     const Tessellator::VertexGenerator& generator,
@@ -142,80 +335,66 @@ GeometryResult ComputeUVGeometryForRect(Rect source_rect,
   };
 }
 
-GeometryResult Geometry::GetPositionUVBuffer(Rect texture_coverage,
-                                             Matrix effect_transform,
-                                             const ContentContext& renderer,
-                                             const Entity& entity,
-                                             RenderPass& pass) const {
-  return {};
+Geometry Geometry::MakeFillPath(Path path, std::optional<Rect> inner_rect) {
+  return Geometry(
+      FillPathData{.path = std::move(path), .inner_rect = inner_rect});
 }
 
-std::shared_ptr<Geometry> Geometry::MakeFillPath(
-    Path path,
-    std::optional<Rect> inner_rect) {
-  return std::make_shared<FillPathGeometry>(std::move(path), inner_rect);
+Geometry Geometry::MakePointField(std::vector<Point> points,
+                                  Scalar radius,
+                                  bool round) {
+  return Geometry(PointFieldData{
+      .points = std::move(points), .radius = radius, .round = round});
 }
 
-std::shared_ptr<Geometry> Geometry::MakePointField(std::vector<Point> points,
-                                                   Scalar radius,
-                                                   bool round) {
-  return std::make_shared<PointFieldGeometry>(std::move(points), radius, round);
-}
-
-std::shared_ptr<Geometry> Geometry::MakeStrokePath(Path path,
-                                                   Scalar stroke_width,
-                                                   Scalar miter_limit,
-                                                   Cap stroke_cap,
-                                                   Join stroke_join) {
+Geometry Geometry::MakeStrokePath(Path path,
+                                  Scalar stroke_width,
+                                  Scalar miter_limit,
+                                  Cap stroke_cap,
+                                  Join stroke_join) {
   // Skia behaves like this.
   if (miter_limit < 0) {
     miter_limit = 4.0;
   }
-  return std::make_shared<StrokePathGeometry>(
-      std::move(path), stroke_width, miter_limit, stroke_cap, stroke_join);
+  return Geometry(StrokePathData{.path = std::move(path),
+                                 .stroke_width = stroke_width,
+                                 .miter_limit = miter_limit,
+                                 .stroke_cap = stroke_cap,
+                                 .stroke_join = stroke_join});
 }
 
-std::shared_ptr<Geometry> Geometry::MakeCover() {
-  return std::make_shared<CoverGeometry>();
+Geometry Geometry::MakeCover() {
+  return Geometry(CoverData{});
 }
 
-std::shared_ptr<Geometry> Geometry::MakeRect(const Rect& rect) {
-  return std::make_shared<RectGeometry>(rect);
+Geometry Geometry::MakeRect(const Rect& rect) {
+  return Geometry(RectData{.rect = rect});
 }
 
-std::shared_ptr<Geometry> Geometry::MakeOval(const Rect& rect) {
-  return std::make_shared<EllipseGeometry>(rect);
+Geometry Geometry::MakeOval(const Rect& rect) {
+  return Geometry(EllipseData{.rect = rect});
 }
 
-std::shared_ptr<Geometry> Geometry::MakeLine(const Point& p0,
-                                             const Point& p1,
-                                             Scalar width,
-                                             Cap cap) {
-  return std::make_shared<LineGeometry>(p0, p1, width, cap);
+Geometry Geometry::MakeLine(const Point& p0,
+                            const Point& p1,
+                            Scalar width,
+                            Cap cap) {
+  return Geometry(LineData{.p0 = p0, .p1 = p1, .width = width, .cap = cap});
 }
 
-std::shared_ptr<Geometry> Geometry::MakeCircle(const Point& center,
-                                               Scalar radius) {
-  return std::make_shared<CircleGeometry>(center, radius);
+Geometry Geometry::MakeCircle(const Point& center, Scalar radius) {
+  return Geometry(CircleData{.center = center, .radius = radius});
 }
 
-std::shared_ptr<Geometry> Geometry::MakeStrokedCircle(const Point& center,
-                                                      Scalar radius,
-                                                      Scalar stroke_width) {
-  return std::make_shared<CircleGeometry>(center, radius, stroke_width);
+Geometry Geometry::MakeStrokedCircle(const Point& center,
+                                     Scalar radius,
+                                     Scalar stroke_width) {
+  return Geometry(CircleData{
+      .center = center, .radius = radius, .stroke_width = stroke_width});
 }
 
-std::shared_ptr<Geometry> Geometry::MakeRoundRect(const Rect& rect,
-                                                  const Size& radii) {
-  return std::make_shared<RoundRectGeometry>(rect, radii);
-}
-
-bool Geometry::CoversArea(const Matrix& transform, const Rect& rect) const {
-  return false;
-}
-
-bool Geometry::IsAxisAlignedRect() const {
-  return false;
+Geometry Geometry::MakeRoundRect(const Rect& rect, const Size& radii) {
+  return Geometry(RoundRectData{.rect = rect, .size = radii});
 }
 
 }  // namespace impeller

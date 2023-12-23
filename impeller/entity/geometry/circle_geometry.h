@@ -9,51 +9,28 @@
 
 namespace impeller {
 
-// Geometry class that can generate vertices (with or without texture
-// coordinates) for either filled or stroked circles
-class CircleGeometry final : public Geometry {
- public:
-  explicit CircleGeometry(const Point& center, Scalar radius);
+bool CircleDataCoversArea(const CircleData& data,
+                          const Matrix& transform,
+                          const Rect& rect);
 
-  explicit CircleGeometry(const Point& center,
-                          Scalar radius,
-                          Scalar stroke_width);
+bool CircleDataIsAxisAlignedRect(const CircleData& data);
 
-  ~CircleGeometry() = default;
+GeometryResult CircleDataGetPositionBuffer(const CircleData& data,
+                                           const ContentContext& renderer,
+                                           const Entity& entity,
+                                           RenderPass& pass);
 
-  // |Geometry|
-  bool CoversArea(const Matrix& transform, const Rect& rect) const override;
+GeometryVertexType CircleDataGetVertexType(const CircleData& data);
 
-  // |Geometry|
-  bool IsAxisAlignedRect() const override;
+std::optional<Rect> CircleDataGetCoverage(const CircleData& data,
+                                          const Matrix& transform);
 
- private:
-  // |Geometry|
-  GeometryResult GetPositionBuffer(const ContentContext& renderer,
-                                   const Entity& entity,
-                                   RenderPass& pass) const override;
-
-  // |Geometry|
-  GeometryVertexType GetVertexType() const override;
-
-  // |Geometry|
-  std::optional<Rect> GetCoverage(const Matrix& transform) const override;
-
-  // |Geometry|
-  GeometryResult GetPositionUVBuffer(Rect texture_coverage,
-                                     Matrix effect_transform,
-                                     const ContentContext& renderer,
-                                     const Entity& entity,
-                                     RenderPass& pass) const override;
-
-  Point center_;
-  Scalar radius_;
-  Scalar stroke_width_;
-
-  CircleGeometry(const CircleGeometry&) = delete;
-
-  CircleGeometry& operator=(const CircleGeometry&) = delete;
-};
+GeometryResult CircleDataGetPositionUVBuffer(const CircleData& data,
+                                             Rect texture_coverage,
+                                             Matrix effect_transform,
+                                             const ContentContext& renderer,
+                                             const Entity& entity,
+                                             RenderPass& pass);
 
 }  // namespace impeller
 

@@ -85,8 +85,7 @@ struct Paint {
       std::shared_ptr<Contents> input,
       const Matrix& effect_transform = Matrix()) const;
 
-  std::shared_ptr<Contents> CreateContentsForGeometry(
-      const std::shared_ptr<Geometry>& geometry) const;
+  std::shared_ptr<Contents> CreateContentsForGeometry(Geometry geometry) const;
 
   /// @brief   Whether this paint has a color filter that can apply opacity
   bool HasColorFilter() const;

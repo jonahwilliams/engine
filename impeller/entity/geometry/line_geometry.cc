@@ -6,30 +6,16 @@
 
 namespace impeller {
 
-LineGeometry::LineGeometry(Point p0, Point p1, Scalar width, Cap cap)
-    : p0_(p0), p1_(p1), width_(width), cap_(cap) {
-  FML_DCHECK(width >= 0);
-}
-
-Scalar LineGeometry::ComputePixelHalfWidth(const Matrix& transform,
-                                           Scalar width) {
-  auto determinant = transform.GetDeterminant();
-  if (determinant == 0) {
-    return 0.0f;
-  }
-
-  Scalar min_size = 1.0f / sqrt(std::abs(determinant));
-  return std::max(width, min_size) * 0.5f;
-}
-
-Vector2 LineGeometry::ComputeAlongVector(const Matrix& transform,
-                                         bool allow_zero_length) const {
-  Scalar stroke_half_width = ComputePixelHalfWidth(transform, width_);
+Vector2 ComputeAlongVector(const LineData& data,
+                           const Matrix& transform,
+                           bool allow_zero_length) {
+  Scalar stroke_half_width =
+      Geometry::ComputePixelHalfWidth(transform, data.width);
   if (stroke_half_width < kEhCloseEnough) {
     return {};
   }
 
-  auto along = p1_ - p0_;
+  auto along = data.p1 - data.p0;
   Scalar length = along.GetLength();
   if (length < kEhCloseEnough) {
     if (!allow_zero_length) {
@@ -42,19 +28,34 @@ Vector2 LineGeometry::ComputeAlongVector(const Matrix& transform,
   }
 }
 
-bool LineGeometry::ComputeCorners(Point corners[4],
-                                  const Matrix& transform,
-                                  bool extend_endpoints) const {
-  auto along = ComputeAlongVector(transform, extend_endpoints);
+// Computes the 4 corners of a rectangle that defines the line and
+// possibly extended endpoints which will be rendered under the given
+// transform, and returns true if such a rectangle is defined.
+//
+// The coordinates will be generated in the original coordinate system
+// of the line end points and the transform will only be used to determine
+// the minimum line width.
+//
+// For kButt and kSquare end caps the ends should always be exteded as
+// per that decoration, but for kRound caps the ends might be extended
+// if the goal is to get a conservative bounds and might not be extended
+// if the calling code is planning to draw the round caps on the ends.
+//
+// @return true if the transform and width were not degenerate
+bool ComputeCorners(const LineData& data,
+                    Point corners[4],
+                    const Matrix& transform,
+                    bool extend_endpoints) {
+  auto along = ComputeAlongVector(data, transform, extend_endpoints);
   if (along.IsZero()) {
     return false;
   }
 
   auto across = Vector2(along.y, -along.x);
-  corners[0] = p0_ - across;
-  corners[1] = p1_ - across;
-  corners[2] = p0_ + across;
-  corners[3] = p1_ + across;
+  corners[0] = data.p0 - across;
+  corners[1] = data.p1 - across;
+  corners[2] = data.p0 + across;
+  corners[3] = data.p1 + across;
   if (extend_endpoints) {
     corners[0] -= along;
     corners[1] += along;
@@ -64,22 +65,24 @@ bool LineGeometry::ComputeCorners(Point corners[4],
   return true;
 }
 
-GeometryResult LineGeometry::GetPositionBuffer(const ContentContext& renderer,
-                                               const Entity& entity,
-                                               RenderPass& pass) const {
+GeometryResult LineDataGetPositionBuffer(const LineData& data,
+                                         const ContentContext& renderer,
+                                         const Entity& entity,
+                                         RenderPass& pass) {
   using VT = SolidFillVertexShader::PerVertexData;
 
   auto& transform = entity.GetTransform();
-  auto radius = ComputePixelHalfWidth(transform, width_);
+  auto radius = Geometry::ComputePixelHalfWidth(transform, data.width);
 
-  if (cap_ == Cap::kRound) {
+  if (data.cap == Cap::kRound) {
     std::shared_ptr<Tessellator> tessellator = renderer.GetTessellator();
-    auto generator = tessellator->RoundCapLine(transform, p0_, p1_, radius);
-    return ComputePositionGeometry(generator, entity, pass);
+    auto generator =
+        tessellator->RoundCapLine(transform, data.p0, data.p1, radius);
+    return Geometry::ComputePositionGeometry(generator, entity, pass);
   }
 
   Point corners[4];
-  if (!ComputeCorners(corners, transform, cap_ == Cap::kSquare)) {
+  if (!ComputeCorners(data, corners, transform, data.cap == Cap::kSquare)) {
     return kEmptyResult;
   }
 
@@ -111,28 +114,31 @@ GeometryResult LineGeometry::GetPositionBuffer(const ContentContext& renderer,
 }
 
 // |Geometry|
-GeometryResult LineGeometry::GetPositionUVBuffer(Rect texture_coverage,
-                                                 Matrix effect_transform,
-                                                 const ContentContext& renderer,
-                                                 const Entity& entity,
-                                                 RenderPass& pass) const {
+GeometryResult LineDataGetPositionUVBuffer(const LineData& data,
+                                           Rect texture_coverage,
+                                           Matrix effect_transform,
+                                           const ContentContext& renderer,
+                                           const Entity& entity,
+                                           RenderPass& pass) {
   auto& host_buffer = pass.GetTransientsBuffer();
   using VT = TextureFillVertexShader::PerVertexData;
 
   auto& transform = entity.GetTransform();
-  auto radius = ComputePixelHalfWidth(transform, width_);
+  auto radius = Geometry::ComputePixelHalfWidth(transform, data.width);
 
   auto uv_transform =
       texture_coverage.GetNormalizingTransform() * effect_transform;
 
-  if (cap_ == Cap::kRound) {
+  if (data.cap == Cap::kRound) {
     std::shared_ptr<Tessellator> tessellator = renderer.GetTessellator();
-    auto generator = tessellator->RoundCapLine(transform, p0_, p1_, radius);
-    return ComputePositionUVGeometry(generator, uv_transform, entity, pass);
+    auto generator =
+        tessellator->RoundCapLine(transform, data.p0, data.p1, radius);
+    return Geometry::ComputePositionUVGeometry(generator, uv_transform, entity,
+                                               pass);
   }
 
   Point corners[4];
-  if (!ComputeCorners(corners, transform, cap_ == Cap::kSquare)) {
+  if (!ComputeCorners(data, corners, transform, data.cap == Cap::kSquare)) {
     return kEmptyResult;
   }
 
@@ -163,13 +169,14 @@ GeometryResult LineGeometry::GetPositionUVBuffer(Rect texture_coverage,
   };
 }
 
-GeometryVertexType LineGeometry::GetVertexType() const {
+GeometryVertexType LineDataGetVertexType(const LineData& data) {
   return GeometryVertexType::kPosition;
 }
 
-std::optional<Rect> LineGeometry::GetCoverage(const Matrix& transform) const {
+std::optional<Rect> LineDataGetCoverage(const LineData& data,
+                                        const Matrix& transform) {
   Point corners[4];
-  if (!ComputeCorners(corners, transform, cap_ != Cap::kButt)) {
+  if (!ComputeCorners(data, corners, transform, data.cap != Cap::kButt)) {
     return {};
   }
 
@@ -179,16 +186,19 @@ std::optional<Rect> LineGeometry::GetCoverage(const Matrix& transform) const {
   return Rect::MakePointBounds(std::begin(corners), std::end(corners));
 }
 
-bool LineGeometry::CoversArea(const Matrix& transform, const Rect& rect) const {
-  if (!transform.IsTranslationScaleOnly() || !IsAxisAlignedRect()) {
+bool LineDataCoversArea(const LineData& data,
+                        const Matrix& transform,
+                        const Rect& rect) {
+  if (!transform.IsTranslationScaleOnly() || !LineDataIsAxisAlignedRect(data)) {
     return false;
   }
-  auto coverage = GetCoverage(transform);
+  auto coverage = LineDataGetCoverage(data, transform);
   return coverage.has_value() ? coverage->Contains(rect) : false;
 }
 
-bool LineGeometry::IsAxisAlignedRect() const {
-  return cap_ != Cap::kRound && (p0_.x == p1_.x || p0_.y == p1_.y);
+bool LineDataIsAxisAlignedRect(const LineData& data) {
+  return data.cap != Cap::kRound &&
+         (data.p0.x == data.p1.x || data.p0.y == data.p1.y);
 }
 
 }  // namespace impeller

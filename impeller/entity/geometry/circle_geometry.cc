@@ -2,82 +2,67 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <algorithm>
-
 #include "flutter/impeller/entity/geometry/circle_geometry.h"
 
-#include "flutter/impeller/entity/geometry/line_geometry.h"
+#include "impeller/entity/geometry/geometry.h"
 
 namespace impeller {
 
-CircleGeometry::CircleGeometry(const Point& center, Scalar radius)
-    : center_(center), radius_(radius), stroke_width_(-1.0f) {
-  FML_DCHECK(radius >= 0);
-}
-
-CircleGeometry::CircleGeometry(const Point& center,
-                               Scalar radius,
-                               Scalar stroke_width)
-    : center_(center),
-      radius_(radius),
-      stroke_width_(std::max(stroke_width, 0.0f)) {
-  FML_DCHECK(radius >= 0);
-  FML_DCHECK(stroke_width >= 0);
-}
-
-GeometryResult CircleGeometry::GetPositionBuffer(const ContentContext& renderer,
-                                                 const Entity& entity,
-                                                 RenderPass& pass) const {
+GeometryResult CircleDataGetPositionBuffer(const CircleData& data,
+                                           const ContentContext& renderer,
+                                           const Entity& entity,
+                                           RenderPass& pass) {
   auto& transform = entity.GetTransform();
 
-  Scalar half_width = stroke_width_ < 0 ? 0.0
-                                        : LineGeometry::ComputePixelHalfWidth(
-                                              transform, stroke_width_);
+  Scalar half_width =
+      data.stroke_width < 0
+          ? 0.0
+          : Geometry::ComputePixelHalfWidth(transform, data.stroke_width);
 
   std::shared_ptr<Tessellator> tessellator = renderer.GetTessellator();
 
   // We call the StrokedCircle method which will simplify to a
   // FilledCircleGenerator if the inner_radius is <= 0.
-  auto generator =
-      tessellator->StrokedCircle(transform, center_, radius_, half_width);
+  auto generator = tessellator->StrokedCircle(transform, data.center,
+                                              data.radius, half_width);
 
-  return ComputePositionGeometry(generator, entity, pass);
+  return Geometry::ComputePositionGeometry(generator, entity, pass);
 }
 
 // |Geometry|
-GeometryResult CircleGeometry::GetPositionUVBuffer(
-    Rect texture_coverage,
-    Matrix effect_transform,
-    const ContentContext& renderer,
-    const Entity& entity,
-    RenderPass& pass) const {
+GeometryResult CircleDataGetPositionUVBuffer(const CircleData& data,
+                                             Rect texture_coverage,
+                                             Matrix effect_transform,
+                                             const ContentContext& renderer,
+                                             const Entity& entity,
+                                             RenderPass& pass) {
   auto& transform = entity.GetTransform();
   auto uv_transform =
       texture_coverage.GetNormalizingTransform() * effect_transform;
 
-  Scalar half_width = stroke_width_ < 0 ? 0.0
-                                        : LineGeometry::ComputePixelHalfWidth(
-                                              transform, stroke_width_);
+  Scalar half_width = data.stroke_width < 0 ? 0.0
+                                        : Geometry::ComputePixelHalfWidth(
+                                              transform, data.stroke_width);
   std::shared_ptr<Tessellator> tessellator = renderer.GetTessellator();
 
   // We call the StrokedCircle method which will simplify to a
   // FilledCircleGenerator if the inner_radius is <= 0.
   auto generator =
-      tessellator->StrokedCircle(transform, center_, radius_, half_width);
+      tessellator->StrokedCircle(transform, data.center, data.radius, half_width);
 
-  return ComputePositionUVGeometry(generator, uv_transform, entity, pass);
+  return Geometry::ComputePositionUVGeometry(generator, uv_transform, entity, pass);
 }
 
-GeometryVertexType CircleGeometry::GetVertexType() const {
+GeometryVertexType CircleDataGetVertexType(const CircleData& data) {
   return GeometryVertexType::kPosition;
 }
 
-std::optional<Rect> CircleGeometry::GetCoverage(const Matrix& transform) const {
+std::optional<Rect> CircleDataGetCoverage(const CircleData& data, const Matrix& transform) {
   Point corners[4]{
-      {center_.x, center_.y - radius_},
-      {center_.x + radius_, center_.y},
-      {center_.x, center_.y + radius_},
-      {center_.x - radius_, center_.y},
+      {data.center.x, data.center.y - data.radius},
+      {data.center.x + data.radius, data.center.y},
+      {data.center.x, data.center.y + data.radius},
+      {data.center.x - data.radius, data.center.y},
   };
 
   for (int i = 0; i < 4; i++) {
@@ -86,12 +71,11 @@ std::optional<Rect> CircleGeometry::GetCoverage(const Matrix& transform) const {
   return Rect::MakePointBounds(std::begin(corners), std::end(corners));
 }
 
-bool CircleGeometry::CoversArea(const Matrix& transform,
-                                const Rect& rect) const {
+bool CircleDataCoversArea(const CircleData& data, const Matrix& transform, const Rect& rect) {
   return false;
 }
 
-bool CircleGeometry::IsAxisAlignedRect() const {
+bool CircleDataIsAxisAlignedRect(const CircleData& data) {
   return false;
 }
 

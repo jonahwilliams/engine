@@ -13,43 +13,29 @@ namespace impeller {
 // coordinates) for filled ellipses. Generating vertices for a stroked
 // ellipse would require a lot more work since the line width must be
 // applied perpendicular to the distorted ellipse shape.
-class EllipseGeometry final : public Geometry {
- public:
-  explicit EllipseGeometry(Rect bounds);
 
-  ~EllipseGeometry() = default;
+bool EllipseDataCoversArea(const EllipseData& data,
+                           const Matrix& transform,
+                           const Rect& rect);
 
-  // |Geometry|
-  bool CoversArea(const Matrix& transform, const Rect& rect) const override;
+bool EllipseDataIsAxisAlignedRect(const EllipseData& data);
 
-  // |Geometry|
-  bool IsAxisAlignedRect() const override;
+GeometryResult EllipseDataGetPositionBuffer(const EllipseData& data,
+                                            const ContentContext& renderer,
+                                            const Entity& entity,
+                                            RenderPass& pass);
 
- private:
-  // |Geometry|
-  GeometryResult GetPositionBuffer(const ContentContext& renderer,
-                                   const Entity& entity,
-                                   RenderPass& pass) const override;
+GeometryVertexType EllipseDataGetVertexType(const EllipseData& data);
 
-  // |Geometry|
-  GeometryVertexType GetVertexType() const override;
+std::optional<Rect> EllipseDataGetCoverage(const EllipseData& data,
+                                           const Matrix& transform);
 
-  // |Geometry|
-  std::optional<Rect> GetCoverage(const Matrix& transform) const override;
-
-  // |Geometry|
-  GeometryResult GetPositionUVBuffer(Rect texture_coverage,
-                                     Matrix effect_transform,
-                                     const ContentContext& renderer,
-                                     const Entity& entity,
-                                     RenderPass& pass) const override;
-
-  Rect bounds_;
-
-  EllipseGeometry(const EllipseGeometry&) = delete;
-
-  EllipseGeometry& operator=(const EllipseGeometry&) = delete;
-};
+GeometryResult EllipseDataGetPositionUVBuffer(const EllipseData& data,
+                                              Rect texture_coverage,
+                                              Matrix effect_transform,
+                                              const ContentContext& renderer,
+                                              const Entity& entity,
+                                              RenderPass& pass);
 
 }  // namespace impeller
 

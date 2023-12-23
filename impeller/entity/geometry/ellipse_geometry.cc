@@ -2,53 +2,49 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include <algorithm>
-
 #include "flutter/impeller/entity/geometry/ellipse_geometry.h"
-
-#include "flutter/impeller/entity/geometry/line_geometry.h"
 
 namespace impeller {
 
-EllipseGeometry::EllipseGeometry(Rect bounds) : bounds_(bounds) {}
-
-GeometryResult EllipseGeometry::GetPositionBuffer(
-    const ContentContext& renderer,
-    const Entity& entity,
-    RenderPass& pass) const {
-  return ComputePositionGeometry(
-      renderer.GetTessellator()->FilledEllipse(entity.GetTransform(), bounds_),
+GeometryResult EllipseDataGetPositionBuffer(const EllipseData& data,
+                                            const ContentContext& renderer,
+                                            const Entity& entity,
+                                            RenderPass& pass) {
+  return Geometry::ComputePositionGeometry(
+      renderer.GetTessellator()->FilledEllipse(entity.GetTransform(),
+                                               data.rect),
       entity, pass);
 }
 
-// |Geometry|
-GeometryResult EllipseGeometry::GetPositionUVBuffer(
-    Rect texture_coverage,
-    Matrix effect_transform,
-    const ContentContext& renderer,
-    const Entity& entity,
-    RenderPass& pass) const {
-  return ComputePositionUVGeometry(
-      renderer.GetTessellator()->FilledEllipse(entity.GetTransform(), bounds_),
+GeometryResult EllipseDataGetPositionUVBuffer(const EllipseData& data,
+                                              Rect texture_coverage,
+                                              Matrix effect_transform,
+                                              const ContentContext& renderer,
+                                              const Entity& entity,
+                                              RenderPass& pass) {
+  return Geometry::ComputePositionUVGeometry(
+      renderer.GetTessellator()->FilledEllipse(entity.GetTransform(),
+                                               data.rect),
       texture_coverage.GetNormalizingTransform() * effect_transform, entity,
       pass);
 }
 
-GeometryVertexType EllipseGeometry::GetVertexType() const {
+GeometryVertexType EllipseDataGetVertexType(const EllipseData& data) {
   return GeometryVertexType::kPosition;
 }
 
-std::optional<Rect> EllipseGeometry::GetCoverage(
-    const Matrix& transform) const {
-  return bounds_.TransformBounds(transform);
+std::optional<Rect> EllipseDataGetCoverage(const EllipseData& data,
+                                           const Matrix& transform) {
+  return data.rect.TransformBounds(transform);
 }
 
-bool EllipseGeometry::CoversArea(const Matrix& transform,
-                                 const Rect& rect) const {
+bool EllipseDataCoversArea(const EllipseData& data,
+                           const Matrix& transform,
+                           const Rect& rect) {
   return false;
 }
 
-bool EllipseGeometry::IsAxisAlignedRect() const {
+bool EllipseDataIsAxisAlignedRect(const EllipseData& data) {
   return false;
 }
 

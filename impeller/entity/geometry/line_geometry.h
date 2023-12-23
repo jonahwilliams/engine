@@ -5,76 +5,32 @@
 #ifndef FLUTTER_IMPELLER_ENTITY_GEOMETRY_LINE_GEOMETRY_H_
 #define FLUTTER_IMPELLER_ENTITY_GEOMETRY_LINE_GEOMETRY_H_
 
-#include <type_traits>
 #include "impeller/entity/geometry/geometry.h"
 
 namespace impeller {
 
-class LineGeometry final : public Geometry {
- public:
-  explicit LineGeometry(Point p0, Point p1, Scalar width, Cap cap);
+bool LineDataCoversArea(const LineData& data,
+                        const Matrix& transform,
+                        const Rect& rect);
 
-  ~LineGeometry() = default;
+bool LineDataIsAxisAlignedRect(const LineData& data);
 
-  static Scalar ComputePixelHalfWidth(const Matrix& transform, Scalar width);
+GeometryResult LineDataGetPositionBuffer(const LineData& data,
+                                         const ContentContext& renderer,
+                                         const Entity& entity,
+                                         RenderPass& pass);
 
-  // |Geometry|
-  bool CoversArea(const Matrix& transform, const Rect& rect) const override;
+GeometryVertexType LineDataGetVertexType(const LineData& data);
 
-  // |Geometry|
-  bool IsAxisAlignedRect() const override;
+std::optional<Rect> LineDataGetCoverage(const LineData& data,
+                                        const Matrix& transform);
 
- private:
-  // Computes the 4 corners of a rectangle that defines the line and
-  // possibly extended endpoints which will be rendered under the given
-  // transform, and returns true if such a rectangle is defined.
-  //
-  // The coordinates will be generated in the original coordinate system
-  // of the line end points and the transform will only be used to determine
-  // the minimum line width.
-  //
-  // For kButt and kSquare end caps the ends should always be exteded as
-  // per that decoration, but for kRound caps the ends might be extended
-  // if the goal is to get a conservative bounds and might not be extended
-  // if the calling code is planning to draw the round caps on the ends.
-  //
-  // @return true if the transform and width were not degenerate
-  bool ComputeCorners(Point corners[4],
-                      const Matrix& transform,
-                      bool extend_endpoints) const;
-
-  Vector2 ComputeAlongVector(const Matrix& transform,
-                             bool allow_zero_length) const;
-
-  // |Geometry|
-  GeometryResult GetPositionBuffer(const ContentContext& renderer,
-                                   const Entity& entity,
-                                   RenderPass& pass) const override;
-
-  // |Geometry|
-  GeometryVertexType GetVertexType() const override;
-
-  // |Geometry|
-  std::optional<Rect> GetCoverage(const Matrix& transform) const override;
-
-  // |Geometry|
-  GeometryResult GetPositionUVBuffer(Rect texture_coverage,
-                                     Matrix effect_transform,
-                                     const ContentContext& renderer,
-                                     const Entity& entity,
-                                     RenderPass& pass) const override;
-
-  Point p0_;
-  Point p1_;
-  Scalar width_;
-  Cap cap_;
-
-  LineGeometry(const LineGeometry&) = delete;
-
-  LineGeometry& operator=(const LineGeometry&) = delete;
-};
-
-static_assert(std::is_trivially_destructible<LineGeometry>::value);
+GeometryResult LineDataGetPositionUVBuffer(const LineData& data,
+                                           Rect texture_coverage,
+                                           Matrix effect_transform,
+                                           const ContentContext& renderer,
+                                           const Entity& entity,
+                                           RenderPass& pass);
 
 }  // namespace impeller
 

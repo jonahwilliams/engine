@@ -181,7 +181,7 @@ class Canvas {
 
   size_t GetClipDepth() const;
 
-  void ClipGeometry(const std::shared_ptr<Geometry>& geometry,
+  void ClipGeometry(Geometry geometry,
                     Entity::ClipOperation clip_op);
 
   void IntersectCulling(Rect clip_bounds);

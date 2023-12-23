@@ -9,53 +9,30 @@
 
 namespace impeller {
 
-class PointFieldGeometry final : public Geometry {
- public:
-  PointFieldGeometry(std::vector<Point> points, Scalar radius, bool round);
+GeometryResult PointFieldDataGetPositionBuffer(const PointFieldData& data,
+                                               const ContentContext& renderer,
+                                               const Entity& entity,
+                                               RenderPass& pass);
 
-  ~PointFieldGeometry() = default;
+GeometryResult PointFieldDataGetPositionUVBuffer(const PointFieldData& data,
+                                                 Rect texture_coverage,
+                                                 Matrix effect_transform,
+                                                 const ContentContext& renderer,
+                                                 const Entity& entity,
+                                                 RenderPass& pass);
 
-  static size_t ComputeCircleDivisions(Scalar scaled_radius, bool round);
+GeometryVertexType PointFieldDataGetVertexType(const PointFieldData& data);
 
- private:
-  // |Geometry|
-  GeometryResult GetPositionBuffer(const ContentContext& renderer,
-                                   const Entity& entity,
-                                   RenderPass& pass) const override;
+std::optional<Rect> PointFieldDataGetCoverage(const PointFieldData& data,
+                                              const Matrix& transform);
 
-  // |Geometry|
-  GeometryResult GetPositionUVBuffer(Rect texture_coverage,
-                                     Matrix effect_transform,
-                                     const ContentContext& renderer,
-                                     const Entity& entity,
-                                     RenderPass& pass) const override;
-
-  // |Geometry|
-  GeometryVertexType GetVertexType() const override;
-
-  // |Geometry|
-  std::optional<Rect> GetCoverage(const Matrix& transform) const override;
-
-  GeometryResult GetPositionBufferGPU(
-      const ContentContext& renderer,
-      const Entity& entity,
-      RenderPass& pass,
-      std::optional<Rect> texture_coverage = std::nullopt,
-      std::optional<Matrix> effect_transform = std::nullopt) const;
-
-  std::optional<VertexBufferBuilder<SolidFillVertexShader::PerVertexData>>
-  GetPositionBufferCPU(const ContentContext& renderer,
-                       const Entity& entity,
-                       RenderPass& pass) const;
-
-  std::vector<Point> points_;
-  Scalar radius_;
-  bool round_;
-
-  PointFieldGeometry(const PointFieldGeometry&) = delete;
-
-  PointFieldGeometry& operator=(const PointFieldGeometry&) = delete;
-};
+GeometryResult PointFieldDataGetPositionBufferGPU(
+    const PointFieldData& data,
+    const ContentContext& renderer,
+    const Entity& entity,
+    RenderPass& pass,
+    std::optional<Rect> texture_coverage = std::nullopt,
+    std::optional<Matrix> effect_transform = std::nullopt);
 
 }  // namespace impeller
 

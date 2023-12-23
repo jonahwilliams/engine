@@ -13,45 +13,29 @@ namespace impeller {
 // coordinates) for filled ellipses. Generating vertices for a stroked
 // ellipse would require a lot more work since the line width must be
 // applied perpendicular to the distorted ellipse shape.
-class RoundRectGeometry final : public Geometry {
- public:
-  explicit RoundRectGeometry(const Rect& bounds, const Size& radii);
 
-  ~RoundRectGeometry() = default;
+bool RoundRectDataCoversArea(const RoundRectData& data,
+                             const Matrix& transform,
+                             const Rect& rect);
 
-  // |Geometry|
-  bool CoversArea(const Matrix& transform, const Rect& rect) const override;
+bool RoundRectDataIsAxisAlignedRect(const RoundRectData& data);
 
-  // |Geometry|
-  bool IsAxisAlignedRect() const override;
+GeometryResult RoundRectDataGetPositionBuffer(const RoundRectData& data,
+                                              const ContentContext& renderer,
+                                              const Entity& entity,
+                                              RenderPass& pass);
 
- private:
-  // |Geometry|
-  GeometryResult GetPositionBuffer(const ContentContext& renderer,
-                                   const Entity& entity,
-                                   RenderPass& pass) const override;
+GeometryVertexType RoundRectDataGetVertexType(const RoundRectData& data);
 
-  // |Geometry|
-  GeometryVertexType GetVertexType() const override;
+std::optional<Rect> RoundRectDataGetCoverage(const RoundRectData& data,
+                                             const Matrix& transform);
 
-  // |Geometry|
-  std::optional<Rect> GetCoverage(const Matrix& transform) const override;
-
-  // |Geometry|
-  GeometryResult GetPositionUVBuffer(Rect texture_coverage,
-                                     Matrix effect_transform,
-                                     const ContentContext& renderer,
-                                     const Entity& entity,
-                                     RenderPass& pass) const override;
-
-  const Rect bounds_;
-  const Size radii_;
-
-  RoundRectGeometry(const RoundRectGeometry&) = delete;
-
-  RoundRectGeometry& operator=(const RoundRectGeometry&) = delete;
-};
-
+GeometryResult RoundRectDataGetPositionUVBuffer(const RoundRectData& data,
+                                                Rect texture_coverage,
+                                                Matrix effect_transform,
+                                                const ContentContext& renderer,
+                                                const Entity& entity,
+                                                RenderPass& pass);
 }  // namespace impeller
 
 #endif  // FLUTTER_IMPELLER_ENTITY_GEOMETRY_ROUND_RECT_GEOMETRY_H_

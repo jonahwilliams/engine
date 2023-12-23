@@ -6,18 +6,18 @@
 
 namespace impeller {
 
-RectGeometry::RectGeometry(Rect rect) : rect_(rect) {}
-
-GeometryResult RectGeometry::GetPositionBuffer(const ContentContext& renderer,
-                                               const Entity& entity,
-                                               RenderPass& pass) const {
+GeometryResult RectDataGetPositionBuffer(const RectData& data,
+                                         const ContentContext& renderer,
+                                         const Entity& entity,
+                                         RenderPass& pass) {
   auto& host_buffer = pass.GetTransientsBuffer();
   return GeometryResult{
       .type = PrimitiveType::kTriangleStrip,
       .vertex_buffer =
           {
-              .vertex_buffer = host_buffer.Emplace(
-                  rect_.GetPoints().data(), 8 * sizeof(float), alignof(float)),
+              .vertex_buffer =
+                  host_buffer.Emplace(data.rect.GetPoints().data(),
+                                      8 * sizeof(float), alignof(float)),
               .vertex_count = 4,
               .index_type = IndexType::kNone,
           },
@@ -27,33 +27,36 @@ GeometryResult RectGeometry::GetPositionBuffer(const ContentContext& renderer,
   };
 }
 
-// |Geometry|
-GeometryResult RectGeometry::GetPositionUVBuffer(Rect texture_coverage,
-                                                 Matrix effect_transform,
-                                                 const ContentContext& renderer,
-                                                 const Entity& entity,
-                                                 RenderPass& pass) const {
-  return ComputeUVGeometryForRect(rect_, texture_coverage, effect_transform,
+GeometryResult RectDataGetPositionUVBuffer(const RectData& data,
+                                           Rect texture_coverage,
+                                           Matrix effect_transform,
+                                           const ContentContext& renderer,
+                                           const Entity& entity,
+                                           RenderPass& pass) {
+  return ComputeUVGeometryForRect(data.rect, texture_coverage, effect_transform,
                                   renderer, entity, pass);
 }
 
-GeometryVertexType RectGeometry::GetVertexType() const {
+GeometryVertexType RectDataGetVertexType(const RectData& data) {
   return GeometryVertexType::kPosition;
 }
 
-std::optional<Rect> RectGeometry::GetCoverage(const Matrix& transform) const {
-  return rect_.TransformBounds(transform);
+std::optional<Rect> RectDataGetCoverage(const RectData& data,
+                                        const Matrix& transform) {
+  return data.rect.TransformBounds(transform);
 }
 
-bool RectGeometry::CoversArea(const Matrix& transform, const Rect& rect) const {
+bool RectDataCoversArea(const RectData& data,
+                        const Matrix& transform,
+                        const Rect& rect) {
   if (!transform.IsTranslationScaleOnly()) {
     return false;
   }
-  Rect coverage = rect_.TransformBounds(transform);
+  Rect coverage = data.rect.TransformBounds(transform);
   return coverage.Contains(rect);
 }
 
-bool RectGeometry::IsAxisAlignedRect() const {
+bool RectDataIsAxisAlignedRect(const RectData& data) {
   return true;
 }
 

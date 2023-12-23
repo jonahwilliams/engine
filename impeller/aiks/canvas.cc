@@ -29,7 +29,7 @@ namespace {
 
 static std::shared_ptr<Contents> CreateContentsForGeometryWithFilters(
     const Paint& paint,
-    std::shared_ptr<Geometry> geometry) {
+    Geometry geometry) {
   std::shared_ptr<ColorSourceContents> contents =
       paint.color_source.GetContents(paint);
 
@@ -77,19 +77,17 @@ static std::shared_ptr<Contents> CreateContentsForGeometryWithFilters(
 static std::shared_ptr<Contents> CreatePathContentsWithFilters(
     const Paint& paint,
     Path path = {}) {
-  std::shared_ptr<Geometry> geometry;
   switch (paint.style) {
     case Paint::Style::kFill:
-      geometry = Geometry::MakeFillPath(std::move(path));
+      return CreateContentsForGeometryWithFilters(
+          paint, Geometry::MakeFillPath(std::move(path)));
       break;
     case Paint::Style::kStroke:
-      geometry = Geometry::MakeStrokePath(std::move(path), paint.stroke_width,
+      return CreateContentsForGeometryWithFilters(
+          paint, Geometry::MakeStrokePath(std::move(path), paint.stroke_width,
                                           paint.stroke_miter, paint.stroke_cap,
-                                          paint.stroke_join);
-      break;
+                                          paint.stroke_join));
   }
-
-  return CreateContentsForGeometryWithFilters(paint, std::move(geometry));
 }
 
 static std::shared_ptr<Contents> CreateCoverContentsWithFilters(
@@ -432,12 +430,12 @@ void Canvas::ClipRect(const Rect& rect, Entity::ClipOperation clip_op) {
   auto& cull_rect = transform_stack_.back().cull_rect;
   if (clip_op == Entity::ClipOperation::kIntersect &&                      //
       cull_rect.has_value() &&                                             //
-      geometry->CoversArea(transform_stack_.back().transform, *cull_rect)  //
+      geometry.CoversArea(transform_stack_.back().transform, *cull_rect)  //
   ) {
     return;  // This clip will do nothing, so skip it.
   }
 
-  ClipGeometry(geometry, clip_op);
+  ClipGeometry(std::move(geometry), clip_op);
   switch (clip_op) {
     case Entity::ClipOperation::kIntersect:
       IntersectCulling(rect);
@@ -453,12 +451,12 @@ void Canvas::ClipOval(const Rect& bounds, Entity::ClipOperation clip_op) {
   auto& cull_rect = transform_stack_.back().cull_rect;
   if (clip_op == Entity::ClipOperation::kIntersect &&                      //
       cull_rect.has_value() &&                                             //
-      geometry->CoversArea(transform_stack_.back().transform, *cull_rect)  //
+      geometry.CoversArea(transform_stack_.back().transform, *cull_rect)  //
   ) {
     return;  // This clip will do nothing, so skip it.
   }
 
-  ClipGeometry(geometry, clip_op);
+  ClipGeometry(std::move(geometry), clip_op);
   switch (clip_op) {
     case Entity::ClipOperation::kIntersect:
       IntersectCulling(bounds);
@@ -479,12 +477,12 @@ void Canvas::ClipRRect(const Rect& rect,
   auto& cull_rect = transform_stack_.back().cull_rect;
   if (clip_op == Entity::ClipOperation::kIntersect &&                      //
       cull_rect.has_value() &&                                             //
-      geometry->CoversArea(transform_stack_.back().transform, *cull_rect)  //
+      geometry.CoversArea(transform_stack_.back().transform, *cull_rect)  //
   ) {
     return;  // This clip will do nothing, so skip it.
   }
 
-  ClipGeometry(geometry, clip_op);
+  ClipGeometry(std::move(geometry), clip_op);
   switch (clip_op) {
     case Entity::ClipOperation::kIntersect:
       IntersectCulling(rect);
@@ -509,10 +507,10 @@ void Canvas::ClipRRect(const Rect& rect,
   }
 }
 
-void Canvas::ClipGeometry(const std::shared_ptr<Geometry>& geometry,
+void Canvas::ClipGeometry(Geometry geometry,
                           Entity::ClipOperation clip_op) {
   auto contents = std::make_shared<ClipContents>();
-  contents->SetGeometry(geometry);
+  contents->SetGeometry(std::move(geometry));
   contents->SetClipOperation(clip_op);
 
   Entity entity;
@@ -728,22 +726,22 @@ void Canvas::DrawTextFrame(const std::shared_ptr<TextFrame>& text_frame,
   GetCurrentPass().AddEntity(std::move(entity));
 }
 
-static bool UseColorSourceContents(
-    const std::shared_ptr<VerticesGeometry>& vertices,
-    const Paint& paint) {
-  // If there are no vertex color or texture coordinates. Or if there
-  // are vertex coordinates then only if the contents are an image or
-  // a solid color.
-  if (vertices->HasVertexColors()) {
-    return false;
-  }
-  if (vertices->HasTextureCoordinates() &&
-      (paint.color_source.GetType() == ColorSource::Type::kImage ||
-       paint.color_source.GetType() == ColorSource::Type::kColor)) {
-    return true;
-  }
-  return !vertices->HasTextureCoordinates();
-}
+// static bool UseColorSourceContents(
+//     const std::shared_ptr<VerticesGeometry>& vertices,
+//     const Paint& paint) {
+//   // If there are no vertex color or texture coordinates. Or if there
+//   // are vertex coordinates then only if the contents are an image or
+//   // a solid color.
+//   if (vertices->HasVertexColors()) {
+//     return false;
+//   }
+//   if (vertices->HasTextureCoordinates() &&
+//       (paint.color_source.GetType() == ColorSource::Type::kImage ||
+//        paint.color_source.GetType() == ColorSource::Type::kColor)) {
+//     return true;
+//   }
+//   return !vertices->HasTextureCoordinates();
+// }
 
 void Canvas::DrawVertices(const std::shared_ptr<VerticesGeometry>& vertices,
                           BlendMode blend_mode,
@@ -762,47 +760,48 @@ void Canvas::DrawVertices(const std::shared_ptr<VerticesGeometry>& vertices,
 
   // If there are no vertex color or texture coordinates. Or if there
   // are vertex coordinates then only if the contents are an image.
-  if (UseColorSourceContents(vertices, paint)) {
-    entity.SetContents(CreateContentsForGeometryWithFilters(paint, vertices));
-    GetCurrentPass().AddEntity(std::move(entity));
-    return;
-  }
+  // TODO.
+  // if (UseColorSourceContents(vertices, paint)) {
+  //   entity.SetContents(CreateContentsForGeometryWithFilters(paint, vertices));
+  //   GetCurrentPass().AddEntity(std::move(entity));
+  //   return;
+  // }
 
-  auto src_paint = paint;
-  src_paint.color = paint.color.WithAlpha(1.0);
+  // auto src_paint = paint;
+  // src_paint.color = paint.color.WithAlpha(1.0);
 
-  std::shared_ptr<Contents> src_contents =
-      src_paint.CreateContentsForGeometry(vertices);
-  if (vertices->HasTextureCoordinates()) {
-    // If the color source has an intrinsic size, then we use that to
-    // create the src contents as a simplification. Otherwise we use
-    // the extent of the texture coordinates to determine how large
-    // the src contents should be. If neither has a value we fall back
-    // to using the geometry coverage data.
-    Rect src_coverage;
-    auto size = src_contents->GetColorSourceSize();
-    if (size.has_value()) {
-      src_coverage = Rect::MakeXYWH(0, 0, size->width, size->height);
-    } else {
-      auto cvg = vertices->GetCoverage(Matrix{});
-      FML_CHECK(cvg.has_value());
-      src_coverage =
-          // Covered by FML_CHECK.
-          // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
-          vertices->GetTextureCoordinateCoverge().value_or(cvg.value());
-    }
-    src_contents =
-        src_paint.CreateContentsForGeometry(Geometry::MakeRect(src_coverage));
-  }
+  // std::shared_ptr<Contents> src_contents =
+  //     src_paint.CreateContentsForGeometry(vertices);
+  // if (vertices->HasTextureCoordinates()) {
+  //   // If the color source has an intrinsic size, then we use that to
+  //   // create the src contents as a simplification. Otherwise we use
+  //   // the extent of the texture coordinates to determine how large
+  //   // the src contents should be. If neither has a value we fall back
+  //   // to using the geometry coverage data.
+  //   Rect src_coverage;
+  //   auto size = src_contents->GetColorSourceSize();
+  //   if (size.has_value()) {
+  //     src_coverage = Rect::MakeXYWH(0, 0, size->width, size->height);
+  //   } else {
+  //     auto cvg = vertices->GetCoverage(Matrix{});
+  //     FML_CHECK(cvg.has_value());
+  //     src_coverage =
+  //         // Covered by FML_CHECK.
+  //         // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+  //         vertices->GetTextureCoordinateCoverge().value_or(cvg.value());
+  //   }
+  //   src_contents =
+  //       src_paint.CreateContentsForGeometry(Geometry::MakeRect(src_coverage));
+  // }
 
-  auto contents = std::make_shared<VerticesContents>();
-  contents->SetAlpha(paint.color.alpha);
-  contents->SetBlendMode(blend_mode);
-  contents->SetGeometry(vertices);
-  contents->SetSourceContents(std::move(src_contents));
-  entity.SetContents(paint.WithFilters(std::move(contents)));
+  // auto contents = std::make_shared<VerticesContents>();
+  // contents->SetAlpha(paint.color.alpha);
+  // contents->SetBlendMode(blend_mode);
+  // contents->SetGeometry(vertices);
+  // contents->SetSourceContents(std::move(src_contents));
+  // entity.SetContents(paint.WithFilters(std::move(contents)));
 
-  GetCurrentPass().AddEntity(std::move(entity));
+  // GetCurrentPass().AddEntity(std::move(entity));
 }
 
 void Canvas::DrawAtlas(const std::shared_ptr<Image>& atlas,

@@ -9,42 +9,22 @@
 
 namespace impeller {
 
-/// @brief A geometry that implements "drawPaint" like behavior by covering
-///        the entire render pass area.
-class CoverGeometry final : public Geometry {
- public:
-  CoverGeometry();
+GeometryResult CoverDataGetPositionBuffer(const CoverData& data,
+                                          const ContentContext& renderer,
+                                          const Entity& entity,
+                                          RenderPass& pass);
 
-  ~CoverGeometry() = default;
+GeometryVertexType CoverDataGetVertexType(const CoverData& data);
 
-  // |Geometry|
-  bool CoversArea(const Matrix& transform, const Rect& rect) const override;
+std::optional<Rect> CoverDataGetCoverage(const CoverData& data,
+                                         const Matrix& transform);
 
- private:
-  // |Geometry|
-  GeometryResult GetPositionBuffer(const ContentContext& renderer,
-                                   const Entity& entity,
-                                   RenderPass& pass) const override;
-
-  // |Geometry|
-  GeometryVertexType GetVertexType() const override;
-
-  // |Geometry|
-  std::optional<Rect> GetCoverage(const Matrix& transform) const override;
-
-  // |Geometry|
-  GeometryResult GetPositionUVBuffer(Rect texture_coverage,
-                                     Matrix effect_transform,
-                                     const ContentContext& renderer,
-                                     const Entity& entity,
-                                     RenderPass& pass) const override;
-
-  CoverGeometry(const CoverGeometry&) = delete;
-
-  CoverGeometry& operator=(const CoverGeometry&) = delete;
-};
-
-static_assert(std::is_trivially_destructible<CoverGeometry>::value);
+GeometryResult CoverDataGetPositionUVBuffer(const CoverData& data,
+                                            Rect texture_coverage,
+                                            Matrix effect_transform,
+                                            const ContentContext& renderer,
+                                            const Entity& entity,
+                                            RenderPass& pass);
 
 }  // namespace impeller
 

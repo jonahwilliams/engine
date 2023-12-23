@@ -14,11 +14,11 @@ ColorSourceContents::ColorSourceContents() = default;
 
 ColorSourceContents::~ColorSourceContents() = default;
 
-void ColorSourceContents::SetGeometry(std::shared_ptr<Geometry> geometry) {
+void ColorSourceContents::SetGeometry(Geometry geometry) {
   geometry_ = std::move(geometry);
 }
 
-const std::shared_ptr<Geometry>& ColorSourceContents::GetGeometry() const {
+const Geometry& ColorSourceContents::GetGeometry() const {
   return geometry_;
 }
 
@@ -44,7 +44,7 @@ bool ColorSourceContents::IsSolidColor() const {
 
 std::optional<Rect> ColorSourceContents::GetCoverage(
     const Entity& entity) const {
-  return geometry_->GetCoverage(entity.GetTransform());
+  return geometry_.GetCoverage(entity.GetTransform());
 };
 
 bool ColorSourceContents::CanInheritOpacity(const Entity& entity) const {

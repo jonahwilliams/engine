@@ -9,45 +9,28 @@
 
 namespace impeller {
 
-class RectGeometry final : public Geometry {
- public:
-  explicit RectGeometry(Rect rect);
+bool RectDataCoversArea(const RectData& data,
+                        const Matrix& transform,
+                        const Rect& rect);
 
-  ~RectGeometry() = default;
+bool RectDataIsAxisAlignedRect(const RectData& data);
 
-  // |Geometry|
-  bool CoversArea(const Matrix& transform, const Rect& rect) const override;
+GeometryResult RectDataGetPositionBuffer(const RectData& data,
+                                         const ContentContext& renderer,
+                                         const Entity& entity,
+                                         RenderPass& pass);
 
-  // |Geometry|
-  bool IsAxisAlignedRect() const override;
+GeometryVertexType RectDataGetVertexType(const RectData& data);
 
- private:
-  // |Geometry|
-  GeometryResult GetPositionBuffer(const ContentContext& renderer,
-                                   const Entity& entity,
-                                   RenderPass& pass) const override;
+std::optional<Rect> RectDataGetCoverage(const RectData& data,
+                                        const Matrix& transform);
 
-  // |Geometry|
-  GeometryVertexType GetVertexType() const override;
-
-  // |Geometry|
-  std::optional<Rect> GetCoverage(const Matrix& transform) const override;
-
-  // |Geometry|
-  GeometryResult GetPositionUVBuffer(Rect texture_coverage,
-                                     Matrix effect_transform,
-                                     const ContentContext& renderer,
-                                     const Entity& entity,
-                                     RenderPass& pass) const override;
-
-  Rect rect_;
-
-  RectGeometry(const RectGeometry&) = delete;
-
-  RectGeometry& operator=(const RectGeometry&) = delete;
-};
-
-static_assert(std::is_trivially_destructible<RectGeometry>::value);
+GeometryResult RectDataGetPositionUVBuffer(const RectData& data,
+                                           Rect texture_coverage,
+                                           Matrix effect_transform,
+                                           const ContentContext& renderer,
+                                           const Entity& entity,
+                                           RenderPass& pass);
 
 }  // namespace impeller
 

@@ -8,11 +8,10 @@
 
 namespace impeller {
 
-CoverGeometry::CoverGeometry() = default;
-
-GeometryResult CoverGeometry::GetPositionBuffer(const ContentContext& renderer,
-                                                const Entity& entity,
-                                                RenderPass& pass) const {
+GeometryResult CoverDataGetPositionBuffer(const CoverData& data,
+                                          const ContentContext& renderer,
+                                          const Entity& entity,
+                                          RenderPass& pass) {
   auto rect = Rect::MakeSize(pass.GetRenderTargetSize());
   constexpr uint16_t kRectIndicies[4] = {0, 1, 2, 3};
   auto& host_buffer = pass.GetTransientsBuffer();
@@ -36,27 +35,29 @@ GeometryResult CoverGeometry::GetPositionBuffer(const ContentContext& renderer,
 }
 
 // |Geometry|
-GeometryResult CoverGeometry::GetPositionUVBuffer(
-    Rect texture_coverage,
-    Matrix effect_transform,
-    const ContentContext& renderer,
-    const Entity& entity,
-    RenderPass& pass) const {
+GeometryResult CoverDataGetPositionUVBuffer(const CoverData& data,
+                                            Rect texture_coverage,
+                                            Matrix effect_transform,
+                                            const ContentContext& renderer,
+                                            const Entity& entity,
+                                            RenderPass& pass) {
   auto rect = Rect::MakeSize(pass.GetRenderTargetSize());
   return ComputeUVGeometryForRect(rect, texture_coverage, effect_transform,
                                   renderer, entity, pass);
 }
 
-GeometryVertexType CoverGeometry::GetVertexType() const {
+GeometryVertexType CoverDataGGetVertexType(const CoverData& data) {
   return GeometryVertexType::kPosition;
 }
 
-std::optional<Rect> CoverGeometry::GetCoverage(const Matrix& transform) const {
+std::optional<Rect> CoverDataGetCoverage(const CoverData& data,
+                                          const Matrix& transform) {
   return Rect::MakeMaximum();
 }
 
-bool CoverGeometry::CoversArea(const Matrix& transform,
-                               const Rect& rect) const {
+bool CoverDataGCoversArea(const CoverData& data,
+                          const Matrix& transform,
+                          const Rect& rect) {
   return true;
 }
 

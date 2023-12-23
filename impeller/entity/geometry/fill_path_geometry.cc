@@ -7,20 +7,17 @@
 
 namespace impeller {
 
-FillPathGeometry::FillPathGeometry(Path path, std::optional<Rect> inner_rect)
-    : path_(std::move(path)), inner_rect_(inner_rect) {}
-
-GeometryResult FillPathGeometry::GetPositionBuffer(
-    const ContentContext& renderer,
-    const Entity& entity,
-    RenderPass& pass) const {
+GeometryResult FillPathDataGetPositionBuffer(const FillPathData& data,
+                                             const ContentContext& renderer,
+                                             const Entity& entity,
+                                             RenderPass& pass) {
   auto& host_buffer = pass.GetTransientsBuffer();
   VertexBuffer vertex_buffer;
 
-  if (path_.GetFillType() == FillType::kNonZero &&  //
-      path_.IsConvex()) {
+  if (data.path.GetFillType() == FillType::kNonZero &&  //
+      data.path.IsConvex()) {
     auto points = renderer.GetTessellator()->TessellateConvex(
-        path_, entity.GetTransform().GetMaxBasisLength());
+        data.path, entity.GetTransform().GetMaxBasisLength());
 
     vertex_buffer.vertex_buffer = host_buffer.Emplace(
         points.data(), points.size() * sizeof(Point), alignof(Point));
@@ -37,7 +34,7 @@ GeometryResult FillPathGeometry::GetPositionBuffer(
   }
 
   auto tesselation_result = renderer.GetTessellator()->Tessellate(
-      path_, entity.GetTransform().GetMaxBasisLength(),
+      data.path, entity.GetTransform().GetMaxBasisLength(),
       [&vertex_buffer, &host_buffer](
           const float* vertices, size_t vertices_count, const uint16_t* indices,
           size_t indices_count) {
@@ -68,21 +65,21 @@ GeometryResult FillPathGeometry::GetPositionBuffer(
 }
 
 // |Geometry|
-GeometryResult FillPathGeometry::GetPositionUVBuffer(
-    Rect texture_coverage,
-    Matrix effect_transform,
-    const ContentContext& renderer,
-    const Entity& entity,
-    RenderPass& pass) const {
+GeometryResult FillPathDataGetPositionUVBuffer(const FillPathData& data,
+                                               Rect texture_coverage,
+                                               Matrix effect_transform,
+                                               const ContentContext& renderer,
+                                               const Entity& entity,
+                                               RenderPass& pass) {
   using VS = TextureFillVertexShader;
 
   auto uv_transform =
       texture_coverage.GetNormalizingTransform() * effect_transform;
 
-  if (path_.GetFillType() == FillType::kNonZero &&  //
-      path_.IsConvex()) {
+  if (data.path.GetFillType() == FillType::kNonZero &&  //
+      data.path.IsConvex()) {
     auto points = renderer.GetTessellator()->TessellateConvex(
-        path_, entity.GetTransform().GetMaxBasisLength());
+        data.path, entity.GetTransform().GetMaxBasisLength());
 
     VertexBufferBuilder<VS::PerVertexData> vertex_builder;
     vertex_builder.Reserve(points.size());
@@ -105,7 +102,7 @@ GeometryResult FillPathGeometry::GetPositionUVBuffer(
 
   VertexBufferBuilder<VS::PerVertexData> vertex_builder;
   auto tesselation_result = renderer.GetTessellator()->Tessellate(
-      path_, entity.GetTransform().GetMaxBasisLength(),
+      data.path, entity.GetTransform().GetMaxBasisLength(),
       [&vertex_builder, &uv_transform](
           const float* vertices, size_t vertices_count, const uint16_t* indices,
           size_t indices_count) {
@@ -137,24 +134,25 @@ GeometryResult FillPathGeometry::GetPositionUVBuffer(
   };
 }
 
-GeometryVertexType FillPathGeometry::GetVertexType() const {
+GeometryVertexType FillPathDataGetVertexType(const FillPathData& data) {
   return GeometryVertexType::kPosition;
 }
 
-std::optional<Rect> FillPathGeometry::GetCoverage(
-    const Matrix& transform) const {
-  return path_.GetTransformedBoundingBox(transform);
+std::optional<Rect> FillPathDataGetCoverage(const FillPathData& data,
+                                            const Matrix& transform) {
+  return data.path.GetTransformedBoundingBox(transform);
 }
 
-bool FillPathGeometry::CoversArea(const Matrix& transform,
-                                  const Rect& rect) const {
-  if (!inner_rect_.has_value()) {
+bool FillPathDataCoversArea(const FillPathData& data,
+                            const Matrix& transform,
+                            const Rect& rect) {
+  if (!data.inner_rect.has_value()) {
     return false;
   }
   if (!transform.IsTranslationScaleOnly()) {
     return false;
   }
-  Rect coverage = inner_rect_->TransformBounds(transform);
+  Rect coverage = data.inner_rect->TransformBounds(transform);
   return coverage.Contains(rect);
 }
 
