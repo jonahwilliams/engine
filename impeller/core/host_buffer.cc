@@ -44,7 +44,7 @@ BufferView HostBuffer::Emplace(const void* buffer,
   if (!device_buffer) {
     return {};
   }
-  return BufferView{device_buffer, data, range};
+  return BufferView{std::move(device_buffer), data, range};
 }
 
 BufferView HostBuffer::Emplace(const void* buffer, size_t length) {
@@ -52,7 +52,7 @@ BufferView HostBuffer::Emplace(const void* buffer, size_t length) {
   if (!device_buffer) {
     return {};
   }
-  return BufferView{device_buffer, data, range};
+  return BufferView{std::move(device_buffer), data, range};
 }
 
 BufferView HostBuffer::Emplace(size_t length,
@@ -62,7 +62,7 @@ BufferView HostBuffer::Emplace(size_t length,
   if (!device_buffer) {
     return {};
   }
-  return BufferView{device_buffer, data, range};
+  return BufferView{std::move(device_buffer), data, range};
 }
 
 std::shared_ptr<const DeviceBuffer> HostBuffer::GetDeviceBuffer(

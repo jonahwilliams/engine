@@ -6,6 +6,7 @@
 #define FLUTTER_IMPELLER_RENDERER_BACKEND_VULKAN_RENDER_PASS_VK_H_
 
 #include "flutter/fml/macros.h"
+#include "impeller/core/formats.h"
 #include "impeller/renderer/backend/vulkan/context_vk.h"
 #include "impeller/renderer/backend/vulkan/pass_bindings_cache.h"
 #include "impeller/renderer/backend/vulkan/shared_object_vk.h"
@@ -24,14 +25,19 @@ class RenderPassVK final : public RenderPass {
  private:
   friend class CommandBufferVK;
 
-  std::weak_ptr<CommandBufferVK> command_buffer_;
+  std::shared_ptr<CommandBufferVK> command_buffer_;
   std::string debug_label_;
+  std::shared_ptr<Pipeline<PipelineDescriptor>> pipeline_;
+  vk::DescriptorBufferInfo buffers_[16];
+  vk::DescriptorImageInfo images_[16];
+  vk::WriteDescriptorSet writes_[32];
   bool is_valid_ = false;
-  mutable PassBindingsCache pass_bindings_cache_;
+  bool has_label_ = false;
+  PassBindingsCache pass_bindings_cache_;
 
   RenderPassVK(const std::shared_ptr<const Context>& context,
                const RenderTarget& target,
-               std::weak_ptr<CommandBufferVK> command_buffer);
+               std::shared_ptr<CommandBufferVK> command_buffer);
 
   // |RenderPass|
   bool IsValid() const override;
@@ -41,6 +47,26 @@ class RenderPassVK final : public RenderPass {
 
   // |RenderPass|
   bool OnEncodeCommands(const Context& context) const override;
+
+  void SetCommandLabel(const std::string& label) override;
+
+  void SetPipeline(
+      const std::shared_ptr<Pipeline<PipelineDescriptor>>& pipeline) override;
+
+  void SetScissor(IRect value) override;
+
+  void SetViewport(Viewport value) override;
+
+  void SetStencilReference(uint32_t stencil_reference) override;
+
+  bool OnRecordCommand(
+      uint64_t base_vertex,
+      size_t instance_count,
+      const VertexBuffer& vertex_buffer,
+      TextureAndSampler bound_textures[],
+      size_t bound_texture_count,
+      BufferAndUniformSlot bound_buffers[],
+      size_t bound_buffer_count) override;
 
   SharedHandleVK<vk::RenderPass> CreateVKRenderPass(
       const ContextVK& context,

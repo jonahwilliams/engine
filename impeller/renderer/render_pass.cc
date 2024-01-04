@@ -4,10 +4,11 @@
 
 #include "impeller/renderer/render_pass.h"
 #include "impeller/core/host_buffer.h"
+#include "impeller/renderer/command.h"
 
 namespace impeller {
 
-RenderPass::RenderPass(std::weak_ptr<const Context> context,
+RenderPass::RenderPass(std::shared_ptr<const Context> context,
                        const RenderTarget& target)
     : context_(std::move(context)),
       sample_count_(target.GetSampleCount()),
@@ -16,10 +17,7 @@ RenderPass::RenderPass(std::weak_ptr<const Context> context,
       render_target_size_(target.GetRenderTargetSize()),
       render_target_(target),
       transients_buffer_() {
-  auto strong_context = context_.lock();
-  FML_DCHECK(strong_context);
-  transients_buffer_ =
-      HostBuffer::Create(strong_context->GetResourceAllocator());
+  transients_buffer_ = HostBuffer::Create(context_->GetResourceAllocator());
 }
 
 RenderPass::~RenderPass() {
@@ -83,20 +81,29 @@ bool RenderPass::AddCommand(Command&& command) {
     return true;
   }
 
-  commands_.emplace_back(std::move(command));
-  return true;
+  pending_ = std::move(command);
+  for (auto bound_texture : pending_.fragment_bindings.sampled_images) {
+    bound_textures_[bound_texture_count_++] = std::move(bound_texture);
+  }
+  for (auto bound_texture : pending_.vertex_bindings.sampled_images) {
+    bound_textures_[bound_texture_count_++] = std::move(bound_texture);
+  }
+  for (auto bound_buffer : pending_.fragment_bindings.buffers) {
+    bound_buffers_[bound_buffer_count_++] = std::move(bound_buffer);
+  }
+  for (auto bound_buffer : pending_.vertex_bindings.buffers) {
+    bound_buffers_[bound_buffer_count_++] = std::move(bound_buffer);
+  }
+  SetPipeline(pending_.pipeline);
+  SetStencilReference(pending_.stencil_reference);
+  return Dispatch();
 }
 
 bool RenderPass::EncodeCommands() const {
-  auto context = context_.lock();
-  // The context could have been collected in the meantime.
-  if (!context) {
-    return false;
-  }
-  return OnEncodeCommands(*context);
+  return OnEncodeCommands(*GetContext());
 }
 
-const std::weak_ptr<const Context>& RenderPass::GetContext() const {
+const std::shared_ptr<const Context>& RenderPass::GetContext() const {
   return context_;
 }
 
@@ -136,9 +143,25 @@ bool RenderPass::SetVertexBuffer(VertexBuffer buffer) {
 }
 
 bool RenderPass::Dispatch() {
-  auto result = AddCommand(std::move(pending_));
+  auto result = OnRecordCommand(
+      pending_.base_vertex,
+      pending_.instance_count, pending_.vertex_buffer, bound_textures_,
+      bound_texture_count_, bound_buffers_, bound_buffer_count_);
   pending_ = Command{};
+  bound_buffer_count_ = 0;
+  bound_texture_count_ = 0;
   return result;
+}
+
+bool RenderPass::OnRecordCommand(
+    uint64_t base_vertex,
+    size_t instance_count,
+    const VertexBuffer& vertex_buffer,
+    TextureAndSampler bound_textures[],
+    size_t bound_texture_count,
+    BufferAndUniformSlot bound_buffers[],
+    size_t bound_buffer_count) {
+  return true;
 }
 
 // |ResourceBinder|
@@ -146,15 +169,22 @@ bool RenderPass::BindResource(ShaderStage stage,
                               const ShaderUniformSlot& slot,
                               const ShaderMetadata& metadata,
                               BufferView view) {
-  return pending_.BindResource(stage, slot, metadata, view);
+  bound_buffers_[bound_buffer_count_++] =
+      BufferAndUniformSlot{.stage = stage,
+                           .slot = slot,
+                           .view = BufferResource(&metadata, std::move(view))};
+  return true;
 }
 
-bool RenderPass::BindResource(
-    ShaderStage stage,
-    const ShaderUniformSlot& slot,
-    const std::shared_ptr<const ShaderMetadata>& metadata,
-    BufferView view) {
-  return pending_.BindResource(stage, slot, metadata, std::move(view));
+bool RenderPass::BindResource(ShaderStage stage,
+                              const ShaderUniformSlot& slot,
+                              std::shared_ptr<const ShaderMetadata>& metadata,
+                              BufferView view) {
+  bound_buffers_[bound_buffer_count_++] =
+      std::move(BufferAndUniformSlot{.stage = stage,
+                           .slot = slot,
+                           .view = BufferResource(metadata, std::move(view))});
+  return true;
 }
 
 // |ResourceBinder|
@@ -163,8 +193,13 @@ bool RenderPass::BindResource(ShaderStage stage,
                               const ShaderMetadata& metadata,
                               std::shared_ptr<const Texture> texture,
                               std::shared_ptr<const Sampler> sampler) {
-  return pending_.BindResource(stage, slot, metadata, std::move(texture),
-                               std::move(sampler));
+  bound_textures_[bound_texture_count_++] = TextureAndSampler{
+      .stage = stage,
+      .slot = slot,
+      .texture = {&metadata, std::move(texture)},
+      .sampler = std::move(sampler),
+  };
+  return true;
 }
 
 }  // namespace impeller

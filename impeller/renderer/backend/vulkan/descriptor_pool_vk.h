@@ -30,16 +30,13 @@ class DescriptorPoolVK {
 
   ~DescriptorPoolVK();
 
-  fml::StatusOr<std::vector<vk::DescriptorSet>> AllocateDescriptorSets(
-      uint32_t buffer_count,
-      uint32_t sampler_count,
-      uint32_t subpass_count,
-      const std::vector<vk::DescriptorSetLayout>& layouts);
+  fml::StatusOr<vk::DescriptorSet> AllocateDescriptorSets(
+      vk::DescriptorSetLayout);
 
  private:
   std::weak_ptr<const ContextVK> context_;
-  vk::UniqueDescriptorPool pool_ = {};
-  uint32_t allocated_capacity_ = 0;
+  std::vector<vk::UniqueDescriptorPool> pools_;
+  std::vector<uint32_t> allocated_capacity_;
 
   DescriptorPoolVK(const DescriptorPoolVK&) = delete;
 

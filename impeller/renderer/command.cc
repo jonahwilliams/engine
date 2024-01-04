@@ -50,11 +50,15 @@ bool Command::DoBindResource(ShaderStage stage,
   switch (stage) {
     case ShaderStage::kVertex:
       vertex_bindings.buffers.emplace_back(BufferAndUniformSlot{
-          .slot = slot, .view = BufferResource(metadata, std::move(view))});
+          .stage = stage,
+          .slot = slot,
+          .view = BufferResource(metadata, std::move(view))});
       return true;
     case ShaderStage::kFragment:
       fragment_bindings.buffers.emplace_back(BufferAndUniformSlot{
-          .slot = slot, .view = BufferResource(metadata, std::move(view))});
+          .stage = stage,
+          .slot = slot,
+          .view = BufferResource(metadata, std::move(view))});
       return true;
     case ShaderStage::kCompute:
       VALIDATION_LOG << "Use ComputeCommands for compute shader stages.";
@@ -80,6 +84,7 @@ bool Command::BindResource(ShaderStage stage,
   switch (stage) {
     case ShaderStage::kVertex:
       vertex_bindings.sampled_images.emplace_back(TextureAndSampler{
+          .stage = stage,
           .slot = slot,
           .texture = {&metadata, std::move(texture)},
           .sampler = std::move(sampler),
@@ -87,6 +92,7 @@ bool Command::BindResource(ShaderStage stage,
       return true;
     case ShaderStage::kFragment:
       fragment_bindings.sampled_images.emplace_back(TextureAndSampler{
+          .stage = stage,
           .slot = slot,
           .texture = {&metadata, std::move(texture)},
           .sampler = std::move(sampler),

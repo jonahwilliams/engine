@@ -276,7 +276,7 @@ std::shared_ptr<RenderPass> CommandBufferMTL::OnCreateRenderPass(
   }
 
   auto pass = std::shared_ptr<RenderPassMTL>(
-      new RenderPassMTL(context_, target, buffer_));
+      new RenderPassMTL(context_.lock(), target, buffer_));
   if (!pass->IsValid()) {
     return nullptr;
   }

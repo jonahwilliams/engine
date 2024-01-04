@@ -59,6 +59,7 @@ using TextureResource = Resource<std::shared_ptr<const Texture>>;
 
 /// @brief combines the texture, sampler and sampler slot information.
 struct TextureAndSampler {
+  ShaderStage stage;
   SampledImageSlot slot;
   TextureResource texture;
   std::shared_ptr<const Sampler> sampler;
@@ -66,6 +67,7 @@ struct TextureAndSampler {
 
 /// @brief combines the buffer resource and its uniform slot information.
 struct BufferAndUniformSlot {
+  ShaderStage stage;
   ShaderUniformSlot slot;
   BufferResource view;
 };

@@ -59,7 +59,7 @@ DescriptorPoolVK::DescriptorPoolVK(
 }
 
 DescriptorPoolVK::~DescriptorPoolVK() {
-  if (!pool_) {
+  if (!pools_.empty()) {
     return;
   }
 
@@ -72,46 +72,60 @@ DescriptorPoolVK::~DescriptorPoolVK() {
     return;
   }
 
-  auto reset_pool_when_dropped = BackgroundDescriptorPoolVK(
-      std::move(pool_), allocated_capacity_, recycler);
+  for (auto i = 0u; i < pools_.size(); i++) {
+    auto reset_pool_when_dropped = BackgroundDescriptorPoolVK(
+        std::move(pools_[i]), allocated_capacity_[i], recycler);
 
-  UniqueResourceVKT<BackgroundDescriptorPoolVK> pool(
-      context->GetResourceManager(), std::move(reset_pool_when_dropped));
+    UniqueResourceVKT<BackgroundDescriptorPoolVK> pool(
+        context->GetResourceManager(), std::move(reset_pool_when_dropped));
+  }
+  pools_.clear();
 }
 
-fml::StatusOr<std::vector<vk::DescriptorSet>>
-DescriptorPoolVK::AllocateDescriptorSets(
-    uint32_t buffer_count,
-    uint32_t sampler_count,
-    uint32_t subpass_count,
-    const std::vector<vk::DescriptorSetLayout>& layouts) {
+fml::StatusOr<vk::DescriptorSet> DescriptorPoolVK::AllocateDescriptorSets(
+    vk::DescriptorSetLayout layout) {
   std::shared_ptr<const ContextVK> strong_context = context_.lock();
   if (!strong_context) {
     return fml::Status(fml::StatusCode::kUnknown, "No device");
   }
-  auto minimum_capacity =
-      std::max(std::max(sampler_count, buffer_count), subpass_count);
-  auto [new_pool, capacity] =
-      strong_context->GetDescriptorPoolRecycler()->Get(minimum_capacity);
-  if (!new_pool) {
-    return fml::Status(fml::StatusCode::kUnknown,
-                       "Failed to create descriptor pool");
+
+  if (pools_.empty()) {
+    auto [new_pool, capacity] =
+        strong_context->GetDescriptorPoolRecycler()->Get(1024);
+    if (!new_pool) {
+      return fml::Status(fml::StatusCode::kUnknown,
+                         "Failed to create descriptor pool");
+    }
+    pools_.emplace_back(std::move(new_pool));
+    allocated_capacity_.emplace_back(capacity);
   }
-  pool_ = std::move(new_pool);
-  allocated_capacity_ = capacity;
 
   vk::DescriptorSetAllocateInfo set_info;
-  set_info.setDescriptorPool(pool_.get());
-  set_info.setSetLayouts(layouts);
+  set_info.setDescriptorPool(pools_.back().get());
+  set_info.setPSetLayouts(&layout);
+  set_info.setDescriptorSetCount(1);
 
-  auto [result, sets] =
-      strong_context->GetDevice().allocateDescriptorSets(set_info);
+  vk::DescriptorSet set;
+  auto result =
+      strong_context->GetDevice().allocateDescriptorSets(&set_info, &set);
+  if (result == vk::Result::eErrorOutOfPoolMemory) {
+    auto [new_pool, capacity] =
+        strong_context->GetDescriptorPoolRecycler()->Get(1024);
+    if (!new_pool) {
+      return fml::Status(fml::StatusCode::kUnknown,
+                         "Failed to create descriptor pool");
+    }
+    pools_.emplace_back(std::move(new_pool));
+    allocated_capacity_.emplace_back(capacity);
+    return AllocateDescriptorSets(layout);
+  }
+
   if (result != vk::Result::eSuccess) {
     VALIDATION_LOG << "Could not allocate descriptor sets: "
                    << vk::to_string(result);
     return fml::Status(fml::StatusCode::kUnknown, "");
   }
-  return sets;
+  return set;
 }
 
 void DescriptorPoolRecyclerVK::Reclaim(vk::UniqueDescriptorPool&& pool,

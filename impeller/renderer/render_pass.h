@@ -33,7 +33,7 @@ class RenderPass : public ResourceBinder {
  public:
   virtual ~RenderPass();
 
-  const std::weak_ptr<const Context>& GetContext() const;
+  const std::shared_ptr<const Context>& GetContext() const;
 
   const RenderTarget& GetRenderTarget() const;
 
@@ -47,7 +47,7 @@ class RenderPass : public ResourceBinder {
   ///
   /// Note: this is not the native command buffer.
   void ReserveCommands(size_t command_count) {
-    commands_.reserve(command_count);
+    // commands_.reserve(command_count);
   }
 
   HostBuffer& GetTransientsBuffer();
@@ -65,12 +65,12 @@ class RenderPass : public ResourceBinder {
 
   //----------------------------------------------------------------------------
   /// The pipeline to use for this command.
-  void SetPipeline(
+  virtual void SetPipeline(
       const std::shared_ptr<Pipeline<PipelineDescriptor>>& pipeline);
 
   //----------------------------------------------------------------------------
   /// The debugging label to use for the command.
-  void SetCommandLabel(const std::string& label);
+  virtual void SetCommandLabel(const std::string& label);
 
   //----------------------------------------------------------------------------
   /// The reference value to use in stenciling operations. Stencil configuration
@@ -79,24 +79,28 @@ class RenderPass : public ResourceBinder {
   /// @see         `Pipeline`
   /// @see         `PipelineDescriptor`
   ///
-  void SetStencilReference(uint32_t value);
-
-  void SetBaseVertex(uint64_t value);
+  virtual void SetStencilReference(uint32_t value);
 
   //----------------------------------------------------------------------------
   /// The viewport coordinates that the rasterizer linearly maps normalized
   /// device coordinates to.
+  ///
   /// If unset, the viewport is the size of the render target with a zero
   /// origin, znear=0, and zfar=1.
   ///
-  void SetViewport(Viewport viewport);
+  /// TODO: should this be stateful?
+  virtual void SetViewport(Viewport viewport);
 
   //----------------------------------------------------------------------------
   /// The scissor rect to use for clipping writes to the render target. The
   /// scissor rect must lie entirely within the render target.
+  ///
   /// If unset, no scissor is applied.
   ///
-  void SetScissor(IRect scissor);
+  /// TODO: should this be stateful?
+  virtual void SetScissor(IRect scissor);
+
+  void SetBaseVertex(uint64_t value);
 
   //----------------------------------------------------------------------------
   /// The number of instances of the given set of vertices to render. Not all
@@ -128,7 +132,7 @@ class RenderPass : public ResourceBinder {
 
   bool BindResource(ShaderStage stage,
                     const ShaderUniformSlot& slot,
-                    const std::shared_ptr<const ShaderMetadata>& metadata,
+                    std::shared_ptr<const ShaderMetadata>& metadata,
                     BufferView view);
 
   // |ResourceBinder|
@@ -166,7 +170,7 @@ class RenderPass : public ResourceBinder {
   bool HasStencilAttachment() const;
 
  protected:
-  const std::weak_ptr<const Context> context_;
+  const std::shared_ptr<const Context> context_;
   // The following properties: sample_count, pixel_format,
   // has_stencil_attachment, and render_target_size are cached on the
   // RenderTarget to speed up numerous lookups during rendering. This is safe as
@@ -180,7 +184,17 @@ class RenderPass : public ResourceBinder {
   std::shared_ptr<HostBuffer> transients_buffer_;
   std::vector<Command> commands_;
 
-  RenderPass(std::weak_ptr<const Context> context, const RenderTarget& target);
+  RenderPass(std::shared_ptr<const Context> context,
+             const RenderTarget& target);
+
+  virtual bool OnRecordCommand(
+      uint64_t base_vertex,
+      size_t instance_count,
+      const VertexBuffer& vertex_buffer,
+      TextureAndSampler bound_textures[],
+      size_t bound_texture_count,
+      BufferAndUniformSlot bound_buffers[],
+      size_t bound_buffer_count);
 
   virtual void OnSetLabel(std::string label) = 0;
 
@@ -192,6 +206,10 @@ class RenderPass : public ResourceBinder {
   RenderPass& operator=(const RenderPass&) = delete;
 
   Command pending_;
+  TextureAndSampler bound_textures_[16];
+  BufferAndUniformSlot bound_buffers_[16];
+  size_t bound_texture_count_ = 0u;
+  size_t bound_buffer_count_ = 0u;
 };
 
 }  // namespace impeller
