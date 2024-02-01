@@ -81,7 +81,8 @@ std::optional<Snapshot> Contents::RenderToSnapshot(
   }
 
   fml::StatusOr<RenderTarget> render_target = renderer.MakeSubpass(
-      label, ISize::Ceil(coverage->GetSize()),
+      label, renderer.GetContext()->CreateCommandBuffer(),
+      ISize::Ceil(coverage->GetSize()),
       [&contents = *this, &entity, &coverage](const ContentContext& renderer,
                                               RenderPass& pass) -> bool {
         Entity sub_entity;

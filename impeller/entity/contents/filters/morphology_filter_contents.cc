@@ -135,8 +135,10 @@ std::optional<Entity> DirectionalMorphologyFilterContents::RenderFilter(
     return pass.Draw().ok();
   };
 
-  fml::StatusOr<RenderTarget> render_target = renderer.MakeSubpass(
-      "Directional Morphology Filter", ISize(coverage.GetSize()), callback);
+  auto command_buffer = renderer.GetContext()->CreateCommandBuffer();
+  fml::StatusOr<RenderTarget> render_target =
+      renderer.MakeSubpass("Directional Morphology Filter", command_buffer,
+                           ISize(coverage.GetSize()), callback);
   if (!render_target.ok()) {
     return std::nullopt;
   }
@@ -145,6 +147,7 @@ std::optional<Entity> DirectionalMorphologyFilterContents::RenderFilter(
   sampler_desc.min_filter = MinMagFilter::kLinear;
   sampler_desc.mag_filter = MinMagFilter::kLinear;
 
+  renderer.RecordCommandBuffer(std::move(command_buffer));
   return Entity::FromSnapshot(
       Snapshot{.texture = render_target.value().GetRenderTargetTexture(),
                .transform = Matrix::MakeTranslation(coverage.GetOrigin()),

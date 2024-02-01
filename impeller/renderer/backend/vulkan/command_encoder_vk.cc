@@ -86,7 +86,6 @@ bool CommandEncoderVK::EndCommandBuffer() const {
 
   auto command_buffer = GetCommandBuffer();
   tracked_objects_->GetGPUProbe().RecordCmdBufferEnd(command_buffer);
-
   auto status = command_buffer.end();
   if (status != vk::Result::eSuccess) {
     VALIDATION_LOG << "Failed to end command buffer: " << vk::to_string(status);

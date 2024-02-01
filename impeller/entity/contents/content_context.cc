@@ -413,7 +413,8 @@ bool ContentContext::IsValid() const {
 }
 
 fml::StatusOr<RenderTarget> ContentContext::MakeSubpass(
-    const std::string& label,
+    std::string_view label,
+    const std::shared_ptr<CommandBuffer>& command_buffer,
     ISize texture_size,
     const SubpassCallback& subpass_callback,
     bool msaa_enabled,
@@ -423,23 +424,24 @@ fml::StatusOr<RenderTarget> ContentContext::MakeSubpass(
   if (context->GetCapabilities()->SupportsOffscreenMSAA() && msaa_enabled) {
     subpass_target = RenderTarget::CreateOffscreenMSAA(
         *context, *GetRenderTargetCache(), texture_size,
-        /*mip_count=*/mip_count, SPrintF("%s Offscreen", label.c_str()),
+        /*mip_count=*/mip_count, SPrintF("%s Offscreen", label.data()),
         RenderTarget::kDefaultColorAttachmentConfigMSAA,
         std::nullopt  // stencil_attachment_config
     );
   } else {
     subpass_target = RenderTarget::CreateOffscreen(
         *context, *GetRenderTargetCache(), texture_size,
-        /*mip_count=*/mip_count, SPrintF("%s Offscreen", label.c_str()),
+        /*mip_count=*/mip_count, SPrintF("%s Offscreen", label.data()),
         RenderTarget::kDefaultColorAttachmentConfig,  //
         std::nullopt  // stencil_attachment_config
     );
   }
-  return MakeSubpass(label, subpass_target, subpass_callback);
+  return MakeSubpass(label, command_buffer, subpass_target, subpass_callback);
 }
 
 fml::StatusOr<RenderTarget> ContentContext::MakeSubpass(
-    const std::string& label,
+    std::string_view label,
+    const std::shared_ptr<CommandBuffer>& command_buffer,
     const RenderTarget& subpass_target,
     const SubpassCallback& subpass_callback) const {
   const std::shared_ptr<Context>& context = GetContext();
@@ -449,17 +451,11 @@ fml::StatusOr<RenderTarget> ContentContext::MakeSubpass(
     return fml::Status(fml::StatusCode::kUnknown, "");
   }
 
-  auto sub_command_buffer = context->CreateCommandBuffer();
-  sub_command_buffer->SetLabel(SPrintF("%s CommandBuffer", label.c_str()));
-  if (!sub_command_buffer) {
-    return fml::Status(fml::StatusCode::kUnknown, "");
-  }
-
-  auto sub_renderpass = sub_command_buffer->CreateRenderPass(subpass_target);
+  auto sub_renderpass = command_buffer->CreateRenderPass(subpass_target);
   if (!sub_renderpass) {
     return fml::Status(fml::StatusCode::kUnknown, "");
   }
-  sub_renderpass->SetLabel(SPrintF("%s RenderPass", label.c_str()));
+  sub_renderpass->SetLabel(SPrintF("%s RenderPass", label.data()));
 
   if (!subpass_callback(*this, *sub_renderpass)) {
     return fml::Status(fml::StatusCode::kUnknown, "");
@@ -473,13 +469,11 @@ fml::StatusOr<RenderTarget> ContentContext::MakeSubpass(
       subpass_target.GetRenderTargetTexture();
   if (target_texture->GetMipCount() > 1) {
     fml::Status mipmap_status =
-        AddMipmapGeneration(sub_command_buffer, context, target_texture);
+        AddMipmapGeneration(command_buffer, context, target_texture);
     if (!mipmap_status.ok()) {
       return mipmap_status;
     }
   }
-
-  RecordCommandBuffer(std::move(sub_command_buffer));
 
   return subpass_target;
 }
@@ -549,6 +543,7 @@ void ContentContext::RecordCommandBuffer(
 
 void ContentContext::FlushCommandBuffers() const {
   auto buffers = std::move(pending_command_buffers_->command_buffers);
+  FML_LOG(ERROR) << "Flush: " << buffers.size();
   GetContext()->GetCommandQueue()->Submit(buffers);
 }
 

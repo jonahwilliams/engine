@@ -732,7 +732,8 @@ class ContentContext {
   /// @brief  Creates a new texture of size `texture_size` and calls
   ///         `subpass_callback` with a `RenderPass` for drawing to the texture.
   fml::StatusOr<RenderTarget> MakeSubpass(
-      const std::string& label,
+      std::string_view label,
+      const std::shared_ptr<CommandBuffer>& command_buffer,
       ISize texture_size,
       const SubpassCallback& subpass_callback,
       bool msaa_enabled = true,
@@ -740,7 +741,8 @@ class ContentContext {
 
   /// Makes a subpass that will render to `subpass_target`.
   fml::StatusOr<RenderTarget> MakeSubpass(
-      const std::string& label,
+      std::string_view label,
+      const std::shared_ptr<CommandBuffer>& command_buffer,
       const RenderTarget& subpass_target,
       const SubpassCallback& subpass_callback) const;
 

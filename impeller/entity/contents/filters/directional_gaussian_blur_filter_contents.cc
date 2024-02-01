@@ -102,8 +102,9 @@ std::optional<Entity> DirectionalGaussianBlurFilterContents::RenderFilter(
     expanded_coverage_hint =
         is_second_pass_ ? coverage_hint : coverage_hint->Expand(r);
   }
-  auto input_snapshot = inputs[0]->GetSnapshot("GaussianBlur", renderer, entity,
-                                               expanded_coverage_hint);
+  auto command_buffer = renderer.GetContext()->CreateCommandBuffer();
+  auto input_snapshot = inputs[0]->GetSnapshot(
+      "GaussianBlur", renderer, entity, expanded_coverage_hint);
   if (!input_snapshot.has_value()) {
     return std::nullopt;
   }
@@ -254,8 +255,9 @@ std::optional<Entity> DirectionalGaussianBlurFilterContents::RenderFilter(
   Vector2 scaled_size = pass_texture_rect.GetSize() * scale;
   ISize floored_size = ISize(scaled_size.x, scaled_size.y);
 
-  fml::StatusOr<RenderTarget> render_target = renderer.MakeSubpass(
-      "Directional Gaussian Blur Filter", floored_size, subpass_callback);
+  fml::StatusOr<RenderTarget> render_target =
+      renderer.MakeSubpass("Directional Gaussian Blur Filter", command_buffer,
+                           floored_size, subpass_callback);
 
   if (!render_target.ok()) {
     return std::nullopt;
@@ -267,6 +269,7 @@ std::optional<Entity> DirectionalGaussianBlurFilterContents::RenderFilter(
   sampler_desc.width_address_mode = SamplerAddressMode::kClampToEdge;
   sampler_desc.width_address_mode = SamplerAddressMode::kClampToEdge;
 
+  renderer.RecordCommandBuffer(std::move(command_buffer));
   return Entity::FromSnapshot(
       Snapshot{
           .texture = render_target.value().GetRenderTargetTexture(),
