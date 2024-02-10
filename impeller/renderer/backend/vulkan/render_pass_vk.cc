@@ -102,9 +102,9 @@ SharedHandleVK<vk::RenderPass> RenderPassVK::CreateVKRenderPass(
         color.load_action,                                   //
         color.store_action                                   //
     );
-    TextureVK::Cast(*color.texture).SetLayout(barrier);
+    SetTextureLayout(TextureVK::Cast(*color.texture), barrier);
     if (color.resolve_texture) {
-      TextureVK::Cast(*color.resolve_texture).SetLayout(barrier);
+      SetTextureLayout(TextureVK::Cast(*color.resolve_texture), barrier);
     }
   }
 
@@ -115,7 +115,7 @@ SharedHandleVK<vk::RenderPass> RenderPassVK::CreateVKRenderPass(
         depth->load_action,                                   //
         depth->store_action                                   //
     );
-    TextureVK::Cast(*depth->texture).SetLayout(barrier);
+    SetTextureLayout(TextureVK::Cast(*depth->texture), barrier);
   }
 
   if (auto stencil = render_target_.GetStencilAttachment();
@@ -126,7 +126,7 @@ SharedHandleVK<vk::RenderPass> RenderPassVK::CreateVKRenderPass(
         stencil->load_action,                                   //
         stencil->store_action                                   //
     );
-    TextureVK::Cast(*stencil->texture).SetLayout(barrier);
+    SetTextureLayout(TextureVK::Cast(*stencil->texture), barrier);
   }
 
   // There may exist a previous recycled render pass that we can continue using.
@@ -575,6 +575,10 @@ bool RenderPassVK::BindResource(ShaderStage stage,
   if (!command_buffer_->GetEncoder()->Track(texture)) {
     return false;
   }
+  command_buffer_->RecordUsage(texture,
+                               vk::ImageLayout::eShaderReadOnlyOptimal,
+                               vk::PipelineStageFlagBits::eFragmentShader,
+                               vk::AccessFlagBits::eShaderRead);
 
   vk::DescriptorImageInfo image_info;
   image_info.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal;
@@ -612,9 +616,8 @@ bool RenderPassVK::OnEncodeCommands(const Context& context) const {
 
     barrier.new_layout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
-    if (!TextureVK::Cast(*result_texture).SetLayout(barrier)) {
-      return false;
-    }
+    SetTextureLayout(TextureVK::Cast(*result_texture), barrier,
+                     vk::ImageLayout::eGeneral);
   }
 
   return true;

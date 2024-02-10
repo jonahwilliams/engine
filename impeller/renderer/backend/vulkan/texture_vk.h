@@ -5,6 +5,7 @@
 #ifndef FLUTTER_IMPELLER_RENDERER_BACKEND_VULKAN_TEXTURE_VK_H_
 #define FLUTTER_IMPELLER_RENDERER_BACKEND_VULKAN_TEXTURE_VK_H_
 
+#include "fml/status.h"
 #include "impeller/base/backend_cast.h"
 #include "impeller/core/texture.h"
 #include "impeller/renderer/backend/vulkan/context_vk.h"
@@ -28,12 +29,6 @@ class TextureVK final : public Texture, public BackendCast<TextureVK, Texture> {
   vk::ImageView GetImageView() const;
 
   vk::ImageView GetRenderTargetView() const;
-
-  bool SetLayout(const BarrierVK& barrier) const;
-
-  vk::ImageLayout SetLayoutWithoutEncoding(vk::ImageLayout layout) const;
-
-  vk::ImageLayout GetLayout() const;
 
   std::shared_ptr<const TextureSourceVK> GetTextureSource() const;
 
@@ -95,6 +90,17 @@ class TextureVK final : public Texture, public BackendCast<TextureVK, Texture> {
 
   TextureVK& operator=(const TextureVK&) = delete;
 };
+
+/// Transition the layout of [texture] using the configuration of the provided
+/// [barrier].
+///
+/// [old_layout] may be optionally set in order to preserve the texture
+/// contents. Otherwise, the previous layout will be specified as undefined,
+/// which allows the driver to discard the textures contents.
+void SetTextureLayout(
+    const TextureVK& texture,
+    const BarrierVK& barrier,
+    vk::ImageLayout old_layout = vk::ImageLayout::eUndefined);
 
 }  // namespace impeller
 

@@ -5,7 +5,11 @@
 #ifndef FLUTTER_IMPELLER_RENDERER_BACKEND_VULKAN_COMMAND_QUEUE_VK_H_
 #define FLUTTER_IMPELLER_RENDERER_BACKEND_VULKAN_COMMAND_QUEUE_VK_H_
 
+#include <unordered_map>
+
+#include "impeller/renderer/backend/vulkan/command_buffer_vk.h"
 #include "impeller/renderer/command_queue.h"
+#include "impeller/renderer/backend/vulkan/vk.h"  // IWYU pragma: keep.
 
 namespace impeller {
 
@@ -23,6 +27,9 @@ class CommandQueueVK : public CommandQueue {
 
  private:
   std::weak_ptr<ContextVK> context_;
+  std::unordered_map<vk::Image, CommandBufferVK::UsageStruct> image_states_;
+
+  void DetermineFixupState(CommandBufferVK& buffer, CommandBufferVK& prev_buffer);
 
   CommandQueueVK(const CommandQueueVK&) = delete;
 

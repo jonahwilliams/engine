@@ -13,6 +13,7 @@
 #include "impeller/renderer/backend/vulkan/gpu_tracer_vk.h"
 #include "impeller/renderer/backend/vulkan/surface_vk.h"
 #include "impeller/renderer/backend/vulkan/swapchain_image_vk.h"
+#include "impeller/renderer/backend/vulkan/texture_vk.h"
 #include "impeller/renderer/context.h"
 #include "vulkan/vulkan_structs.hpp"
 
@@ -411,9 +412,10 @@ bool SwapchainImplVK::Present(const std::shared_ptr<SwapchainImageVK>& image,
     barrier.dst_access = {};
     barrier.dst_stage = vk::PipelineStageFlagBits::eBottomOfPipe;
 
-    if (!image->SetLayout(barrier).ok()) {
-      return false;
-    }
+    // if (!image->SetLayout(barrier).ok()) {
+    //   return false;
+    // }
+   // SetTextureLayout(image, barrier, vk::ImageLayout::eColorAttachmentOptimal);
 
     if (vk_final_cmd_buffer.end() != vk::Result::eSuccess) {
       return false;

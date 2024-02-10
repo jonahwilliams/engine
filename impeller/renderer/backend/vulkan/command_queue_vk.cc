@@ -11,6 +11,7 @@
 #include "impeller/renderer/backend/vulkan/command_encoder_vk.h"
 #include "impeller/renderer/backend/vulkan/context_vk.h"
 #include "impeller/renderer/backend/vulkan/fence_waiter_vk.h"
+#include "impeller/renderer/backend/vulkan/texture_source_vk.h"
 #include "impeller/renderer/backend/vulkan/tracked_objects_vk.h"
 #include "impeller/renderer/command_buffer.h"
 
@@ -20,6 +21,67 @@ CommandQueueVK::CommandQueueVK(const std::weak_ptr<ContextVK>& context)
     : context_(context) {}
 
 CommandQueueVK::~CommandQueueVK() = default;
+
+void SetTextureLayout(const TextureSourceVK& texture,
+                      const BarrierVK& barrier,
+                      vk::ImageLayout old_layout) {
+  const TextureDescriptor& desc = texture.GetTextureDescriptor();
+  vk::ImageMemoryBarrier image_barrier;
+  image_barrier.srcAccessMask = barrier.src_access;
+  image_barrier.dstAccessMask = barrier.dst_access;
+  image_barrier.oldLayout = old_layout;
+  image_barrier.newLayout = barrier.new_layout;
+  image_barrier.image = texture.GetImage();
+  image_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  image_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  image_barrier.subresourceRange.aspectMask = ToImageAspectFlags(desc.format);
+  image_barrier.subresourceRange.baseMipLevel = 0u;
+  image_barrier.subresourceRange.levelCount = desc.mip_count;
+  image_barrier.subresourceRange.baseArrayLayer = 0u;
+  image_barrier.subresourceRange.layerCount = ToArrayLayerCount(desc.type);
+
+  barrier.cmd_buffer.pipelineBarrier(barrier.src_stage,  // src stage
+                                     barrier.dst_stage,  // dst stage
+                                     {},                 // dependency flags
+                                     nullptr,            // memory barriers
+                                     nullptr,            // buffer barriers
+                                     image_barrier       // image barriers
+  );
+}
+
+void CommandQueueVK::DetermineFixupState(CommandBufferVK& buffer,
+                                         CommandBufferVK& prev_buffer) {
+  const auto& texture_usage = buffer.GetUsage();
+  for (const auto& [texture, usage] : texture_usage) {
+    const TextureVK& texture_vk = TextureVK::Cast(*texture);
+    CommandBufferVK::UsageStruct old_usage = {.layout =
+                                                  vk::ImageLayout::eUndefined};
+
+    auto maybe_existing_state = image_states_.find(texture_vk.GetImage());
+    if (maybe_existing_state != image_states_.end()) {
+      old_usage = maybe_existing_state->second;
+    }
+    // No barrier needed, states match. Not sure what to do for stage mismatch.
+    if (old_usage.layout == usage.layout) {
+      continue;
+    }
+
+    // barrier mismatch, add pipeline barrier based on current and past
+    // submitted usage.
+    BarrierVK barrier;
+    barrier.new_layout = usage.layout;
+    barrier.cmd_buffer = prev_buffer.GetEncoder()->GetCommandBuffer();
+    barrier.src_stage = old_usage.stage;
+    barrier.src_access = old_usage.access;
+    barrier.dst_stage = usage.stage;
+    barrier.dst_access = usage.access;
+
+    SetTextureLayout(texture_vk, barrier, old_usage.layout);
+
+    // Updated recorded image state.
+    image_states_[texture_vk.GetImage()] = usage;
+  }
+}
 
 fml::Status CommandQueueVK::Submit(
     const std::vector<std::shared_ptr<CommandBuffer>>& buffers,

@@ -4,6 +4,7 @@
 
 #include "impeller/renderer/backend/vulkan/texture_vk.h"
 
+#include "impeller/core/texture_descriptor.h"
 #include "impeller/renderer/backend/vulkan/command_buffer_vk.h"
 #include "impeller/renderer/backend/vulkan/command_encoder_vk.h"
 #include "impeller/renderer/backend/vulkan/formats_vk.h"
@@ -79,9 +80,11 @@ bool TextureVK::OnSetContents(const uint8_t* contents,
   barrier.dst_access = vk::AccessFlagBits::eTransferWrite;
   barrier.dst_stage = vk::PipelineStageFlagBits::eTransfer;
 
-  if (!SetLayout(barrier)) {
-    return false;
-  }
+  // The contract of OnSetContents replaces the entire texture, so it is safe
+  // to specify the previous layout as undefined to allow the driver to
+  // discard the contents. If setContents is updated to do partial replacements
+  // then the old layout will need to be correctly specified.
+  SetTextureLayout(*this, barrier);
 
   vk::BufferImageCopy copy;
   copy.bufferOffset = 0u;
@@ -120,9 +123,7 @@ bool TextureVK::OnSetContents(const uint8_t* contents,
 
     barrier.new_layout = vk::ImageLayout::eShaderReadOnlyOptimal;
 
-    if (!SetLayout(barrier)) {
-      return false;
-    }
+    SetTextureLayout(*this, barrier, vk::ImageLayout::eTransferDstOptimal);
   }
 
   return context->GetCommandQueue()->Submit({cmd_buffer}).ok();
@@ -155,20 +156,6 @@ std::shared_ptr<const TextureSourceVK> TextureVK::GetTextureSource() const {
   return source_;
 }
 
-bool TextureVK::SetLayout(const BarrierVK& barrier) const {
-  return source_ ? source_->SetLayout(barrier).ok() : false;
-}
-
-vk::ImageLayout TextureVK::SetLayoutWithoutEncoding(
-    vk::ImageLayout layout) const {
-  return source_ ? source_->SetLayoutWithoutEncoding(layout)
-                 : vk::ImageLayout::eUndefined;
-}
-
-vk::ImageLayout TextureVK::GetLayout() const {
-  return source_ ? source_->GetLayout() : vk::ImageLayout::eUndefined;
-}
-
 vk::ImageView TextureVK::GetRenderTargetView() const {
   return source_->GetRenderTargetView();
 }
@@ -189,6 +176,33 @@ SharedHandleVK<vk::Framebuffer> TextureVK::GetFramebuffer() const {
 
 SharedHandleVK<vk::RenderPass> TextureVK::GetRenderPass() const {
   return render_pass_;
+}
+
+void SetTextureLayout(const TextureVK& texture,
+                      const BarrierVK& barrier,
+                      vk::ImageLayout old_layout) {
+  const TextureDescriptor& desc = texture.GetTextureDescriptor();
+  vk::ImageMemoryBarrier image_barrier;
+  image_barrier.srcAccessMask = barrier.src_access;
+  image_barrier.dstAccessMask = barrier.dst_access;
+  image_barrier.oldLayout = old_layout;
+  image_barrier.newLayout = barrier.new_layout;
+  image_barrier.image = texture.GetImage();
+  image_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  image_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  image_barrier.subresourceRange.aspectMask = ToImageAspectFlags(desc.format);
+  image_barrier.subresourceRange.baseMipLevel = 0u;
+  image_barrier.subresourceRange.levelCount = desc.mip_count;
+  image_barrier.subresourceRange.baseArrayLayer = 0u;
+  image_barrier.subresourceRange.layerCount = ToArrayLayerCount(desc.type);
+
+  barrier.cmd_buffer.pipelineBarrier(barrier.src_stage,  // src stage
+                                     barrier.dst_stage,  // dst stage
+                                     {},                 // dependency flags
+                                     nullptr,            // memory barriers
+                                     nullptr,            // buffer barriers
+                                     image_barrier       // image barriers
+  );
 }
 
 }  // namespace impeller

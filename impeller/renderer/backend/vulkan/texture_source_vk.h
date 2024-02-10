@@ -40,28 +40,6 @@ class TextureSourceVK {
   /// texture, we need to create multiple image views.
   virtual vk::ImageView GetRenderTargetView() const = 0;
 
-  /// Encodes the layout transition `barrier` to `barrier.cmd_buffer` for the
-  /// image.
-  ///
-  /// The transition is from the layout stored via `SetLayoutWithoutEncoding` to
-  /// `barrier.new_layout`.
-  fml::Status SetLayout(const BarrierVK& barrier) const;
-
-  /// Store the layout of the image.
-  ///
-  /// This just is bookkeeping on the CPU, to actually set the layout use
-  /// `SetLayout`.
-  ///
-  /// @param layout The new layout.
-  /// @return The old layout.
-  vk::ImageLayout SetLayoutWithoutEncoding(vk::ImageLayout layout) const;
-
-  /// Get the last layout assigned to the TextureSourceVK.
-  ///
-  /// This value is synchronized with the GPU via SetLayout so it may not
-  /// reflect the actual layout.
-  vk::ImageLayout GetLayout() const;
-
   /// Whether or not this is a swapchain image.
   virtual bool IsSwapchainImage() const = 0;
 
@@ -69,11 +47,6 @@ class TextureSourceVK {
   const TextureDescriptor desc_;
 
   explicit TextureSourceVK(TextureDescriptor desc);
-
- private:
-  mutable RWMutex layout_mutex_;
-  mutable vk::ImageLayout layout_ IPLR_GUARDED_BY(layout_mutex_) =
-      vk::ImageLayout::eUndefined;
 };
 
 }  // namespace impeller
