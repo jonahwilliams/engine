@@ -2,6 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "common/settings.h"
+#include "impeller/base/validation.h"
+#include "shell/platform/android/android_context_vulkan_impeller.h"
 #define FML_USED_ON_EMBEDDER
 
 #include "flutter/shell/platform/android/flutter_main.h"
@@ -61,6 +64,64 @@ const flutter::Settings& FlutterMain::GetSettings() const {
   return settings_;
 }
 
+constexpr int kMinimumAndroidApiLevelForVulkan = 29;
+
+// Determine what the actual (not requested) rendering backend for android will
+// be
+// 1. If enable_impeller is true
+//    a. If enable_software is also true, error.
+//    b. Determine if version floor is met, if not FALLBACK
+//    c. Determine if Vulkan capabilities are met, if not FALLBACK
+//    d. Impeller - Vulkan
+//    e. FALLBACK
+//      * if Skia, Skia GLES
+//      * if Impeller, Impeller GLES
+// 2. If enable_impeller is false
+//    a. If enable_software is true, software.
+//    b. else Skia - GLES
+// The result is one of ImpellerVulkan, ImpellerGLES, SkiaGLES, or Software.
+AndroidBackend FlutterMain::DetermineBackend(
+    const flutter::Settings& settings) {
+  if (settings.enable_impeller) {
+    FML_CHECK(!settings.enable_software_rendering);
+    // In non-release modes, allow the debug option to override the backend
+    // selection for testing.
+#ifndef FLUTTER_RELEASE
+    if (settings.impeller_backend == "opengles") {
+      return AndroidBackend::kImpellerGLES;
+    } else if (settings.impeller_backend == "vulkan") {
+      return AndroidBackend::kImpellerVulkan;
+    }
+
+#endif  // FLUTTER_RELEASE
+    AndroidBackend fallback = settings.impeller_skia_fallback
+                                  ? AndroidBackend::kSkiaGLES
+                                  : AndroidBackend::kImpellerGLES;
+
+    // Vulkan must only be used on API level 29+, as older API levels do not
+    // have requisite features to support platform views.
+    //
+    // Even if this check returns true, Impeller may determine it cannot use
+    // Vulkan for some other reason, such as a missing required extension or
+    // feature.
+    int api_level = android_get_device_api_level();
+    if (api_level < kMinimumAndroidApiLevelForVulkan) {
+      return fallback;
+    }
+    impeller::ScopedValidationDisable validation_disable;
+    auto vulkan_backend = std::make_unique<AndroidContextVulkanImpeller>(
+        settings.enable_vulkan_validation, settings.enable_vulkan_gpu_tracing);
+    if (!vulkan_backend || !vulkan_backend->IsValid()) {
+      return fallback;
+    }
+    return AndroidBackend::kImpellerVulkan;
+  }
+  if (settings.enable_software_rendering) {
+    return AndroidBackend::kSoftware;
+  }
+  return AndroidBackend::kSkiaGLES;
+}
+
 void FlutterMain::Init(JNIEnv* env,
                        jclass clazz,
                        jobject context,
@@ -78,8 +139,8 @@ void FlutterMain::Init(JNIEnv* env,
 
   auto settings = SettingsFromCommandLine(command_line);
 
-  // Turn systracing on if ATrace_isEnabled is true and the user did not already
-  // request systracing
+  // Turn systracing on if ATrace_isEnabled is true and the user did not
+  // already request systracing
   if (!settings.trace_systrace) {
     settings.trace_systrace = NDKHelpers::ATrace_isEnabled();
     if (settings.trace_systrace) {
@@ -90,6 +151,10 @@ void FlutterMain::Init(JNIEnv* env,
           "Dart DevTools.");
     }
   }
+
+  settings.selected_android_backend = DetermineBackend(settings);
+  settings.enable_impeller =
+      IsAndroidBackendImpeller(settings.selected_android_backend.value());
 
 #if FLUTTER_RELEASE
   // On most platforms the timeline is always disabled in release mode.

@@ -38,6 +38,8 @@ class FlutterMain {
                    jstring engineCachesPath,
                    jlong initTimeMillis);
 
+  static AndroidBackend DetermineBackend(const flutter::Settings& settings);
+
   void SetupDartVMServiceUriCallback(JNIEnv* env);
 
   FML_DISALLOW_COPY_AND_ASSIGN(FlutterMain);

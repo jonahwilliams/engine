@@ -8,6 +8,7 @@
 #include <memory>
 #include <utility>
 
+#include "common/settings.h"
 #include "flutter/common/graphics/texture.h"
 #include "flutter/fml/synchronization/waitable_event.h"
 #include "flutter/shell/common/shell_io_manager.h"
@@ -71,76 +72,31 @@ static std::shared_ptr<flutter::AndroidContext> CreateAndroidContext(
     bool use_software_rendering,
     const flutter::TaskRunners& task_runners,
     uint8_t msaa_samples,
-    bool enable_impeller,
-    const std::optional<std::string>& impeller_backend,
+    AndroidBackend android_backend,
     bool enable_vulkan_validation,
     bool enable_opengl_gpu_tracing,
     bool enable_vulkan_gpu_tracing) {
-  if (use_software_rendering) {
-    FML_DCHECK(!enable_impeller);
-    return std::make_shared<AndroidContext>(AndroidRenderingAPI::kSoftware);
-  }
-  if (enable_impeller) {
-    // Vulkan must only be used on API level 29+, as older API levels do not
-    // have requisite features to support platform views.
-    //
-    // Even if this check returns true, Impeller may determine it cannot use
-    // Vulkan for some other reason, such as a missing required extension or
-    // feature.
-    int api_level = android_get_device_api_level();
-    if (api_level < kMinimumAndroidApiLevelForVulkan) {
-      if (impeller_backend.value_or("") == "vulkan") {
-        FML_LOG(WARNING)
-            << "Impeller Vulkan requested, but detected Android API level "
-            << api_level
-            << " does not support required features for Vulkan with platform "
-               "views. Falling back to OpenGLES.";
-      }
+  switch (android_backend) {
+    case AndroidBackend::kImpellerGLES:
       return std::make_unique<AndroidContextGLImpeller>(
           std::make_unique<impeller::egl::Display>(),
           enable_opengl_gpu_tracing);
+    case AndroidBackend::kImpellerVulkan:
+      return std::make_unique<AndroidContextVulkanImpeller>(
+          enable_vulkan_validation, enable_vulkan_gpu_tracing);
+    case AndroidBackend::kSkiaGLES: {
+      return std::make_unique<AndroidContextGLSkia>(
+          AndroidRenderingAPI::kOpenGLES,               //
+          fml::MakeRefCounted<AndroidEnvironmentGL>(),  //
+          task_runners,                                 //
+          msaa_samples                                  //
+      );
     }
-
-    // Default value is Vulkan with GLES fallback.
-    AndroidRenderingAPI backend = AndroidRenderingAPI::kAutoselect;
-    if (impeller_backend.has_value()) {
-      if (impeller_backend.value() == "opengles") {
-        backend = AndroidRenderingAPI::kOpenGLES;
-      } else if (impeller_backend.value() == "vulkan") {
-        backend = AndroidRenderingAPI::kVulkan;
-      } else {
-        FML_CHECK(impeller_backend.value() == "vulkan" ||
-                  impeller_backend.value() == "opengles");
-      }
-    }
-    switch (backend) {
-      case AndroidRenderingAPI::kOpenGLES:
-        return std::make_unique<AndroidContextGLImpeller>(
-            std::make_unique<impeller::egl::Display>(),
-            enable_opengl_gpu_tracing);
-      case AndroidRenderingAPI::kVulkan:
-        return std::make_unique<AndroidContextVulkanImpeller>(
-            enable_vulkan_validation, enable_vulkan_gpu_tracing);
-      case AndroidRenderingAPI::kAutoselect: {
-        auto vulkan_backend = std::make_unique<AndroidContextVulkanImpeller>(
-            enable_vulkan_validation, enable_vulkan_gpu_tracing);
-        if (!vulkan_backend->IsValid()) {
-          return std::make_unique<AndroidContextGLImpeller>(
-              std::make_unique<impeller::egl::Display>(),
-              enable_opengl_gpu_tracing);
-        }
-        return vulkan_backend;
-      }
-      default:
-        FML_UNREACHABLE();
+    case AndroidBackend::kSoftware: {
+      return std::make_shared<AndroidContext>(AndroidRenderingAPI::kSoftware);
     }
   }
-  return std::make_unique<AndroidContextGLSkia>(
-      AndroidRenderingAPI::kOpenGLES,               //
-      fml::MakeRefCounted<AndroidEnvironmentGL>(),  //
-      task_runners,                                 //
-      msaa_samples                                  //
-  );
+  FML_UNREACHABLE();
 }
 
 PlatformViewAndroid::PlatformViewAndroid(
@@ -157,8 +113,8 @@ PlatformViewAndroid::PlatformViewAndroid(
               use_software_rendering,
               task_runners,
               msaa_samples,
-              delegate.OnPlatformViewGetSettings().enable_impeller,
-              delegate.OnPlatformViewGetSettings().impeller_backend,
+              delegate.OnPlatformViewGetSettings()
+                  .selected_android_backend.value(),
               delegate.OnPlatformViewGetSettings().enable_vulkan_validation,
               delegate.OnPlatformViewGetSettings().enable_opengl_gpu_tracing,
               delegate.OnPlatformViewGetSettings().enable_vulkan_gpu_tracing)) {

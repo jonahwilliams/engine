@@ -19,6 +19,7 @@
 #include "flutter/fml/mapping.h"
 #include "flutter/fml/time/time_point.h"
 #include "flutter/fml/unique_fd.h"
+#include "fml/logging.h"
 
 namespace flutter {
 
@@ -89,6 +90,15 @@ using MappingsCallback = std::function<Mappings(void)>;
 using FrameRasterizedCallback = std::function<void(const FrameTiming&)>;
 
 class DartIsolate;
+
+enum class AndroidBackend {
+  kImpellerVulkan,
+  kImpellerGLES,
+  kSkiaGLES,
+  kSoftware,
+};
+
+bool IsAndroidBackendImpeller(AndroidBackend backend);
 
 // TODO(https://github.com/flutter/flutter/issues/138750): Re-order fields to
 // reduce padding.
@@ -223,6 +233,12 @@ struct Settings {
 
   // Requests a particular backend to be used (ex "opengles" or "vulkan")
   std::optional<std::string> impeller_backend;
+
+  // Whether to fall back to Skia or ImpellerGLES on unsupported Vulkan targets.
+  bool impeller_skia_fallback = false;
+
+  // The rendering backend that was actually selected.
+  std::optional<AndroidBackend> selected_android_backend = std::nullopt;
 
   // Enable Vulkan validation on backends that support it. The validation layers
   // must be available to the application.
