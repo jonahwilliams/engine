@@ -7,7 +7,6 @@
 
 #include <memory>
 
-#include "flutter/fml/macros.h"
 #include "impeller/renderer/context.h"
 #include "impeller/typographer/glyph_atlas.h"
 
@@ -36,6 +35,7 @@ class TypographerContext {
       Context& context,
       GlyphAtlas::Type type,
       const std::shared_ptr<GlyphAtlasContext>& atlas_context,
+      const std::shared_ptr<CommandBuffer>& command_buffer,
       const FontGlyphMap& font_glyph_map) const = 0;
 
  protected:

@@ -5,6 +5,7 @@
 #ifndef FLUTTER_IMPELLER_TYPOGRAPHER_BACKENDS_SKIA_TYPOGRAPHER_CONTEXT_SKIA_H_
 #define FLUTTER_IMPELLER_TYPOGRAPHER_BACKENDS_SKIA_TYPOGRAPHER_CONTEXT_SKIA_H_
 
+#include "impeller/renderer/command_buffer.h"
 #include "impeller/typographer/typographer_context.h"
 
 namespace impeller {
@@ -25,6 +26,7 @@ class TypographerContextSkia : public TypographerContext {
       Context& context,
       GlyphAtlas::Type type,
       const std::shared_ptr<GlyphAtlasContext>& atlas_context,
+      const std::shared_ptr<CommandBuffer>& command_buffer,
       const FontGlyphMap& font_glyph_map) const override;
 
  private:

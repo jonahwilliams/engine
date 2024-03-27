@@ -8,6 +8,7 @@
 #include <unordered_map>
 
 #include "flutter/fml/macros.h"
+#include "impeller/renderer/command_buffer.h"
 #include "impeller/renderer/context.h"
 #include "impeller/typographer/glyph_atlas.h"
 #include "impeller/typographer/text_frame.h"
@@ -28,7 +29,8 @@ class LazyGlyphAtlas {
 
   const std::shared_ptr<GlyphAtlas>& CreateOrGetGlyphAtlas(
       Context& context,
-      GlyphAtlas::Type type) const;
+      GlyphAtlas::Type type,
+      const std::shared_ptr<CommandBuffer>& command_buffer) const;
 
  private:
   std::shared_ptr<TypographerContext> typographer_context_;

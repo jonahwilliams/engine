@@ -11,6 +11,8 @@
 #include "flutter/fml/trace_event.h"
 #include "impeller/base/allocation.h"
 #include "impeller/core/allocator.h"
+#include "impeller/core/device_buffer.h"
+#include "impeller/renderer/command_buffer.h"
 #include "impeller/typographer/backends/skia/glyph_atlas_context_skia.h"
 #include "impeller/typographer/backends/skia/typeface_skia.h"
 #include "impeller/typographer/rectangle_packer.h"
@@ -257,8 +259,11 @@ static std::shared_ptr<SkBitmap> CreateAtlasBitmap(const GlyphAtlas& atlas,
   return bitmap;
 }
 
-static bool UpdateGlyphTextureAtlas(std::shared_ptr<SkBitmap> bitmap,
-                                    const std::shared_ptr<Texture>& texture) {
+static bool UpdateGlyphTextureAtlas(
+    std::shared_ptr<SkBitmap> bitmap,
+    const std::shared_ptr<Texture>& texture,
+    const std::shared_ptr<CommandBuffer>& command_buffer,
+    const std::shared_ptr<Allocator>& allocator) {
   TRACE_EVENT0("impeller", __FUNCTION__);
 
   FML_DCHECK(bitmap != nullptr);
@@ -269,12 +274,18 @@ static bool UpdateGlyphTextureAtlas(std::shared_ptr<SkBitmap> bitmap,
       texture_descriptor.GetByteSizeOfBaseMipLevel(),           // size
       [bitmap](auto, auto) mutable { bitmap.reset(); }          // proc
   );
-
-  return texture->SetContents(mapping);
+  std::shared_ptr<DeviceBuffer> buffer =
+      allocator->CreateBufferWithCopy(*mapping);
+  std::shared_ptr<BlitPass> blit_pass = command_buffer->CreateBlitPass();
+  if (!blit_pass->AddCopy(DeviceBuffer::AsBufferView(buffer), texture)) {
+    return false;
+  }
+  return blit_pass->EncodeCommands(allocator);
 }
 
 static std::shared_ptr<Texture> UploadGlyphTextureAtlas(
     const std::shared_ptr<Allocator>& allocator,
+    const std::shared_ptr<CommandBuffer>& command_buffer,
     std::shared_ptr<SkBitmap> bitmap,
     const ISize& atlas_size,
     PixelFormat format) {
@@ -308,7 +319,11 @@ static std::shared_ptr<Texture> UploadGlyphTextureAtlas(
       [bitmap](auto, auto) mutable { bitmap.reset(); }          // proc
   );
 
-  if (!texture->SetContents(mapping)) {
+  std::shared_ptr<DeviceBuffer> buffer =
+      allocator->CreateBufferWithCopy(*mapping);
+  std::shared_ptr<BlitPass> blit_pass = command_buffer->CreateBlitPass();
+  if (!blit_pass->AddCopy(DeviceBuffer::AsBufferView(buffer), texture) ||
+      !blit_pass->EncodeCommands(allocator)) {
     return nullptr;
   }
   return texture;
@@ -318,6 +333,7 @@ std::shared_ptr<GlyphAtlas> TypographerContextSkia::CreateGlyphAtlas(
     Context& context,
     GlyphAtlas::Type type,
     const std::shared_ptr<GlyphAtlasContext>& atlas_context,
+    const std::shared_ptr<CommandBuffer>& command_buffer,
     const FontGlyphMap& font_glyph_map) const {
   TRACE_EVENT0("impeller", __FUNCTION__);
   if (!IsValid()) {
@@ -387,7 +403,9 @@ std::shared_ptr<GlyphAtlas> TypographerContextSkia::CreateGlyphAtlas(
     // ---------------------------------------------------------------------------
     // Step 5a: Update the existing texture with the updated bitmap.
     // ---------------------------------------------------------------------------
-    if (!UpdateGlyphTextureAtlas(bitmap, last_atlas->GetTexture())) {
+    if (!UpdateGlyphTextureAtlas(bitmap, last_atlas->GetTexture(),
+                                 command_buffer,
+                                 context.GetResourceAllocator())) {
       return nullptr;
     }
     return last_atlas;
@@ -462,8 +480,9 @@ std::shared_ptr<GlyphAtlas> TypographerContextSkia::CreateGlyphAtlas(
       format = PixelFormat::kR8G8B8A8UNormInt;
       break;
   }
-  auto texture = UploadGlyphTextureAtlas(context.GetResourceAllocator(), bitmap,
-                                         atlas_size, format);
+  auto texture =
+      UploadGlyphTextureAtlas(context.GetResourceAllocator(), command_buffer,
+                              bitmap, atlas_size, format);
   if (!texture) {
     return nullptr;
   }

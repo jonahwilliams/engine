@@ -46,7 +46,8 @@ void LazyGlyphAtlas::ResetTextFrames() {
 
 const std::shared_ptr<GlyphAtlas>& LazyGlyphAtlas::CreateOrGetGlyphAtlas(
     Context& context,
-    GlyphAtlas::Type type) const {
+    GlyphAtlas::Type type,
+    const std::shared_ptr<CommandBuffer>& command_buffer) const {
   {
     if (type == GlyphAtlas::Type::kAlphaBitmap && alpha_atlas_) {
       return alpha_atlas_;
@@ -72,7 +73,7 @@ const std::shared_ptr<GlyphAtlas>& LazyGlyphAtlas::CreateOrGetGlyphAtlas(
   const std::shared_ptr<GlyphAtlasContext>& atlas_context =
       type == GlyphAtlas::Type::kAlphaBitmap ? alpha_context_ : color_context_;
   std::shared_ptr<GlyphAtlas> atlas = typographer_context_->CreateGlyphAtlas(
-      context, type, atlas_context, glyph_map);
+      context, type, atlas_context, command_buffer, glyph_map);
   if (!atlas || !atlas->IsValid()) {
     VALIDATION_LOG << "Could not create valid atlas.";
     return kNullGlyphAtlas;

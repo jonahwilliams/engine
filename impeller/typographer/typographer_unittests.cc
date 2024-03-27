@@ -35,6 +35,7 @@ static std::shared_ptr<GlyphAtlas> CreateGlyphAtlas(
   FontGlyphMap font_glyph_map;
   frame.CollectUniqueFontGlyphPairs(font_glyph_map, scale);
   return typographer_context->CreateGlyphAtlas(context, type, atlas_context,
+                                               context.CreateCommandBuffer(),
                                                font_glyph_map);
 }
 
@@ -118,11 +119,12 @@ TEST_P(TypographerTest, LazyAtlasTracksColor) {
   lazy_atlas.AddTextFrame(*frame, 1.0f);
 
   // Creates different atlases for color and red bitmap.
+  auto command_buffer = GetContext()->CreateCommandBuffer();
   auto color_atlas = lazy_atlas.CreateOrGetGlyphAtlas(
-      *GetContext(), GlyphAtlas::Type::kColorBitmap);
+      *GetContext(), GlyphAtlas::Type::kColorBitmap, command_buffer);
 
   auto bitmap_atlas = lazy_atlas.CreateOrGetGlyphAtlas(
-      *GetContext(), GlyphAtlas::Type::kAlphaBitmap);
+      *GetContext(), GlyphAtlas::Type::kAlphaBitmap, command_buffer);
 
   ASSERT_FALSE(color_atlas == bitmap_atlas);
 }
@@ -188,9 +190,10 @@ TEST_P(TypographerTest, GlyphAtlasWithLotsOfdUniqueGlyphSize) {
     MakeTextFrameFromTextBlobSkia(blob)->CollectUniqueFontGlyphPairs(
         font_glyph_map, 0.6 * index);
   };
+  auto command_buffer = GetContext()->CreateCommandBuffer();
   auto atlas =
       context->CreateGlyphAtlas(*GetContext(), GlyphAtlas::Type::kAlphaBitmap,
-                                atlas_context, font_glyph_map);
+                                atlas_context, command_buffer, font_glyph_map);
   ASSERT_NE(atlas, nullptr);
   ASSERT_NE(atlas->GetTexture(), nullptr);
 
