@@ -57,6 +57,8 @@ class PointFieldGeometry final : public Geometry {
   PointFieldGeometry& operator=(const PointFieldGeometry&) = delete;
 };
 
+// static_assert(std::is_trivially_destructible<PointFieldGeometry>());
+
 }  // namespace impeller
 
 #endif  // FLUTTER_IMPELLER_ENTITY_GEOMETRY_POINT_FIELD_GEOMETRY_H_

@@ -90,11 +90,11 @@ bool Entity::ShouldRender(const std::optional<Rect>& clip_coverage) const {
 #endif  // IMPELLER_CONTENT_CULLING
 }
 
-void Entity::SetContents(std::shared_ptr<Contents> contents) {
-  contents_ = std::move(contents);
+void Entity::SetContents(Contents* contents) {
+  contents_ = contents;
 }
 
-const std::shared_ptr<Contents>& Entity::GetContents() const {
+Contents* Entity::GetContents() const {
   return contents_;
 }
 

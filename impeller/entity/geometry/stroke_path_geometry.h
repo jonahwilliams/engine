@@ -86,6 +86,9 @@ class StrokePathGeometry final : public Geometry {
   StrokePathGeometry& operator=(const StrokePathGeometry&) = delete;
 };
 
+// static_assert(std::is_trivially_destructible<RoundRectGeometry>());
+
+
 }  // namespace impeller
 
 #endif  // FLUTTER_IMPELLER_ENTITY_GEOMETRY_STROKE_PATH_GEOMETRY_H_

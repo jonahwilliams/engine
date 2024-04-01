@@ -11,6 +11,7 @@
 #include "flutter/fml/trace_event.h"
 #include "impeller/aiks/image_filter.h"
 #include "impeller/aiks/paint_pass_delegate.h"
+#include "impeller/entity/arena_allocator.h"
 #include "impeller/entity/contents/atlas_contents.h"
 #include "impeller/entity/contents/clip_contents.h"
 #include "impeller/entity/contents/color_source_contents.h"
@@ -29,7 +30,7 @@ namespace {
 
 static std::shared_ptr<Contents> CreateContentsForGeometryWithFilters(
     const Paint& paint,
-    std::shared_ptr<Geometry> geometry) {
+    Geometry* geometry) {
   std::shared_ptr<ColorSourceContents> contents =
       paint.color_source.GetContents(paint);
 
@@ -45,7 +46,7 @@ static std::shared_ptr<Contents> CreateContentsForGeometryWithFilters(
   }
 
   bool can_apply_mask_filter = geometry->CanApplyMaskFilter();
-  contents->SetGeometry(std::move(geometry));
+  contents->SetGeometry(geometry);
 
   if (can_apply_mask_filter && paint.mask_blur_descriptor.has_value()) {
     // If there's a mask blur and we need to apply the color filter on the GPU,
@@ -76,27 +77,30 @@ static std::shared_ptr<Contents> CreateContentsForGeometryWithFilters(
   return contents_copy;
 }
 
-static std::shared_ptr<Contents> CreatePathContentsWithFilters(
-    const Paint& paint,
-    const Path& path) {
-  std::shared_ptr<Geometry> geometry;
-  switch (paint.style) {
-    case Paint::Style::kFill:
-      geometry = Geometry::MakeFillPath(path);
-      break;
-    case Paint::Style::kStroke:
-      geometry =
-          Geometry::MakeStrokePath(path, paint.stroke_width, paint.stroke_miter,
-                                   paint.stroke_cap, paint.stroke_join);
-      break;
-  }
-
-  return CreateContentsForGeometryWithFilters(paint, std::move(geometry));
-}
+// static std::shared_ptr<Contents> CreatePathContentsWithFilters(
+//     std::vector<std::shared_ptr<Geometry>>& free_list,
+//     const Paint& paint,
+//     const Path& path) {
+//   std::shared_ptr<Geometry> geometry;
+//   switch (paint.style) {
+//     case Paint::Style::kFill:
+//       geometry = Geometry::MakeFillPath(path);
+//       break;
+//     case Paint::Style::kStroke:
+//       geometry =
+//           Geometry::MakeStrokePath(path, paint.stroke_width, paint.stroke_miter,
+//                                    paint.stroke_cap, paint.stroke_join);
+//       break;
+//   }
+//   free_list.push_back(geometry);
+//   return CreateContentsForGeometryWithFilters(paint, geometry.get());
+// }
 
 static std::shared_ptr<Contents> CreateCoverContentsWithFilters(
+    ArenaAllocator& allocator,
     const Paint& paint) {
-  return CreateContentsForGeometryWithFilters(paint, Geometry::MakeCover());
+  return CreateContentsForGeometryWithFilters(paint,
+                                              Geometry::MakeCover(allocator));
 }
 
 }  // namespace
@@ -290,13 +294,13 @@ void Canvas::RestoreToCount(size_t count) {
 }
 
 void Canvas::DrawPath(const Path& path, const Paint& paint) {
-  Entity entity;
-  entity.SetTransform(GetCurrentTransform());
-  entity.SetClipDepth(GetClipDepth());
-  entity.SetBlendMode(paint.blend_mode);
-  entity.SetContents(CreatePathContentsWithFilters(paint, path));
+  // Entity entity;
+  // entity.SetTransform(GetCurrentTransform());
+  // entity.SetClipDepth(GetClipDepth());
+  // entity.SetBlendMode(paint.blend_mode);
+  // entity.SetContents(CreatePathContentsWithFilters(free_list_, paint, path));
 
-  AddEntityToCurrentPass(std::move(entity));
+  // AddEntityToCurrentPass(std::move(entity));
 }
 
 void Canvas::DrawPaint(const Paint& paint) {
@@ -304,7 +308,7 @@ void Canvas::DrawPaint(const Paint& paint) {
   entity.SetTransform(GetCurrentTransform());
   entity.SetClipDepth(GetClipDepth());
   entity.SetBlendMode(paint.blend_mode);
-  entity.SetContents(CreateCoverContentsWithFilters(paint));
+  entity.SetContents(CreateCoverContentsWithFilters(*allocator_, paint));
 
   AddEntityToCurrentPass(std::move(entity));
 }
@@ -406,7 +410,8 @@ bool Canvas::AttemptDrawBlurredRRect(const Rect& rect,
       entity.SetClipDepth(GetClipDepth());
       entity.SetBlendMode(rrect_paint.blend_mode);
       entity.SetContents(CreateContentsForGeometryWithFilters(
-          rrect_paint, Geometry::MakeRoundRect(rect, corner_radii)));
+          rrect_paint,
+          Geometry::MakeRoundRect(*allocator_, rect, corner_radii)));
       AddEntityToCurrentPass(std::move(entity));
       break;
     }
@@ -433,7 +438,8 @@ void Canvas::DrawLine(const Point& p0, const Point& p1, const Paint& paint) {
   entity.SetClipDepth(GetClipDepth());
   entity.SetBlendMode(paint.blend_mode);
   entity.SetContents(CreateContentsForGeometryWithFilters(
-      paint, Geometry::MakeLine(p0, p1, paint.stroke_width, paint.stroke_cap)));
+      paint, Geometry::MakeLine(*allocator_, p0, p1, paint.stroke_width,
+                                paint.stroke_cap)));
 
   AddEntityToCurrentPass(std::move(entity));
 }
@@ -452,8 +458,8 @@ void Canvas::DrawRect(const Rect& rect, const Paint& paint) {
   entity.SetTransform(GetCurrentTransform());
   entity.SetClipDepth(GetClipDepth());
   entity.SetBlendMode(paint.blend_mode);
-  entity.SetContents(
-      CreateContentsForGeometryWithFilters(paint, Geometry::MakeRect(rect)));
+  entity.SetContents(CreateContentsForGeometryWithFilters(
+      paint, Geometry::MakeRect(*allocator_, rect)));
 
   AddEntityToCurrentPass(std::move(entity));
 }
@@ -479,8 +485,8 @@ void Canvas::DrawOval(const Rect& rect, const Paint& paint) {
   entity.SetTransform(GetCurrentTransform());
   entity.SetClipDepth(GetClipDepth());
   entity.SetBlendMode(paint.blend_mode);
-  entity.SetContents(
-      CreateContentsForGeometryWithFilters(paint, Geometry::MakeOval(rect)));
+  entity.SetContents(CreateContentsForGeometryWithFilters(
+      paint, Geometry::MakeOval(*allocator_, rect)));
 
   AddEntityToCurrentPass(std::move(entity));
 }
@@ -498,7 +504,7 @@ void Canvas::DrawRRect(const Rect& rect,
     entity.SetClipDepth(GetClipDepth());
     entity.SetBlendMode(paint.blend_mode);
     entity.SetContents(CreateContentsForGeometryWithFilters(
-        paint, Geometry::MakeRoundRect(rect, corner_radii)));
+        paint, Geometry::MakeRoundRect(*allocator_, rect, corner_radii)));
 
     AddEntityToCurrentPass(std::move(entity));
     return;
@@ -526,19 +532,20 @@ void Canvas::DrawCircle(const Point& center,
   entity.SetTransform(GetCurrentTransform());
   entity.SetClipDepth(GetClipDepth());
   entity.SetBlendMode(paint.blend_mode);
-  auto geometry =
-      paint.style == Paint::Style::kStroke
-          ? Geometry::MakeStrokedCircle(center, radius, paint.stroke_width)
-          : Geometry::MakeCircle(center, radius);
-  entity.SetContents(
-      CreateContentsForGeometryWithFilters(paint, std::move(geometry)));
+  auto geometry = paint.style == Paint::Style::kStroke
+                      ? Geometry::MakeStrokedCircle(*allocator_, center, radius,
+                                                    paint.stroke_width)
+                      : Geometry::MakeCircle(*allocator_, center, radius);
+  entity.SetContents(CreateContentsForGeometryWithFilters(paint, geometry));
 
   AddEntityToCurrentPass(std::move(entity));
 }
 
 void Canvas::ClipPath(const Path& path, Entity::ClipOperation clip_op) {
   auto bounds = path.GetBoundingBox();
-  ClipGeometry(Geometry::MakeFillPath(path), clip_op);
+  auto geometry = Geometry::MakeFillPath(path);
+  ClipGeometry(geometry.get(), clip_op);
+  free_list_.push_back(std::move(geometry));
   if (clip_op == Entity::ClipOperation::kIntersect) {
     if (bounds.has_value()) {
       IntersectCulling(bounds.value());
@@ -547,7 +554,7 @@ void Canvas::ClipPath(const Path& path, Entity::ClipOperation clip_op) {
 }
 
 void Canvas::ClipRect(const Rect& rect, Entity::ClipOperation clip_op) {
-  auto geometry = Geometry::MakeRect(rect);
+  auto geometry = Geometry::MakeRect(*allocator_, rect);
   auto& cull_rect = transform_stack_.back().cull_rect;
   if (clip_op == Entity::ClipOperation::kIntersect &&                      //
       cull_rect.has_value() &&                                             //
@@ -568,7 +575,7 @@ void Canvas::ClipRect(const Rect& rect, Entity::ClipOperation clip_op) {
 }
 
 void Canvas::ClipOval(const Rect& bounds, Entity::ClipOperation clip_op) {
-  auto geometry = Geometry::MakeOval(bounds);
+  auto geometry = Geometry::MakeOval(*allocator_, bounds);
   auto& cull_rect = transform_stack_.back().cull_rect;
   if (clip_op == Entity::ClipOperation::kIntersect &&                      //
       cull_rect.has_value() &&                                             //
@@ -593,7 +600,7 @@ void Canvas::ClipRRect(const Rect& rect,
   // Does the rounded rect have a flat part on the top/bottom or left/right?
   bool flat_on_TB = corner_radii.width * 2 < rect.GetWidth();
   bool flat_on_LR = corner_radii.height * 2 < rect.GetHeight();
-  auto geometry = Geometry::MakeRoundRect(rect, corner_radii);
+  auto geometry = Geometry::MakeRoundRect(*allocator_, rect, corner_radii);
   auto& cull_rect = transform_stack_.back().cull_rect;
   if (clip_op == Entity::ClipOperation::kIntersect &&                      //
       cull_rect.has_value() &&                                             //
@@ -627,8 +634,7 @@ void Canvas::ClipRRect(const Rect& rect,
   }
 }
 
-void Canvas::ClipGeometry(const std::shared_ptr<Geometry>& geometry,
-                          Entity::ClipOperation clip_op) {
+void Canvas::ClipGeometry(Geometry* geometry, Entity::ClipOperation clip_op) {
   auto contents = std::make_shared<ClipContents>();
   contents->SetGeometry(geometry);
   contents->SetClipOperation(clip_op);
@@ -692,10 +698,14 @@ void Canvas::DrawPoints(std::vector<Point> points,
   entity.SetTransform(GetCurrentTransform());
   entity.SetClipDepth(GetClipDepth());
   entity.SetBlendMode(paint.blend_mode);
-  entity.SetContents(CreateContentsForGeometryWithFilters(
-      paint,
+
+  auto geometry =
       Geometry::MakePointField(std::move(points), radius,
-                               /*round=*/point_style == PointStyle::kRound)));
+                               /*round=*/point_style == PointStyle::kRound);
+
+  entity.SetContents(
+      CreateContentsForGeometryWithFilters(paint, geometry.get()));
+  free_list_.push_back(std::move(geometry));
 
   AddEntityToCurrentPass(std::move(entity));
 }
@@ -762,6 +772,8 @@ Picture Canvas::EndRecordingAsPicture() {
 
   Picture picture;
   picture.pass = std::move(base_pass_);
+  picture.lifetime = allocator_->ExtendLifetime();
+  picture.free_list = std::move(free_list_);
 
   Reset();
   Initialize(initial_cull_rect_);
@@ -871,6 +883,7 @@ void Canvas::DrawVertices(const std::shared_ptr<VerticesGeometry>& vertices,
   if (paint.color_source.GetType() == ColorSource::Type::kColor) {
     blend_mode = BlendMode::kDestination;
   }
+  free_list_.push_back(vertices);
 
   Entity entity;
   entity.SetTransform(GetCurrentTransform());
@@ -880,7 +893,8 @@ void Canvas::DrawVertices(const std::shared_ptr<VerticesGeometry>& vertices,
   // If there are no vertex color or texture coordinates. Or if there
   // are vertex coordinates then only if the contents are an image.
   if (UseColorSourceContents(vertices, paint)) {
-    entity.SetContents(CreateContentsForGeometryWithFilters(paint, vertices));
+    entity.SetContents(
+        CreateContentsForGeometryWithFilters(paint, vertices.get()));
     AddEntityToCurrentPass(std::move(entity));
     return;
   }
@@ -908,8 +922,8 @@ void Canvas::DrawVertices(const std::shared_ptr<VerticesGeometry>& vertices,
           // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
           vertices->GetTextureCoordinateCoverge().value_or(cvg.value());
     }
-    src_contents =
-        src_paint.CreateContentsForGeometry(Geometry::MakeRect(src_coverage));
+    src_contents = CreateContentsForGeometryWithFilters(
+        src_paint, Geometry::MakeRect(*allocator_, src_coverage));
   }
 
   auto contents = std::make_shared<VerticesContents>();

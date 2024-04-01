@@ -9,16 +9,19 @@
 #include <memory>
 #include <optional>
 
-#include "flutter/fml/macros.h"
 #include "impeller/aiks/aiks_context.h"
 #include "impeller/aiks/image.h"
+#include "impeller/entity/arena_allocator.h"
 #include "impeller/entity/entity.h"
 #include "impeller/entity/entity_pass.h"
+#include "impeller/entity/geometry/geometry.h"
 
 namespace impeller {
 
 struct Picture {
   std::unique_ptr<EntityPass> pass;
+  std::unique_ptr<Lifetime> lifetime;
+  std::vector<std::shared_ptr<Geometry>> free_list;
 
   std::optional<Snapshot> Snapshot(AiksContext& context);
 

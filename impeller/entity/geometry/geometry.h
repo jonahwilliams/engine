@@ -7,6 +7,7 @@
 
 #include "impeller/core/formats.h"
 #include "impeller/core/vertex_buffer.h"
+#include "impeller/entity/arena_allocator.h"
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/entity.h"
 #include "impeller/entity/texture_fill.vert.h"
@@ -93,26 +94,30 @@ class Geometry {
       Cap stroke_cap = Cap::kButt,
       Join stroke_join = Join::kMiter);
 
-  static std::shared_ptr<Geometry> MakeCover();
+  static Geometry* MakeCover(ArenaAllocator& allocator);
 
-  static std::shared_ptr<Geometry> MakeRect(const Rect& rect);
+  static Geometry* MakeRect(ArenaAllocator& allocator, const Rect& rect);
 
-  static std::shared_ptr<Geometry> MakeOval(const Rect& rect);
+  static Geometry* MakeOval(ArenaAllocator& allocator, const Rect& rect);
 
-  static std::shared_ptr<Geometry> MakeLine(const Point& p0,
-                                            const Point& p1,
-                                            Scalar width,
-                                            Cap cap);
+  static Geometry* MakeLine(ArenaAllocator& allocator,
+                                  const Point& p0,
+                                  const Point& p1,
+                                  Scalar width,
+                                  Cap cap);
 
-  static std::shared_ptr<Geometry> MakeCircle(const Point& center,
-                                              Scalar radius);
+  static Geometry* MakeCircle(ArenaAllocator& allocator,
+                                    const Point& center,
+                                    Scalar radius);
 
-  static std::shared_ptr<Geometry> MakeStrokedCircle(const Point& center,
-                                                     Scalar radius,
-                                                     Scalar stroke_width);
+  static Geometry* MakeStrokedCircle(ArenaAllocator& allocator,
+                                           const Point& center,
+                                           Scalar radius,
+                                           Scalar stroke_width);
 
-  static std::shared_ptr<Geometry> MakeRoundRect(const Rect& rect,
-                                                 const Size& radii);
+  static Geometry* MakeRoundRect(ArenaAllocator& allocator,
+                                       const Rect& rect,
+                                       const Size& radii);
 
   static std::shared_ptr<Geometry> MakePointField(std::vector<Point> points,
                                                   Scalar radius,

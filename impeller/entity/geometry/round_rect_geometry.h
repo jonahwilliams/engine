@@ -52,6 +52,8 @@ class RoundRectGeometry final : public Geometry {
   RoundRectGeometry& operator=(const RoundRectGeometry&) = delete;
 };
 
+static_assert(std::is_trivially_destructible<RoundRectGeometry>());
+
 }  // namespace impeller
 
 #endif  // FLUTTER_IMPELLER_ENTITY_GEOMETRY_ROUND_RECT_GEOMETRY_H_

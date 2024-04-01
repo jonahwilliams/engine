@@ -55,6 +55,8 @@ class CircleGeometry final : public Geometry {
   CircleGeometry& operator=(const CircleGeometry&) = delete;
 };
 
+static_assert(std::is_trivially_destructible<CircleGeometry>());
+
 }  // namespace impeller
 
 #endif  // FLUTTER_IMPELLER_ENTITY_GEOMETRY_CIRCLE_GEOMETRY_H_

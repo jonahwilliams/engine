@@ -69,6 +69,9 @@ class VerticesGeometry final : public Geometry {
       VerticesGeometry::VertexMode::kTriangles;
 };
 
+// static_assert(std::is_trivially_destructible<VerticesGeometry>());
+
+
 }  // namespace impeller
 
 #endif  // FLUTTER_IMPELLER_ENTITY_GEOMETRY_VERTICES_GEOMETRY_H_

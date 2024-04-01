@@ -96,9 +96,9 @@ class Entity {
 
   bool ShouldRender(const std::optional<Rect>& clip_coverage) const;
 
-  void SetContents(std::shared_ptr<Contents> contents);
+  void SetContents(Contents* contents);
 
-  const std::shared_ptr<Contents>& GetContents() const;
+  Contents* GetContents() const;
 
   void SetClipDepth(uint32_t clip_depth);
 
@@ -140,7 +140,7 @@ class Entity {
   Entity(const Entity&);
 
   Matrix transform_;
-  std::shared_ptr<Contents> contents_;
+  Contents* contents_;
   BlendMode blend_mode_ = BlendMode::kSourceOver;
   uint32_t clip_depth_ = 0u;
   uint32_t new_clip_depth_ = 1u;

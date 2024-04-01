@@ -51,6 +51,9 @@ class EllipseGeometry final : public Geometry {
   EllipseGeometry& operator=(const EllipseGeometry&) = delete;
 };
 
+static_assert(std::is_trivially_destructible<EllipseGeometry>());
+
+
 }  // namespace impeller
 
 #endif  // FLUTTER_IMPELLER_ENTITY_GEOMETRY_ELLIPSE_GEOMETRY_H_

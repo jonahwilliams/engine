@@ -14,9 +14,7 @@
 
 namespace impeller {
 
-ConicalGradientContents::ConicalGradientContents() = default;
-
-ConicalGradientContents::~ConicalGradientContents() = default;
+ConicalGradientContents::ConicalGradientContents() {}
 
 void ConicalGradientContents::SetCenterAndRadius(Point center, Scalar radius) {
   center_ = center;

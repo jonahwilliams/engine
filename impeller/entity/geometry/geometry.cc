@@ -197,39 +197,45 @@ std::shared_ptr<Geometry> Geometry::MakeStrokePath(const Path& path,
                                               stroke_cap, stroke_join);
 }
 
-std::shared_ptr<Geometry> Geometry::MakeCover() {
-  return std::make_shared<CoverGeometry>();
+Geometry* Geometry::MakeCover(ArenaAllocator& allocator) {
+  return allocator.Allocate<CoverGeometry>();
 }
 
-std::shared_ptr<Geometry> Geometry::MakeRect(const Rect& rect) {
-  return std::make_shared<RectGeometry>(rect);
+Geometry* Geometry::MakeRect(ArenaAllocator& allocator,
+                                   const Rect& rect) {
+  return allocator.Allocate<RectGeometry>(rect);
 }
 
-std::shared_ptr<Geometry> Geometry::MakeOval(const Rect& rect) {
-  return std::make_shared<EllipseGeometry>(rect);
+Geometry* Geometry::MakeOval(ArenaAllocator& allocator,
+                                   const Rect& rect) {
+  return allocator.Allocate<EllipseGeometry>(rect);
 }
 
-std::shared_ptr<Geometry> Geometry::MakeLine(const Point& p0,
-                                             const Point& p1,
-                                             Scalar width,
-                                             Cap cap) {
-  return std::make_shared<LineGeometry>(p0, p1, width, cap);
+Geometry* Geometry::MakeLine(ArenaAllocator& allocator,
+                                   const Point& p0,
+                                   const Point& p1,
+                                   Scalar width,
+                                   Cap cap) {
+  return allocator.Allocate<LineGeometry>(p0, p1, width, cap);
 }
 
-std::shared_ptr<Geometry> Geometry::MakeCircle(const Point& center,
-                                               Scalar radius) {
-  return std::make_shared<CircleGeometry>(center, radius);
+Geometry* Geometry::MakeCircle(ArenaAllocator& allocator,
+                                     const Point& center,
+                                     Scalar radius) {
+  return allocator.Allocate<CircleGeometry>(center, radius);
 }
 
-std::shared_ptr<Geometry> Geometry::MakeStrokedCircle(const Point& center,
-                                                      Scalar radius,
-                                                      Scalar stroke_width) {
-  return std::make_shared<CircleGeometry>(center, radius, stroke_width);
+Geometry* Geometry::MakeStrokedCircle(ArenaAllocator& allocator,
+                                            const Point& center,
+                                            Scalar radius,
+                                            Scalar stroke_width) {
+  return allocator.Allocate<CircleGeometry>(center, radius, stroke_width);
 }
 
-std::shared_ptr<Geometry> Geometry::MakeRoundRect(const Rect& rect,
-                                                  const Size& radii) {
-  return std::make_shared<RoundRectGeometry>(rect, radii);
+Geometry* Geometry::MakeRoundRect(ArenaAllocator& allocator,
+                                        const Rect& rect,
+                                        const Size& radii) {
+  return allocator.Allocate<RoundRectGeometry>(rect, radii);
 }
 
 bool Geometry::CoversArea(const Matrix& transform, const Rect& rect) const {

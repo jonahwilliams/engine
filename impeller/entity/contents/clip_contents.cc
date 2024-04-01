@@ -31,7 +31,7 @@ ClipContents::ClipContents() = default;
 
 ClipContents::~ClipContents() = default;
 
-void ClipContents::SetGeometry(const std::shared_ptr<Geometry>& geometry) {
+void ClipContents::SetGeometry(Geometry* geometry) {
   geometry_ = geometry;
 }
 

@@ -9,7 +9,6 @@
 #include <memory>
 #include <vector>
 
-#include "flutter/fml/macros.h"
 #include "impeller/entity/contents/contents.h"
 #include "impeller/entity/entity.h"
 #include "impeller/entity/geometry/geometry.h"
@@ -22,7 +21,7 @@ class ClipContents final : public Contents {
 
   ~ClipContents();
 
-  void SetGeometry(const std::shared_ptr<Geometry>& geometry);
+  void SetGeometry(Geometry* geometry);
 
   void SetClipOperation(Entity::ClipOperation clip_op);
 
@@ -60,7 +59,7 @@ class ClipContents final : public Contents {
                          Entity::ClipOperation clip_op,
                          const Geometry& geometry) const;
 
-  std::shared_ptr<Geometry> geometry_;
+  Geometry* geometry_;
   Entity::ClipOperation clip_op_ = Entity::ClipOperation::kIntersect;
 
   ClipContents(const ClipContents&) = delete;

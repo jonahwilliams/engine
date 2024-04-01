@@ -22,7 +22,7 @@ class SolidColorContents final : public ColorSourceContents {
  public:
   SolidColorContents();
 
-  ~SolidColorContents() override;
+  ~SolidColorContents() = default;
 
   static std::unique_ptr<SolidColorContents> Make(const Path& path,
                                                   Color color);
@@ -59,6 +59,9 @@ class SolidColorContents final : public ColorSourceContents {
 
   SolidColorContents& operator=(const SolidColorContents&) = delete;
 };
+
+static_assert(std::is_trivially_destructible<SolidColorContents>());
+
 
 }  // namespace impeller
 

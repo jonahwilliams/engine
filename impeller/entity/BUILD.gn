@@ -218,6 +218,7 @@ impeller_component("entity") {
     "inline_pass_context.h",
     "render_target_cache.cc",
     "render_target_cache.h",
+    "arena_allocator.h",
   ]
 
   if (impeller_debug) {

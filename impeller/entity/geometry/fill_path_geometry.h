@@ -53,6 +53,8 @@ class FillPathGeometry final : public Geometry {
   FillPathGeometry& operator=(const FillPathGeometry&) = delete;
 };
 
+// static_assert(std::is_trivially_destructible<FillPathGeometry>());
+
 }  // namespace impeller
 
 #endif  // FLUTTER_IMPELLER_ENTITY_GEOMETRY_FILL_PATH_GEOMETRY_H_

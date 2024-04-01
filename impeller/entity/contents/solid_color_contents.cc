@@ -14,8 +14,6 @@ namespace impeller {
 
 SolidColorContents::SolidColorContents() = default;
 
-SolidColorContents::~SolidColorContents() = default;
-
 void SolidColorContents::SetColor(Color color) {
   color_ = color;
 }
@@ -38,7 +36,7 @@ std::optional<Rect> SolidColorContents::GetCoverage(
     return std::nullopt;
   }
 
-  const std::shared_ptr<Geometry>& geometry = GetGeometry();
+  auto* geometry = GetGeometry();
   if (geometry == nullptr) {
     return std::nullopt;
   }
@@ -69,7 +67,7 @@ bool SolidColorContents::Render(const ContentContext& renderer,
 std::unique_ptr<SolidColorContents> SolidColorContents::Make(const Path& path,
                                                              Color color) {
   auto contents = std::make_unique<SolidColorContents>();
-  contents->SetGeometry(Geometry::MakeFillPath(path));
+ // contents->SetGeometry(Geometry::MakeFillPath(path));
   contents->SetColor(color);
   return contents;
 }
@@ -77,8 +75,12 @@ std::unique_ptr<SolidColorContents> SolidColorContents::Make(const Path& path,
 std::optional<Color> SolidColorContents::AsBackgroundColor(
     const Entity& entity,
     ISize target_size) const {
+  auto* geometry = GetGeometry();
+  if (!geometry) {
+    return std::nullopt;
+  }
   Rect target_rect = Rect::MakeSize(target_size);
-  return GetGeometry()->CoversArea(entity.GetTransform(), target_rect)
+  return geometry->CoversArea(entity.GetTransform(), target_rect)
              ? GetColor()
              : std::optional<Color>();
 }

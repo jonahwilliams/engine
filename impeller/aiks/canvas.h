@@ -16,6 +16,7 @@
 #include "impeller/aiks/paint.h"
 #include "impeller/aiks/picture.h"
 #include "impeller/core/sampler_descriptor.h"
+#include "impeller/entity/arena_allocator.h"
 #include "impeller/entity/entity.h"
 #include "impeller/entity/entity_pass.h"
 #include "impeller/entity/geometry/geometry.h"
@@ -185,6 +186,8 @@ class Canvas {
   uint64_t current_depth_ = 0u;
   std::deque<CanvasStackEntry> transform_stack_;
   std::optional<Rect> initial_cull_rect_;
+  std::vector<std::shared_ptr<Geometry>> free_list_;
+  std::unique_ptr<ArenaAllocator> allocator_ = std::make_unique<ArenaAllocator>();
 
   void Initialize(std::optional<Rect> cull_rect);
 
@@ -196,7 +199,7 @@ class Canvas {
 
   void AddEntityToCurrentPass(Entity entity);
 
-  void ClipGeometry(const std::shared_ptr<Geometry>& geometry,
+  void ClipGeometry(Geometry* geometry,
                     Entity::ClipOperation clip_op);
 
   void IntersectCulling(Rect clip_bounds);

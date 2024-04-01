@@ -23,7 +23,7 @@ class ConicalGradientContents final : public ColorSourceContents {
  public:
   ConicalGradientContents();
 
-  ~ConicalGradientContents() override;
+  ~ConicalGradientContents() = default;
 
   // |Contents|
   bool Render(const ContentContext& renderer,

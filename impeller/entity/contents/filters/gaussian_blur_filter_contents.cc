@@ -211,7 +211,7 @@ Entity ApplyClippedBlurStyle(Entity::ClipOperation clip_operation,
                              const std::shared_ptr<Geometry>& geometry) {
   auto clip_contents = std::make_shared<ClipContents>();
   clip_contents->SetClipOperation(clip_operation);
-  clip_contents->SetGeometry(geometry);
+  clip_contents->SetGeometry(geometry.get());
   Entity clipper;
   clipper.SetContents(clip_contents);
   auto restore = std::make_unique<ClipRestoreContents>();

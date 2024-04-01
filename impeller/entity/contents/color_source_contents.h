@@ -5,6 +5,7 @@
 #ifndef FLUTTER_IMPELLER_ENTITY_CONTENTS_COLOR_SOURCE_CONTENTS_H_
 #define FLUTTER_IMPELLER_ENTITY_CONTENTS_COLOR_SOURCE_CONTENTS_H_
 
+#include <type_traits>
 #include "fml/logging.h"
 #include "impeller/entity/contents/clip_contents.h"
 #include "impeller/entity/contents/content_context.h"
@@ -35,19 +36,17 @@ namespace impeller {
 ///
 class ColorSourceContents : public Contents {
  public:
-  ColorSourceContents();
-
-  ~ColorSourceContents() override;
+  ColorSourceContents() = default;
 
   //----------------------------------------------------------------------------
   /// @brief  Set the geometry that this contents will use to render.
   ///
-  void SetGeometry(std::shared_ptr<Geometry> geometry);
+  void SetGeometry(Geometry* geometry);
 
   //----------------------------------------------------------------------------
   /// @brief  Get the geometry that this contents will use to render.
   ///
-  const std::shared_ptr<Geometry>& GetGeometry() const;
+  Geometry* GetGeometry() const;
 
   //----------------------------------------------------------------------------
   /// @brief  Set the effect transform for this color source.
@@ -244,7 +243,7 @@ class ColorSourceContents : public Contents {
   }
 
  private:
-  std::shared_ptr<Geometry> geometry_;
+  Geometry* geometry_;
   Matrix inverse_matrix_;
   Scalar opacity_ = 1.0;
   Scalar inherited_opacity_ = 1.0;
@@ -253,6 +252,8 @@ class ColorSourceContents : public Contents {
 
   ColorSourceContents& operator=(const ColorSourceContents&) = delete;
 };
+
+static_assert(std::is_trivially_destructible<ColorSourceContents>());
 
 }  // namespace impeller
 

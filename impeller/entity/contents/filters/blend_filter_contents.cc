@@ -508,19 +508,19 @@ static std::optional<Entity> PipelineBlend(
 
     // If a foreground color is set, blend it in.
 
-    if (foreground_color.has_value()) {
-      auto contents = std::make_shared<SolidColorContents>();
-      contents->SetGeometry(
-          Geometry::MakeRect(Rect::MakeSize(pass.GetRenderTargetSize())));
-      contents->SetColor(foreground_color.value());
+    // if (foreground_color.has_value()) {
+    //   auto contents = std::make_shared<SolidColorContents>();
+    //   contents->SetGeometry(
+    //       Geometry::MakeRect(Rect::MakeSize(pass.GetRenderTargetSize())));
+    //   contents->SetColor(foreground_color.value());
 
-      Entity foreground_entity;
-      foreground_entity.SetBlendMode(blend_mode);
-      foreground_entity.SetContents(contents);
-      if (!foreground_entity.Render(renderer, pass)) {
-        return false;
-      }
-    }
+    //   Entity foreground_entity;
+    //   foreground_entity.SetBlendMode(blend_mode);
+    //   foreground_entity.SetContents(contents);
+    //   if (!foreground_entity.Render(renderer, pass)) {
+    //     return false;
+    //   }
+    // }
 
     return true;
   };

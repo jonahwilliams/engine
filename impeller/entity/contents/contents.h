@@ -54,8 +54,6 @@ class Contents {
 
   Contents();
 
-  virtual ~Contents();
-
   /// @brief  Add any text data to the specified lazy atlas. The scale parameter
   ///         must be used again later when drawing the text.
   virtual void PopulateGlyphAtlas(
