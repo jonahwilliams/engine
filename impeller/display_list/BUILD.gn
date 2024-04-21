@@ -12,6 +12,7 @@ impeller_component("skia_conversions") {
 
   public_deps = [
     "../core",
+    "../entity",
     "../geometry",
     "//flutter/display_list",
     "//flutter/fml",

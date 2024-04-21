@@ -189,6 +189,10 @@ class Tessellator {
                                 std::vector<uint16_t>& index_buffer,
                                 Scalar tolerance);
 
+  std::vector<Point>& GetTemporaryPointArena() { return *point_buffer_; }
+
+  std::vector<uint16_t>& GetTemporaryIndexArena() { return *index_buffer_; }
+
   //----------------------------------------------------------------------------
   /// @brief      Create a temporary polyline. Only one per-process can exist at
   ///             a time.
