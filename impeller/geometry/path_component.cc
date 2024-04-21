@@ -5,23 +5,29 @@
 #include "path_component.h"
 
 #include <cmath>
+#include "impeller/geometry/scalar.h"
+
+#if defined(__GNUC__) && defined(__ARM_NEON__)
+/* GCC-compatible compiler, targeting ARM with NEON */
+#include <arm_neon.h>
+#endif
 
 #include "impeller/geometry/wangs_formula.h"
 
 namespace impeller {
 
-VertexWriter::VertexWriter(std::vector<Point>& points,
-                           std::vector<uint16_t>& indices)
+VertexWriter::VertexWriter(Point* points,
+                           uint16_t* indices)
     : points_(points), indices_(indices) {}
 
 void VertexWriter::EndContour() {
-  if (points_.size() == 0u || contour_start_ == points_.size() - 1) {
+  if (point_index_ == 0u || contour_start_ == point_index_ - 1) {
     // Empty or first contour.
     return;
   }
 
   auto start = contour_start_;
-  auto end = points_.size() - 1;
+  auto end = point_index_ - 1;
   // All filled paths are drawn as if they are closed, but if
   // there is an explicit close then a lineTo to the origin
   // is inserted. This point isn't strictly necesary to
@@ -32,39 +38,39 @@ void VertexWriter::EndContour() {
 
   if (contour_start_ > 0) {
     // Triangle strip break.
-    indices_.emplace_back(indices_.back());
-    indices_.emplace_back(start);
-    indices_.emplace_back(start);
+    indices_[index_index_++] = indices_[index_index_ - 1];
+    indices_[index_index_++]  = start;
+    indices_[index_index_++] = start;
 
     // If the contour has an odd number of points, insert an extra point when
     // bridging to the next contour to preserve the correct triangle winding
     // order.
     if (previous_contour_odd_points_) {
-      indices_.emplace_back(start);
+      indices_[index_index_++] = start;
     }
   } else {
-    indices_.emplace_back(start);
+    indices_[index_index_++] = start;
   }
 
   size_t a = start + 1;
   size_t b = end;
   while (a < b) {
-    indices_.emplace_back(a);
-    indices_.emplace_back(b);
+    indices_[index_index_++] = a;
+    indices_[index_index_++] = b;
     a++;
     b--;
   }
   if (a == b) {
-    indices_.emplace_back(a);
+    indices_[index_index_++] = a;
     previous_contour_odd_points_ = false;
   } else {
     previous_contour_odd_points_ = true;
   }
-  contour_start_ = points_.size();
+  contour_start_ = point_index_;
 }
 
 void VertexWriter::Write(Point point) {
-  points_.emplace_back(point);
+  points_[point_index_++] = point;
 }
 
 /*
@@ -75,11 +81,25 @@ static inline Scalar LinearSolve(Scalar t, Scalar p0, Scalar p1) {
   return p0 + t * (p1 - p0);
 }
 
+#if defined(__GNUC__) && defined(__ARM_NEON__)
+static inline Point QuadraticSolveNeon(Scalar t, Point p0, Point p1, Point p2) {
+  float32x2_t p0n = vld1_f32(reinterpret_cast<float*>(&p0));
+  float32x2_t p1n = vld1_f32(reinterpret_cast<float*>(&p1));
+  float32x2_t p2n = vld1_f32(reinterpret_cast<float*>(&p2));
+  float32x2_t result = (1 - t) * (1 - t) * p0n +  //
+                       2 * (1 - t) * t * p1n +    //
+                       t * t * p2n;
+  Point result_pt;
+  vst1_f32(reinterpret_cast<float*>(&result_pt), result);
+  return result_pt;
+}
+#else
 static inline Scalar QuadraticSolve(Scalar t, Scalar p0, Scalar p1, Scalar p2) {
   return (1 - t) * (1 - t) * p0 +  //
          2 * (1 - t) * t * p1 +    //
          t * t * p2;
 }
+#endif  // NEON
 
 static inline Scalar QuadraticSolveDerivative(Scalar t,
                                               Scalar p0,
@@ -89,6 +109,26 @@ static inline Scalar QuadraticSolveDerivative(Scalar t,
          2 * t * (p2 - p1);
 }
 
+#if defined(__GNUC__) && defined(__ARM_NEON__)
+static inline Point CubicSolveNeon(Scalar t,
+                                   Point p0,
+                                   Point p1,
+                                   Point p2,
+                                   Point p3) {
+  float32x2_t p0n = vld1_f32(reinterpret_cast<float*>(&p0));
+  float32x2_t p1n = vld1_f32(reinterpret_cast<float*>(&p1));
+  float32x2_t p2n = vld1_f32(reinterpret_cast<float*>(&p2));
+  float32x2_t p3n = vld1_f32(reinterpret_cast<float*>(&p3));
+
+  float32x2_t result = (1 - t) * (1 - t) * (1 - t) * p0n +  //
+                       3 * (1 - t) * (1 - t) * t * p1n +    //
+                       3 * (1 - t) * t * t * p2n +          //
+                       t * t * t * p3n;
+  Point result_pt;
+  vst1_f32(reinterpret_cast<float*>(&result_pt), result);
+  return result_pt;
+}
+#else
 static inline Scalar CubicSolve(Scalar t,
                                 Scalar p0,
                                 Scalar p1,
@@ -99,6 +139,7 @@ static inline Scalar CubicSolve(Scalar t,
          3 * (1 - t) * t * t * p2 +          //
          t * t * t * p3;
 }
+#endif  // NEON
 
 static inline Scalar CubicSolveDerivative(Scalar t,
                                           Scalar p0,
@@ -144,10 +185,14 @@ std::optional<Vector2> LinearPathComponent::GetEndDirection() const {
 }
 
 Point QuadraticPathComponent::Solve(Scalar time) const {
+#if defined(__GNUC__) && defined(__ARM_NEON__)
+  return QuadraticSolveNeon(time, p1, cp, p2);
+#else
   return {
       QuadraticSolve(time, p1.x, cp.x, p2.x),  // x
       QuadraticSolve(time, p1.y, cp.y, p2.y),  // y
   };
+#endif
 }
 
 Point QuadraticPathComponent::SolveDerivative(Scalar time) const {
@@ -179,11 +224,16 @@ void QuadraticPathComponent::ToLinearPathComponents(
 void QuadraticPathComponent::ToLinearPathComponents(
     Scalar scale,
     VertexWriter& writer) const {
-  Scalar line_count = std::ceilf(ComputeQuadradicSubdivisions(scale, *this));
-  for (size_t i = 1; i < line_count; i += 1) {
-    writer.Write(Solve(i / line_count));
+  int line_count = std::ceil(ComputeQuadradicSubdivisions(scale, *this));
+
+  for (int i = 0; i < line_count - 1; i++) {
+    writer.Write(Solve((i + 1.0f) / line_count));
   }
   writer.Write(p2);
+}
+
+size_t QuadraticPathComponent::PointCount(Scalar scale) const {
+  return std::ceil(ComputeQuadradicSubdivisions(scale, *this));
 }
 
 std::vector<Point> QuadraticPathComponent::Extrema() const {
@@ -212,10 +262,14 @@ std::optional<Vector2> QuadraticPathComponent::GetEndDirection() const {
 }
 
 Point CubicPathComponent::Solve(Scalar time) const {
+#if defined(__GNUC__) && defined(__ARM_NEON__)
+  return CubicSolveNeon(time, p1, cp1, cp2, p2);
+#else
   return {
       CubicSolve(time, p1.x, cp1.x, cp2.x, p2.x),  // x
       CubicSolve(time, p1.y, cp1.y, cp2.y, p2.y),  // y
   };
+#endif  // Neon
 }
 
 Point CubicPathComponent::SolveDerivative(Scalar time) const {
@@ -258,11 +312,16 @@ void CubicPathComponent::ToLinearPathComponents(Scalar scale,
 
 void CubicPathComponent::ToLinearPathComponents(Scalar scale,
                                                 VertexWriter& writer) const {
-  Scalar line_count = std::ceilf(ComputeCubicSubdivisions(scale, *this));
-  for (size_t i = 1; i < line_count; i++) {
-    writer.Write(Solve(i / line_count));
+  int line_count = std::ceilf(ComputeCubicSubdivisions(scale, *this));
+
+  for (int i = 0; i < line_count - 1; i++) {
+    writer.Write(Solve((i + 1.0f) / line_count));
   }
   writer.Write(p2);
+}
+
+size_t CubicPathComponent::PointCount(Scalar scale) const {
+  return std::ceilf(ComputeCubicSubdivisions(scale, *this));
 }
 
 static inline bool NearEqual(Scalar a, Scalar b, Scalar epsilon) {

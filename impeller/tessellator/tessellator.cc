@@ -11,7 +11,7 @@
 namespace impeller {
 
 Tessellator::Tessellator()
-    : point_buffer_(std::make_unique<std::vector<Point>>()),
+    : point_buffer_(std::make_unique<std::vector<Point>>(4096)),
       index_buffer_(std::make_unique<std::vector<uint16_t>>()) {
   point_buffer_->reserve(2048);
   index_buffer_->reserve(2048);
@@ -70,10 +70,10 @@ void Tessellator::TessellateConvexInternal(const Path& path,
   index_buffer_->clear();
   point_buffer_->clear();
 
-  VertexWriter writer(point_buffer, index_buffer);
+  // VertexWriter writer(point_buffer, index_buffer);
 
-  path.WritePolyline(tolerance, writer);
-  writer.EndContour();
+  // path.WritePolyline(tolerance, writer);
+  // writer.EndContour();
 }
 
 static constexpr int kPrecomputedDivisionCount = 1024;

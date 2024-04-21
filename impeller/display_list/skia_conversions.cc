@@ -35,15 +35,6 @@ GeometryResult SkiaFillPathGeometry::GetPositionBuffer(
     };
   }
 
-  auto scale = entity.GetTransform().GetMaxBasisLengthXY();
-  std::vector<Point>& point_data =
-      renderer.GetTessellator()->GetTemporaryPointArena();
-  std::vector<uint16_t>& index_data =
-      renderer.GetTessellator()->GetTemporaryIndexArena();
-  point_data.clear();
-  index_data.clear();
-  VertexWriter writer(point_data, index_data);
-
   auto iterator = SkPath::Iter(path_, false);
 
   struct PathData {
@@ -52,10 +43,95 @@ GeometryResult SkiaFillPathGeometry::GetPositionBuffer(
     };
   };
 
+  auto scale = entity.GetTransform().GetMaxBasisLengthXY();
+
   PathData data;
   auto verb = SkPath::Verb::kDone_Verb;
   Point current = Point(0, 0);
   std::optional<Point> curve_start = std::nullopt;
+
+  size_t point_count = 0;
+  size_t contour_count = 0;
+
+  do {
+    verb = iterator.next(data.points);
+    switch (verb) {
+      case SkPath::kMove_Verb: {
+        current = ToPoint(data.points[0]);
+        contour_count++;
+        break;
+      }
+      case SkPath::kLine_Verb: {
+        point_count++;
+        current = ToPoint(data.points[0]);
+        break;
+      }
+      case SkPath::kQuad_Verb: {
+        current = ToPoint(data.points[0]);
+        QuadraticPathComponent quad{current, ToPoint(data.points[1]),
+                                    ToPoint(data.points[2])};
+        point_count += quad.PointCount(scale);
+      }
+      case SkPath::kConic_Verb: {
+        current = ToPoint(data.points[0]);
+        constexpr auto kPow2 = 1;  // Only works for sweeps up to 90 degrees.
+        constexpr auto kQuadCount = 1 + (2 * (1 << kPow2));
+        SkPoint points[kQuadCount];
+        const auto curve_count =
+            SkPath::ConvertConicToQuads(data.points[0],          //
+                                        data.points[1],          //
+                                        data.points[2],          //
+                                        iterator.conicWeight(),  //
+                                        points,                  //
+                                        kPow2                    //
+            );
+
+        for (int curve_index = 0, point_index = 0;  //
+             curve_index < curve_count;             //
+             curve_index++, point_index += 2        //
+        ) {
+          QuadraticPathComponent quad{current, ToPoint(points[point_index + 1]),
+                                      ToPoint(points[point_index + 2])};
+          point_count += quad.PointCount(scale);
+          current = ToPoint(points[point_index + 2]);
+        }
+      } break;
+      case SkPath::kCubic_Verb: {
+        CubicPathComponent cubic{current, ToPoint(data.points[1]),
+                                 ToPoint(data.points[2]),
+                                 ToPoint(data.points[3])};
+        current = ToPoint(data.points[0]);
+        point_count += cubic.PointCount(scale);
+      } break;
+      case SkPath::kClose_Verb: {
+        point_count++;
+        contour_count++;
+      } break;
+      case SkPath::kDone_Verb: {
+        point_count++;
+        contour_count++;
+      } break;
+    }
+  } while (verb != SkPath::Verb::kDone_Verb);
+
+  // Index count is (contour count) * 4 + point count.
+  size_t index_count = (contour_count * 4) + point_count;
+
+  BufferView vertex_buffer =
+      host_buffer.Emplace(nullptr, sizeof(Point) * point_count, alignof(Point));
+
+  BufferView index_buffer = host_buffer.Emplace(
+      nullptr, sizeof(uint16_t) * index_count, alignof(uint16_t));
+
+  VertexWriter writer(
+      reinterpret_cast<Point*>(vertex_buffer.buffer->OnGetContents()),
+      reinterpret_cast<uint16_t*>(index_buffer.buffer->OnGetContents()));
+
+  /// DO IT AGAIN!.
+  iterator = SkPath::Iter(path_, false);
+  verb = SkPath::Verb::kDone_Verb;
+  current = Point(0, 0);
+  curve_start = std::nullopt;
   do {
     verb = iterator.next(data.points);
     switch (verb) {
@@ -138,8 +214,9 @@ GeometryResult SkiaFillPathGeometry::GetPositionBuffer(
         break;
     }
   } while (verb != SkPath::Verb::kDone_Verb);
+  writer.EndContour();
 
-  if (point_data.empty()) {
+  if (writer.GetFinalCount() == 0) {
     VertexBuffer vertex_buffer{
         .vertex_buffer = {},
         .index_buffer = {},
@@ -154,20 +231,13 @@ GeometryResult SkiaFillPathGeometry::GetPositionBuffer(
     };
   }
 
-  BufferView vertex_buffer = host_buffer.Emplace(
-      point_data.data(), sizeof(Point) * point_data.size(), alignof(Point));
-
-  BufferView index_buffer = host_buffer.Emplace(
-      index_data.data(), sizeof(uint16_t) * index_data.size(),
-      alignof(uint16_t));
-
   return GeometryResult{
       .type = PrimitiveType::kTriangleStrip,
       .vertex_buffer =
           VertexBuffer{
               .vertex_buffer = std::move(vertex_buffer),
               .index_buffer = std::move(index_buffer),
-              .vertex_count = index_data.size(),
+              .vertex_count = writer.GetFinalCount(),
               .index_type = IndexType::k16bit,
           },
       .transform = entity.GetShaderTransform(pass),

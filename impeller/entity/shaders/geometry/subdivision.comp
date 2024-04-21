@@ -1,0 +1,162 @@
+// Copyright 2013 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+#include <impeller/texture.glsl>
+#include <impeller/types.glsl>
+
+// Unused
+layout(local_size_x = 16) in;
+
+struct CubicComponent {
+  vec2 p1;
+  vec2 cp1;
+  vec2 cp2;
+  vec2 p2;
+  uint offset;
+};
+
+struct QuadComponent {
+  vec2 p1;
+  vec2 cp;
+  vec2 p2;
+  uint offset;
+};
+
+struct LinearComponent {
+  vec2 p1;
+  vec2 p2;
+  uint offset;
+};
+
+struct Contour {
+  vec2 p1;
+  uint offset;
+};
+
+//// Wangs
+
+// Don't allow linearized segments to be off by more than 1/4th of a pixel from
+// the true curve. This value should be scaled by the max basis of the
+// X and Y directions.
+const float kPrecision = 4.0;
+
+float length(vec2 n) {
+  vec2 nn = n * n;
+  return sqrt(nn.x + nn.y);
+}
+
+float ComputeCubicSubdivisions(float scale_factor,
+                               vec2 p0,
+                               vec2 p1,
+                               vec2 p2,
+                               vec2 p3) {
+  float k = scale_factor * 0.75 * kPrecision;
+  vec2 a = abs(p0 - p1 * 2 + p2);
+  vec2 b = abs(p1 - p2 * 2 + p3);
+  return sqrt(k * length(max(a, b)));
+}
+
+float ComputeQuadradicSubdivisions(float scale_factor,
+                                   vec2 p0,
+                                   vec2 p1,
+                                   vec2 p2) {
+  float k = scale_factor * 0.25 * kPrecision;
+  return sqrt(k * length(p0 - p1 * 2 + p2));
+}
+
+//// Solve
+
+vec2 CubicSolve(float t, vec2 p0, vec2 p1, vec2 p2, vec2 p3) {
+  return (1 - t) * (1 - t) * (1 - t) * p0 +  //
+         3 * (1 - t) * (1 - t) * t * p1 +    //
+         3 * (1 - t) * t * t * p2 +          //
+         t * t * t * p3;
+}
+
+vec2 QuadraticSolve(float t, vec2 p0, vec2 p1, vec2 p2) {
+  return (1 - t) * (1 - t) * p0 +  //
+         2 * (1 - t) * t * p1 +    //
+         t * t * p2;
+}
+
+/////
+
+layout(std430) readonly buffer CubicData {
+  uint count;
+  CubicComponent data[];
+}
+cubic_data;
+
+layout(std430) readonly buffer QuadData {
+  uint count;
+  QuadComponent data[];
+}
+quad_data;
+
+layout(std430) readonly buffer LinearData {
+  uint count;
+  LinearComponent data[];
+}
+linear_data;
+
+layout(std430) readonly buffer ContourData {
+  uint count;
+  Contour data[];
+}
+contour_data;
+
+/// Output
+
+layout(std430) writeonly buffer VertexData {
+  vec2 data[];
+}
+vextex_data;
+
+layout(std430) writeonly buffer IndexData {
+  uint data[];
+}
+index_data;
+
+//////
+
+void main() {
+  uint ident = gl_GlobalInvocationID.x;
+
+  // For each cubic, compute subdivisions and populate output data.
+  if (ident < cubic_data.count) {
+    CubicComponent comp = cubic_data.data[ident];
+    float divisions =
+        ComputeCubicSubdivisions(3.0, comp.p1, comp.cp1, comp.cp2, comp.p2);
+    for (int i = 0; i < ceil(divisions); i++) {
+      vextex_data.data[comp.offset + i] =
+          CubicSolve((i / divisions), comp.p1, comp.cp1, comp.cp2, comp.p2);
+      index_data.data[comp.offset + i] = comp.offset + i;
+    }
+  }
+
+  // For each quadradic, compute subdivisions and populate output data.
+  if (ident < quad_data.count) {
+    QuadComponent comp = quad_data.data[ident];
+    float divisions =
+        ComputeQuadradicSubdivisions(3.0, comp.p1, comp.cp, comp.p2);
+    for (int i = 0; i < ceil(divisions); i++) {
+      vextex_data.data[comp.offset + i] =
+          QuadraticSolve((i / divisions), comp.p1, comp.cp, comp.p2);
+      index_data.data[comp.offset + i] = comp.offset + i;
+    }
+  }
+
+  // Slot each linear segment in place.
+  if (ident < linear_data.count) {
+    LinearComponent comp = linear_data.data[ident];
+    vextex_data.data[comp.offset] = comp.p2;
+    index_data.data[comp.offset] = comp.offset;
+  }
+
+  if (ident < contour_data.count) {
+    vextex_data.data[comp.offset] = contour_data.data[ident];
+  }
+
+
+}
