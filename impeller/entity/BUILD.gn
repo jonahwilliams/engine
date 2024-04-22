@@ -80,6 +80,7 @@ impeller_shaders("modern_entity_shaders") {
     "shaders/gradients/radial_gradient_ssbo_fill.frag",
     "shaders/gradients/sweep_gradient_ssbo_fill.frag",
     "shaders/geometry/points.comp",
+    "shaders/geometry/subdivision.comp",
   ]
 }
 

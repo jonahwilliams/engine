@@ -186,6 +186,10 @@ void QuadraticPathComponent::ToLinearPathComponents(
   writer.Write(p2);
 }
 
+size_t QuadraticPathComponent::CountSubdivisions(Scalar scale) const {
+  return std::ceilf(ComputeQuadradicSubdivisions(scale, *this));
+}
+
 std::vector<Point> QuadraticPathComponent::Extrema() const {
   CubicPathComponent elevated(*this);
   return elevated.Extrema();
@@ -263,6 +267,10 @@ void CubicPathComponent::ToLinearPathComponents(Scalar scale,
     writer.Write(Solve(i / line_count));
   }
   writer.Write(p2);
+}
+
+size_t CubicPathComponent::CountSubdivisions(Scalar scale) const {
+  return std::ceilf(ComputeCubicSubdivisions(scale, *this));
 }
 
 static inline bool NearEqual(Scalar a, Scalar b, Scalar epsilon) {

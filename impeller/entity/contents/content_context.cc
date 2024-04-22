@@ -454,6 +454,12 @@ ContentContext::ContentContext(
         PointsComputeShaderPipeline::MakeDefaultPipelineDescriptor(*context_);
     point_field_compute_pipelines_ =
         context_->GetPipelineLibrary()->GetPipeline(pipeline_desc).Get();
+
+    auto pipeline_desc_2 =
+        SubdivisionComputeShaderPipeline::MakeDefaultPipelineDescriptor(
+            *context_);
+    subdivision_compute_pipelines_ =
+        context_->GetPipelineLibrary()->GetPipeline(pipeline_desc_2).Get();
   }
 
   is_valid_ = true;

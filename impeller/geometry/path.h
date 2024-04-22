@@ -37,6 +37,16 @@ enum class Convexity {
   kConvex,
 };
 
+struct PathComponent {
+  uint type;
+  uint offset;
+  Point p1;
+  Point cp1; // cp if quad. p2 if linear
+  Point cp2; // p2 if quad.
+  Point p2;
+};
+
+
 //------------------------------------------------------------------------------
 /// @brief      Paths are lightweight objects that describe a collection of
 ///             linear, quadratic, or cubic segments. These segments may be
@@ -156,6 +166,12 @@ class Path {
 
   bool GetContourComponentAtIndex(size_t index,
                                   ContourComponent& contour) const;
+
+  uint WriteComputeData(Scalar scale, std::vector<PathComponent>& data_stuff) const;
+
+  size_t GetVerbCount() const {
+    return data_->components.size();
+  }
 
   /// Callers must provide the scale factor for how this path will be
   /// transformed.

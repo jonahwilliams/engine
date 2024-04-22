@@ -20,6 +20,8 @@ struct TESStesselator;
 
 namespace impeller {
 
+class ComputePass;
+
 //------------------------------------------------------------------------------
 /// @brief      A utility that generates triangles of the specified fill type
 ///             given a polyline. This happens on the CPU.

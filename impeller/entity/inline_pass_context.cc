@@ -58,6 +58,8 @@ bool InlinePassContext::EndPass() {
   }
   FML_DCHECK(command_buffer_);
 
+  renderer_.FlushPendingComputePass();
+
   if (!pass_->EncodeCommands()) {
     VALIDATION_LOG << "Failed to encode and submit command buffer while ending "
                       "render pass.";

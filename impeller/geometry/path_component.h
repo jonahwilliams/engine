@@ -95,6 +95,8 @@ struct QuadraticPathComponent {
   std::optional<Vector2> GetStartDirection() const;
 
   std::optional<Vector2> GetEndDirection() const;
+
+  size_t CountSubdivisions(Scalar scale) const;
 };
 
 // A component that represets a Cubic Bézier curve.
@@ -132,6 +134,8 @@ struct CubicPathComponent {
   void ToLinearPathComponents(Scalar scale, const PointProc& proc) const;
 
   void ToLinearPathComponents(Scalar scale, VertexWriter& writer) const;
+
+  size_t CountSubdivisions(Scalar scale) const;
 
   CubicPathComponent Subsegment(Scalar t0, Scalar t1) const;
 

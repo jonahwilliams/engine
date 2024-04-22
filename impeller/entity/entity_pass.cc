@@ -438,6 +438,7 @@ bool EntityPass::Render(ContentContext& renderer,
         VALIDATION_LOG << "Failed to encode root pass blit command.";
         return false;
       }
+      renderer.FlushPendingComputePass();
       if (!renderer.GetContext()
                ->GetCommandQueue()
                ->Submit({command_buffer})
@@ -471,6 +472,7 @@ bool EntityPass::Render(ContentContext& renderer,
         VALIDATION_LOG << "Failed to encode root pass command buffer.";
         return false;
       }
+      renderer.FlushPendingComputePass();
       if (!renderer.GetContext()
                ->GetCommandQueue()
                ->Submit({command_buffer})

@@ -377,8 +377,10 @@ enum class PrimitiveType : uint8_t {
 
   /// Draws a point at each input vertex.
   kPoint,
-  // Triangle fans are implementation dependent and need extra extensions
-  // checks. Hence, they are not supported here.
+
+  // Triangle fans are not widely supported and required a
+  // capabilities check for use.
+  kTriangleFan
 };
 
 enum class PolygonMode {

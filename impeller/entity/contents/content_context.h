@@ -19,6 +19,7 @@
 #include "impeller/entity/entity.h"
 #include "impeller/renderer/capabilities.h"
 #include "impeller/renderer/command_buffer.h"
+#include "impeller/renderer/compute_pipeline_descriptor.h"
 #include "impeller/renderer/pipeline.h"
 #include "impeller/renderer/pipeline_descriptor.h"
 #include "impeller/renderer/render_target.h"
@@ -45,6 +46,7 @@
 #include "impeller/entity/morphology_filter.frag.h"
 #include "impeller/entity/morphology_filter.vert.h"
 #include "impeller/entity/points.comp.h"
+#include "impeller/entity/subdivision.comp.h"
 #include "impeller/entity/porter_duff_blend.frag.h"
 #include "impeller/entity/porter_duff_blend.vert.h"
 #include "impeller/entity/radial_gradient_fill.frag.h"
@@ -251,6 +253,7 @@ using FramebufferBlendSoftLightPipeline =
 
 /// Geometry Pipelines
 using PointsComputeShaderPipeline = ComputePipelineBuilder<PointsComputeShader>;
+using SubdivisionComputeShaderPipeline = ComputePipelineBuilder<SubdivisionComputeShader>;
 
 #ifdef IMPELLER_ENABLE_OPENGLES
 using TiledTextureExternalPipeline =
@@ -371,6 +374,11 @@ struct ContentContextOptions {
 
 class Tessellator;
 class RenderTargetCache;
+
+struct LazyComputePass {
+  std::shared_ptr<CommandBuffer> cmd_buffer;
+  std::shared_ptr<ComputePass> compute_pass;
+};
 
 class ContentContext {
  public:
@@ -713,6 +721,11 @@ class ContentContext {
     return point_field_compute_pipelines_;
   }
 
+  std::shared_ptr<Pipeline<ComputePipelineDescriptor>> GetSubdivisionComputePipeline() const {
+    FML_DCHECK(GetDeviceCapabilities().SupportsCompute());
+    return subdivision_compute_pipelines_;
+  }
+
   std::shared_ptr<Context> GetContext() const;
 
   const Capabilities& GetDeviceCapabilities() const;
@@ -746,6 +759,30 @@ class ContentContext {
 
   const std::shared_ptr<RenderTargetAllocator>& GetRenderTargetCache() const {
     return render_target_cache_;
+  }
+
+  ComputePass& GetOrCreateComputePass() const {
+    if (lazy_compute_pass_ == nullptr) {
+      lazy_compute_pass_ = std::make_unique<LazyComputePass>();
+      auto cmd_buffer = GetContext()->CreateCommandBuffer();
+      auto compute_pass = cmd_buffer->CreateComputePass();
+      lazy_compute_pass_->cmd_buffer = std::move(cmd_buffer);
+      lazy_compute_pass_->compute_pass = std::move(compute_pass);
+    }
+    return *lazy_compute_pass_->compute_pass;
+  }
+
+  bool FlushPendingComputePass() const {
+    if (lazy_compute_pass_ != nullptr) {
+      lazy_compute_pass_->compute_pass->EncodeCommands();
+      auto result = GetContext()
+                        ->GetCommandQueue()
+                        ->Submit({std::move(lazy_compute_pass_->cmd_buffer)})
+                        .ok();
+      lazy_compute_pass_ = nullptr;
+      return result;
+    }
+    return true;
   }
 
   /// RuntimeEffect pipelines must be obtained via this method to avoid
@@ -976,6 +1013,8 @@ class ContentContext {
       framebuffer_blend_softlight_pipelines_;
   mutable std::shared_ptr<Pipeline<ComputePipelineDescriptor>>
       point_field_compute_pipelines_;
+  mutable std::shared_ptr<Pipeline<ComputePipelineDescriptor>>
+      subdivision_compute_pipelines_;
 
   template <class TypedPipeline>
   std::shared_ptr<Pipeline<PipelineDescriptor>> GetPipeline(
@@ -1035,6 +1074,7 @@ class ContentContext {
 #endif  // IMPELLER_ENABLE_3D
   std::shared_ptr<RenderTargetAllocator> render_target_cache_;
   std::shared_ptr<HostBuffer> host_buffer_;
+  mutable std::unique_ptr<LazyComputePass> lazy_compute_pass_ = nullptr;
   bool wireframe_ = false;
 
   ContentContext(const ContentContext&) = delete;

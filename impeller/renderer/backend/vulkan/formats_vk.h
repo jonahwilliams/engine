@@ -384,6 +384,9 @@ constexpr vk::PrimitiveTopology ToVKPrimitiveTopology(PrimitiveType primitive) {
       return vk::PrimitiveTopology::eLineStrip;
     case PrimitiveType::kPoint:
       return vk::PrimitiveTopology::ePointList;
+    case PrimitiveType::kTriangleFan:
+      return vk::PrimitiveTopology::eTriangleFan;
+      break;
   }
 
   FML_UNREACHABLE();

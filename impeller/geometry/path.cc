@@ -349,6 +349,76 @@ std::optional<Rect> Path::GetTransformedBoundingBox(
   return bounds->TransformBounds(transform);
 }
 
+uint Path::WriteComputeData(Scalar scale, std::vector<PathComponent>& data_stuff) const {
+  auto& path_components = data_->components;
+  auto& path_points = data_->points;
+
+  uint kLinear = 0;
+  uint kQuad = 1;
+  uint kCubic = 2;
+
+  uint current_offset = 0;
+  for (size_t component_i = 0; component_i < path_components.size();
+       component_i++) {
+    const auto& path_component = path_components[component_i];
+    switch (path_component.type) {
+      case ComponentType::kLinear: {
+        const LinearPathComponent* linear =
+            reinterpret_cast<const LinearPathComponent*>(
+                &path_points[path_component.index]);
+        data_stuff.push_back(PathComponent{
+          .type = kLinear,
+          .offset = current_offset,
+          .p1 = linear->p1,
+          .cp1 = linear->p2
+        });
+        current_offset++;
+        break;
+      }
+      case ComponentType::kQuadratic: {
+        const QuadraticPathComponent* quad =
+            reinterpret_cast<const QuadraticPathComponent*>(
+                &path_points[path_component.index]);
+
+        data_stuff.push_back(PathComponent{
+          .type = kQuad,
+          .offset = current_offset,
+          .p1 = quad->p1,
+          .cp1 = quad->cp,
+          .cp2 = quad->p2
+        });
+        current_offset += quad->CountSubdivisions(scale);
+        break;
+      }
+      case ComponentType::kCubic: {
+        const CubicPathComponent* cubic =
+            reinterpret_cast<const CubicPathComponent*>(
+                &path_points[path_component.index]);
+
+        data_stuff.push_back(PathComponent{
+          .type = kCubic,
+          .offset = current_offset,
+          .p1 = cubic->p1,
+          .cp1 = cubic->cp1,
+          .cp2 = cubic->cp2,
+          .p2 = cubic->p2
+        });
+        current_offset += cubic->CountSubdivisions(scale);
+
+        break;
+      }
+      case ComponentType::kContour:
+        if (component_i == path_components.size() - 1) {
+          // If the last component is a contour, that means it's an empty
+          // contour, so skip it.
+          continue;
+        }
+        // Skip multi contour for now.
+    }
+  }
+  return current_offset;
+}
+
 void Path::WritePolyline(Scalar scale, VertexWriter& writer) const {
   auto& path_components = data_->components;
   auto& path_points = data_->points;

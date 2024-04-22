@@ -119,9 +119,7 @@ GeometryResult PointFieldGeometry::GetPositionBufferGPU(
   size_t points_per_circle = 3 + (vertices_per_geom - 3) * 3;
   size_t total = points_per_circle * points_.size();
 
-  std::shared_ptr<CommandBuffer> cmd_buffer =
-      renderer.GetContext()->CreateCommandBuffer();
-  std::shared_ptr<ComputePass> compute_pass = cmd_buffer->CreateComputePass();
+  ComputePass& compute_pass = renderer.GetOrCreateComputePass();
   HostBuffer& host_buffer = renderer.GetTransientsBuffer();
 
   BufferView points_data =
@@ -136,8 +134,8 @@ GeometryResult PointFieldGeometry::GetPositionBufferGPU(
   {
     using PS = PointsComputeShader;
 
-    compute_pass->SetPipeline(renderer.GetPointComputePipeline());
-    compute_pass->SetCommandLabel("Points Geometry");
+    compute_pass.SetPipeline(renderer.GetPointComputePipeline());
+    compute_pass.SetCommandLabel("Points Geometry");
 
     PS::FrameInfo frame_info;
     frame_info.count = points_.size();
@@ -147,24 +145,14 @@ GeometryResult PointFieldGeometry::GetPositionBufferGPU(
     frame_info.points_per_circle = points_per_circle;
     frame_info.divisions_per_circle = vertices_per_geom;
 
-    PS::BindFrameInfo(*compute_pass, host_buffer.EmplaceUniform(frame_info));
-    PS::BindGeometryData(*compute_pass, geometry_buffer);
-    PS::BindPointData(*compute_pass, points_data);
+    PS::BindFrameInfo(compute_pass, host_buffer.EmplaceUniform(frame_info));
+    PS::BindGeometryData(compute_pass, geometry_buffer);
+    PS::BindPointData(compute_pass, points_data);
 
-    if (!compute_pass->Compute(ISize(total, 1)).ok()) {
+    if (!compute_pass.Compute(ISize(total, 1)).ok()) {
       return {};
     }
     output = geometry_buffer;
-  }
-
-  if (!compute_pass->EncodeCommands()) {
-    return {};
-  }
-  if (!renderer.GetContext()
-           ->GetCommandQueue()
-           ->Submit({std::move(cmd_buffer)})
-           .ok()) {
-    return {};
   }
 
   return {

@@ -12,6 +12,7 @@
 #include "flutter/fml/thread.h"
 #include "flutter/fml/trace_event.h"
 #include "impeller/base/validation.h"
+#include "vulkan/vulkan_to_string.hpp"
 
 namespace impeller {
 
@@ -163,7 +164,7 @@ bool FenceWaiterVK::Wait() {
       /*timeout=*/std::chrono::nanoseconds{100ms}.count());
   if (!(result == vk::Result::eSuccess || result == vk::Result::eTimeout)) {
     VALIDATION_LOG << "Fence waiter encountered an unexpected error. Tearing "
-                      "down the waiter thread.";
+                      "down the waiter thread: " << vk::to_string(result);
     return false;
   }
 
