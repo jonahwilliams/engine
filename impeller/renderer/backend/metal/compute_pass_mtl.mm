@@ -37,6 +37,10 @@ ComputePassMTL::ComputePassMTL(std::shared_ptr<const Context> context,
   if (!encoder_) {
     return;
   }
+#ifdef IMPELLER_DEBUG
+  is_metal_trace_active_ =
+      [[MTLCaptureManager sharedCaptureManager] isCapturing];
+#endif  // IMPELLER_DEBUG
   pass_bindings_cache_.SetEncoder(encoder_);
   is_valid_ = true;
 }
@@ -49,7 +53,7 @@ bool ComputePassMTL::IsValid() const {
 
 void ComputePassMTL::OnSetLabel(const std::string& label) {
 #ifdef IMPELLER_DEBUG
-  if (label.empty()) {
+  if (label.empty() || !is_metal_trace_active_) {
     return;
   }
   [encoder_ setLabel:@(label.c_str())];
@@ -57,8 +61,12 @@ void ComputePassMTL::OnSetLabel(const std::string& label) {
 }
 
 void ComputePassMTL::SetCommandLabel(std::string_view label) {
-  has_label_ = true;
-  [encoder_ pushDebugGroup:@(label.data())];
+#ifdef IMPELLER_DEBUG
+  if (is_metal_trace_active_) {
+    has_label_ = true;
+    [encoder_ pushDebugGroup:@(label.data())];
+  }
+#endif  // IMPELLER_DEBUG
 }
 
 // |ComputePass|

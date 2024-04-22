@@ -27,6 +27,7 @@ class ComputePassMTL final : public ComputePass {
   ComputePassBindingsCacheMTL pass_bindings_cache_ =
       ComputePassBindingsCacheMTL();
   bool is_valid_ = false;
+  bool is_metal_trace_active_ = false;
   bool has_label_ = false;
 
   ComputePassMTL(std::shared_ptr<const Context> context,
