@@ -27,22 +27,22 @@ void ComputePassBindingsCacheMTL::SetEncoder(
 void ComputePassBindingsCacheMTL::SetBuffer(uint64_t index,
                                             uint64_t offset,
                                             id<MTLBuffer> buffer) {
-  auto found = buffers_.find(index);
-  if (found != buffers_.end() && found->second.buffer == buffer) {
-    // The right buffer is bound. Check if its offset needs to be updated.
-    if (found->second.offset == offset) {
-      // Buffer and its offset is identical. Nothing to do.
-      return;
-    }
+  // auto found = buffers_.find(index);
+  // if (found != buffers_.end() && found->second.buffer == buffer) {
+  //   // The right buffer is bound. Check if its offset needs to be updated.
+  //   if (found->second.offset == offset) {
+  //     // Buffer and its offset is identical. Nothing to do.
+  //     return;
+  //   }
 
-    // Only the offset needs to be updated.
-    found->second.offset = offset;
+  //   // Only the offset needs to be updated.
+  //   found->second.offset = offset;
 
-    [encoder_ setBufferOffset:offset atIndex:index];
-    return;
-  }
+  //   [encoder_ setBufferOffset:offset atIndex:index];
+  //   return;
+  // }
 
-  buffers_[index] = {buffer, static_cast<size_t>(offset)};
+  // buffers_[index] = {buffer, static_cast<size_t>(offset)};
   [encoder_ setBuffer:buffer offset:offset atIndex:index];
 }
 
