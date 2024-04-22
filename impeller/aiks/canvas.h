@@ -115,6 +115,12 @@ class Canvas {
 
   void DrawPath(const Path& path, const Paint& paint);
 
+  void DrawPath(std::shared_ptr<Geometry> geometry, const Paint& paint);
+
+  void ClipPath(const std::shared_ptr<Geometry>& geometry,
+                Rect bounds,
+                Entity::ClipOperation clip_op);
+
   void DrawPaint(const Paint& paint);
 
   void DrawLine(const Point& p0, const Point& p1, const Paint& paint);

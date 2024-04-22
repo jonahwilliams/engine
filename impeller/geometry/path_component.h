@@ -20,8 +20,8 @@ namespace impeller {
 ///        strip.
 class VertexWriter {
  public:
-  explicit VertexWriter(std::vector<Point>& points,
-                        std::vector<uint16_t>& indices);
+  explicit VertexWriter(Point* points,
+                        uint16_t* indices);
 
   ~VertexWriter() = default;
 
@@ -29,11 +29,17 @@ class VertexWriter {
 
   void Write(Point point);
 
+  size_t GetFinalCount() {
+    return index_index_;
+  }
+
  private:
   bool previous_contour_odd_points_ = false;
   size_t contour_start_ = 0u;
-  std::vector<Point>& points_;
-  std::vector<uint16_t>& indices_;
+  size_t point_index_ = 0;
+  size_t index_index_ = 0;
+  Point* points_;
+  uint16_t* indices_;
 };
 
 struct LinearPathComponent {
@@ -88,6 +94,8 @@ struct QuadraticPathComponent {
 
   std::vector<Point> Extrema() const;
 
+  size_t PointCount(Scalar scale) const;
+
   bool operator==(const QuadraticPathComponent& other) const {
     return p1 == other.p1 && cp == other.cp && p2 == other.p2;
   }
@@ -138,6 +146,8 @@ struct CubicPathComponent {
   size_t CountSubdivisions(Scalar scale) const;
 
   CubicPathComponent Subsegment(Scalar t0, Scalar t1) const;
+
+  size_t PointCount(Scalar scale) const;
 
   bool operator==(const CubicPathComponent& other) const {
     return p1 == other.p1 && cp1 == other.cp1 && cp2 == other.cp2 &&

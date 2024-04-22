@@ -951,8 +951,7 @@ TEST_P(DisplayListTest, TransparentShadowProducesCorrectColor) {
   dispatcher.save();
   dispatcher.scale(1.618, 1.618);
   SkPath path = SkPath{}.addRect(SkRect::MakeXYWH(0, 0, 200, 100));
-  flutter::DlOpReceiver::CacheablePath cache(path);
-  dispatcher.drawShadow(cache, flutter::DlColor::kTransparent(), 15, false, 1);
+  dispatcher.drawShadow(path, flutter::DlColor::kTransparent(), 15, false, 1);
   dispatcher.restore();
   auto picture = dispatcher.EndRecordingAsPicture();
 

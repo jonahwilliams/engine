@@ -22,10 +22,6 @@ struct PathComponent {
   vec2 p2;
 };
 
-
-//// Wangs
-
-
 // Don't allow linearized segments to be off by more than 1/4th of a pixel from
 // the true curve. This value should be scaled by the max basis of the
 // X and Y directions.

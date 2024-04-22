@@ -20,9 +20,6 @@ class DlDispatcherBase : public flutter::DlOpReceiver {
   Picture EndRecordingAsPicture();
 
   // |flutter::DlOpReceiver|
-  bool PrefersImpellerPaths() const override { return true; }
-
-  // |flutter::DlOpReceiver|
   void setAntiAlias(bool aa) override;
 
   // |flutter::DlOpReceiver|
@@ -127,11 +124,6 @@ class DlDispatcherBase : public flutter::DlOpReceiver {
   void clipPath(const SkPath& path, ClipOp clip_op, bool is_aa) override;
 
   // |flutter::DlOpReceiver|
-  void clipPath(const CacheablePath& cache,
-                ClipOp clip_op,
-                bool is_aa) override;
-
-  // |flutter::DlOpReceiver|
   void drawColor(flutter::DlColor color, flutter::DlBlendMode mode) override;
 
   // |flutter::DlOpReceiver|
@@ -157,9 +149,6 @@ class DlDispatcherBase : public flutter::DlOpReceiver {
 
   // |flutter::DlOpReceiver|
   void drawPath(const SkPath& path) override;
-
-  // |flutter::DlOpReceiver|
-  void drawPath(const CacheablePath& cache) override;
 
   // |flutter::DlOpReceiver|
   void drawArc(const SkRect& oval_bounds,
@@ -229,23 +218,16 @@ class DlDispatcherBase : public flutter::DlOpReceiver {
                   bool transparent_occluder,
                   SkScalar dpr) override;
 
-  // |flutter::DlOpReceiver|
-  void drawShadow(const CacheablePath& cache,
-                  const flutter::DlColor color,
-                  const SkScalar elevation,
-                  bool transparent_occluder,
-                  SkScalar dpr) override;
-
   virtual Canvas& GetCanvas() = 0;
 
  private:
   Paint paint_;
   Matrix initial_matrix_;
 
-  static const Path& GetOrCachePath(const CacheablePath& cache);
+  static const Path GetOrCachePath(const SkPath& cache);
 
   static void SimplifyOrDrawPath(Canvas& canvas,
-                                 const CacheablePath& cache,
+                                 const SkPath& cache,
                                  const Paint& paint);
 };
 

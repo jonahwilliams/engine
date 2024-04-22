@@ -8,6 +8,7 @@
 #include "display_list/dl_color.h"
 #include "display_list/effects/dl_color_source.h"
 #include "impeller/core/formats.h"
+#include "impeller/entity/geometry/geometry.h"
 #include "impeller/geometry/color.h"
 #include "impeller/geometry/path.h"
 #include "impeller/geometry/path_builder.h"
@@ -23,6 +24,39 @@
 
 namespace impeller {
 namespace skia_conversions {
+
+class SkiaFillPathGeometry final : public Geometry {
+ public:
+  explicit SkiaFillPathGeometry(const SkPath& path,
+                                std::optional<Rect> inner_rect = std::nullopt);
+
+  ~SkiaFillPathGeometry() = default;
+
+  // |Geometry|
+  bool CoversArea(const Matrix& transform, const Rect& rect) const override;
+
+ private:
+  // |Geometry|
+  GeometryResult GetPositionBuffer(const ContentContext& renderer,
+                                   const Entity& entity,
+                                   RenderPass& pass) const override;
+
+  // |Geometry|
+  GeometryVertexType GetVertexType() const override;
+
+  // |Geometry|
+  std::optional<Rect> GetCoverage(const Matrix& transform) const override;
+
+  // |Geometry|
+  GeometryResult::Mode GetResultMode() const override;
+
+  SkPath path_;
+  std::optional<Rect> inner_rect_;
+
+  SkiaFillPathGeometry(const SkiaFillPathGeometry&) = delete;
+
+  SkiaFillPathGeometry& operator=(const SkiaFillPathGeometry&) = delete;
+};
 
 Rect ToRect(const SkRect& rect);
 

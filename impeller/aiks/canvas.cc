@@ -346,6 +346,16 @@ void Canvas::DrawPath(const Path& path, const Paint& paint) {
   AddRenderEntityToCurrentPass(std::move(entity));
 }
 
+void Canvas::DrawPath(std::shared_ptr<Geometry> geometry, const Paint& paint) {
+  Entity entity;
+  entity.SetTransform(GetCurrentTransform());
+  entity.SetBlendMode(paint.blend_mode);
+  entity.SetContents(
+      CreateContentsForGeometryWithFilters(paint, std::move(geometry)));
+
+  AddRenderEntityToCurrentPass(std::move(entity));
+}
+
 void Canvas::DrawPaint(const Paint& paint) {
   Entity entity;
   entity.SetTransform(GetCurrentTransform());
@@ -590,6 +600,15 @@ void Canvas::ClipPath(const Path& path, Entity::ClipOperation clip_op) {
     if (bounds.has_value()) {
       IntersectCulling(bounds.value());
     }
+  }
+}
+
+void Canvas::ClipPath(const std::shared_ptr<Geometry>& geometry,
+                      Rect bounds,
+                      Entity::ClipOperation clip_op) {
+  ClipGeometry(geometry, clip_op);
+  if (clip_op == Entity::ClipOperation::kIntersect) {
+    IntersectCulling(bounds);
   }
 }
 

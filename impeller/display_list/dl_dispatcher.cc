@@ -742,36 +742,26 @@ void DlDispatcherBase::clipRRect(const SkRRect& rrect,
 }
 
 // |flutter::DlOpReceiver|
-void DlDispatcherBase::clipPath(const SkPath& path, ClipOp sk_op, bool is_aa) {
-  UNIMPLEMENTED;
-}
-
-const Path& DlDispatcherBase::GetOrCachePath(const CacheablePath& cache) {
-  if (cache.cached_impeller_path.IsEmpty() && !cache.sk_path.isEmpty()) {
-    cache.cached_impeller_path = skia_conversions::ToPath(cache.sk_path);
-  }
-  return cache.cached_impeller_path;
-}
-
-// |flutter::DlOpReceiver|
-void DlDispatcherBase::clipPath(const CacheablePath& cache,
+void DlDispatcherBase::clipPath(const SkPath& sk_path,
                                 ClipOp sk_op,
                                 bool is_aa) {
   auto clip_op = ToClipOperation(sk_op);
 
   SkRect rect;
-  if (cache.sk_path.isRect(&rect)) {
+  if (sk_path.isRect(&rect)) {
     GetCanvas().ClipRect(skia_conversions::ToRect(rect), clip_op);
-  } else if (cache.sk_path.isOval(&rect)) {
+  } else if (sk_path.isOval(&rect)) {
     GetCanvas().ClipOval(skia_conversions::ToRect(rect), clip_op);
   } else {
     SkRRect rrect;
-    if (cache.sk_path.isRRect(&rrect) && rrect.isSimple()) {
+    if (sk_path.isRRect(&rrect) && rrect.isSimple()) {
       GetCanvas().ClipRRect(skia_conversions::ToRect(rrect.rect()),
                             skia_conversions::ToSize(rrect.getSimpleRadii()),
                             clip_op);
     } else {
-      GetCanvas().ClipPath(GetOrCachePath(cache), clip_op);
+      GetCanvas().ClipPath(
+          std::make_shared<skia_conversions::SkiaFillPathGeometry>(sk_path),
+          skia_conversions::ToRect(sk_path.getBounds()), clip_op);
     }
   }
 }
@@ -831,41 +821,43 @@ void DlDispatcherBase::drawDRRect(const SkRRect& outer, const SkRRect& inner) {
 }
 
 // |flutter::DlOpReceiver|
-void DlDispatcherBase::drawPath(const SkPath& path) {
-  UNIMPLEMENTED;
-}
-
-// |flutter::DlOpReceiver|
-void DlDispatcherBase::drawPath(const CacheablePath& cache) {
-  SimplifyOrDrawPath(GetCanvas(), cache, paint_);
+void DlDispatcherBase::drawPath(const SkPath& sk_path) {
+  SimplifyOrDrawPath(GetCanvas(), sk_path, paint_);
 }
 
 void DlDispatcherBase::SimplifyOrDrawPath(CanvasType& canvas,
-                                          const CacheablePath& cache,
+                                          const SkPath& sk_path,
                                           const Paint& paint) {
   SkRect rect;
 
   // We can't "optimize" a path into a rectangle if it's open.
   bool closed;
-  if (cache.sk_path.isRect(&rect, &closed) && closed) {
+  if (sk_path.isRect(&rect, &closed) && closed) {
     canvas.DrawRect(skia_conversions::ToRect(rect), paint);
     return;
   }
 
   SkRRect rrect;
-  if (cache.sk_path.isRRect(&rrect) && rrect.isSimple()) {
+  if (sk_path.isRRect(&rrect) && rrect.isSimple()) {
     canvas.DrawRRect(skia_conversions::ToRect(rrect.rect()),
                      skia_conversions::ToSize(rrect.getSimpleRadii()), paint);
     return;
   }
 
   SkRect oval;
-  if (cache.sk_path.isOval(&oval)) {
+  if (sk_path.isOval(&oval)) {
     canvas.DrawOval(skia_conversions::ToRect(oval), paint);
     return;
   }
 
-  canvas.DrawPath(GetOrCachePath(cache), paint);
+  if (paint.style == Paint::Style::kFill) {
+    canvas.DrawPath(
+        std::make_shared<skia_conversions::SkiaFillPathGeometry>(sk_path),
+        paint);
+    return;
+  }
+
+  canvas.DrawPath(skia_conversions::ToPath(sk_path), paint);
 }
 
 // |flutter::DlOpReceiver|
@@ -1087,15 +1079,6 @@ void DlDispatcherBase::drawShadow(const SkPath& path,
                                   const SkScalar elevation,
                                   bool transparent_occluder,
                                   SkScalar dpr) {
-  UNIMPLEMENTED;
-}
-
-// |flutter::DlOpReceiver|
-void DlDispatcherBase::drawShadow(const CacheablePath& cache,
-                                  const flutter::DlColor color,
-                                  const SkScalar elevation,
-                                  bool transparent_occluder,
-                                  SkScalar dpr) {
   Color spot_color = skia_conversions::ToColor(color);
   spot_color.alpha *= 0.25;
 
@@ -1144,7 +1127,7 @@ void DlDispatcherBase::drawShadow(const CacheablePath& cache,
   GetCanvas().PreConcat(
       Matrix::MakeTranslation(Vector2(0, -occluder_z * light_position.y)));
 
-  SimplifyOrDrawPath(GetCanvas(), cache, paint);
+  SimplifyOrDrawPath(GetCanvas(), path, paint);
 
   GetCanvas().Restore();
 }
