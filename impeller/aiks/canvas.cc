@@ -928,17 +928,18 @@ void Canvas::DrawVertices(const std::shared_ptr<VerticesGeometry>& vertices,
   entity.SetTransform(GetCurrentTransform());
   entity.SetBlendMode(paint.blend_mode);
 
-  // If there are no vertex color or texture coordinates. Or if there
-  // are vertex coordinates then only if the contents are an image.
+  // If there are no vertex color or texture coordinates.
   if (UseColorSourceContents(vertices, paint)) {
     entity.SetContents(CreateContentsForGeometryWithFilters(paint, vertices));
     AddRenderEntityToCurrentPass(std::move(entity));
     return;
   }
 
-  // If there is are per-vertex colors, an image, and the blend mode
-  // is simple we can draw without a sub-renderpass.
-  if (blend_mode <= BlendMode::kModulate && vertices->HasVertexColors()) {
+  // If there is an image and a pipeline blend, we can perform everything
+  // in the porterduff blend shader without creating another render pass.
+  // If there are no per-vertex colors then we just switch the blend mode
+  // to src.
+  if (blend_mode <= BlendMode::kModulate) {
     if (std::optional<ImageData> maybe_image_data =
             GetImageColorSourceData(paint.color_source)) {
       const ImageData& image_data = maybe_image_data.value();
