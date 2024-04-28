@@ -2349,7 +2349,7 @@ TEST_P(EntityTest, InheritOpacityTest) {
   // overlap
   SkFont font = flutter::testing::CreateTestFontOfSize(30);
   auto blob = SkTextBlob::MakeFromString("A", font);
-  auto frame = MakeTextFrameFromTextBlobSkia(blob);
+  auto frame = MakeTextFrameFromTextBlobSkia(blob, /*stroke=*/false);
   auto lazy_glyph_atlas =
       std::make_shared<LazyGlyphAtlas>(TypographerContextSkia::Make());
   lazy_glyph_atlas->AddTextFrame(*frame, 1.0f);

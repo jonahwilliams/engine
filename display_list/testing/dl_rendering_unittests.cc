@@ -3684,7 +3684,7 @@ TEST_F(DisplayListRendering, DrawTextBlob) {
   sk_sp<SkTextBlob> blob =
       CanvasCompareTester::MakeTextBlob("Testing", kRenderHeight * 0.33f);
 #ifdef IMPELLER_SUPPORTS_RENDERING
-  auto frame = impeller::MakeTextFrameFromTextBlobSkia(blob);
+  auto frame = impeller::MakeTextFrameFromTextBlobSkia(blob, /*stroke=*/false);
 #endif  // IMPELLER_SUPPORTS_RENDERING
   SkScalar render_y_1_3 = kRenderTop + kRenderHeight * 0.3;
   SkScalar render_y_2_3 = kRenderTop + kRenderHeight * 0.6;

@@ -58,8 +58,9 @@ void VisualizeStopWatch(DlCanvas* canvas,
     DlPaint paint(DlColor(0xFF888888));
 #ifdef IMPELLER_SUPPORTS_RENDERING
     if (impeller_enabled) {
-      canvas->DrawTextFrame(impeller::MakeTextFrameFromTextBlobSkia(text),
-                            x + label_x, y + height + label_y, paint);
+      canvas->DrawTextFrame(
+          impeller::MakeTextFrameFromTextBlobSkia(text, /*stroke=*/false),
+          x + label_x, y + height + label_y, paint);
       return;
     }
 #endif  // IMPELLER_SUPPORTS_RENDERING

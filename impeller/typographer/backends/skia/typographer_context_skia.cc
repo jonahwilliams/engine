@@ -175,6 +175,7 @@ static void DrawGlyph(SkCanvas* canvas,
 
   SkPaint glyph_paint;
   glyph_paint.setColor(glyph_color);
+  glyph_paint.setStroke(scaled_font.stroke);
   canvas->resetMatrix();
   canvas->scale(scaled_font.scale, scaled_font.scale);
   canvas->drawGlyphs(1u,         // count

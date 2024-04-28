@@ -5,25 +5,25 @@
 #ifndef FLUTTER_IMPELLER_TYPOGRAPHER_FONT_GLYPH_PAIR_H_
 #define FLUTTER_IMPELLER_TYPOGRAPHER_FONT_GLYPH_PAIR_H_
 
-#include <optional>
 #include <unordered_map>
 #include <unordered_set>
-#include <vector>
 
-#include "flutter/fml/macros.h"
-#include "impeller/geometry/size.h"
 #include "impeller/typographer/font.h"
 #include "impeller/typographer/glyph.h"
 
 namespace impeller {
 
 //------------------------------------------------------------------------------
-/// @brief      A font and a scale.  Used as a key that represents a typeface
+/// @brief      A font and its properties.  Used as a key that represents a
+/// typeface
 ///             within a glyph atlas.
 ///
 struct ScaledFont {
   Font font;
+  /// A scaling factor applied to the font.
   Scalar scale;
+  /// Whether or not the font is stroked.
+  bool stroke;
 };
 
 using FontGlyphMap = std::unordered_map<ScaledFont, std::unordered_set<Glyph>>;
@@ -44,7 +44,7 @@ struct FontGlyphPair {
 template <>
 struct std::hash<impeller::ScaledFont> {
   constexpr std::size_t operator()(const impeller::ScaledFont& sf) const {
-    return fml::HashCombine(sf.font.GetHash(), sf.scale);
+    return fml::HashCombine(sf.font.GetHash(), sf.scale, sf.stroke);
   }
 };
 
@@ -52,7 +52,8 @@ template <>
 struct std::equal_to<impeller::ScaledFont> {
   constexpr bool operator()(const impeller::ScaledFont& lhs,
                             const impeller::ScaledFont& rhs) const {
-    return lhs.font.IsEqual(rhs.font) && lhs.scale == rhs.scale;
+    return lhs.font.IsEqual(rhs.font) && lhs.scale == rhs.scale &&
+           lhs.stroke == rhs.stroke;
   }
 };
 
