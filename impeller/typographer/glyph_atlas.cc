@@ -73,8 +73,9 @@ std::optional<Rect> GlyphAtlas::FindFontGlyphBounds(
 }
 
 const FontGlyphAtlas* GlyphAtlas::GetFontGlyphAtlas(const Font& font,
-                                                    Scalar scale) const {
-  const auto& found = font_atlas_map_.find({font, scale});
+                                                    Scalar scale,
+                                                    std::optional<Scalar> stroke_width) const {
+  const auto& found = font_atlas_map_.find(ScaledFont{font, scale, stroke_width});
   if (found == font_atlas_map_.end()) {
     return nullptr;
   }

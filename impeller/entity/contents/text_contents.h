@@ -43,6 +43,8 @@ class TextContents final : public Contents {
 
   void SetOffset(Vector2 offset);
 
+  void SetStrokeWidth(std::optional<Scalar> stroke_width);
+
   std::optional<Rect> GetTextFrameBounds() const;
 
   // |Contents|
@@ -67,6 +69,7 @@ class TextContents final : public Contents {
   Scalar inherited_opacity_ = 1.0;
   Vector2 offset_;
   bool force_text_color_ = false;
+  std::optional<Scalar> stroke_width_ = std::nullopt;
 
   TextContents(const TextContents&) = delete;
 

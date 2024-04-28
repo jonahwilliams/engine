@@ -12,6 +12,7 @@
 #include "flutter/fml/trace_event.h"
 #include "impeller/aiks/color_source.h"
 #include "impeller/aiks/image_filter.h"
+#include "impeller/aiks/paint.h"
 #include "impeller/aiks/paint_pass_delegate.h"
 #include "impeller/entity/contents/atlas_contents.h"
 #include "impeller/entity/contents/clip_contents.h"
@@ -882,6 +883,9 @@ void Canvas::DrawTextFrame(const std::shared_ptr<TextFrame>& text_frame,
   text_contents->SetTextFrame(text_frame);
   text_contents->SetColor(paint.color);
   text_contents->SetForceTextColor(paint.mask_blur_descriptor.has_value());
+  if (paint.style == Paint::Style::kStroke) {
+    text_contents->SetStrokeWidth(paint.stroke_width);
+  }
 
   entity.SetTransform(GetCurrentTransform() *
                       Matrix::MakeTranslation(position));

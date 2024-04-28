@@ -12,7 +12,7 @@ namespace impeller {
 
 std::shared_ptr<impeller::TextFrame> MakeTextFrameFromTextBlobSkia(
     const sk_sp<SkTextBlob>& blob,
-    bool stroke);
+    std::optional<Scalar> stroke_width);
 
 }  // namespace impeller
 

@@ -122,12 +122,16 @@ class GlyphAtlas {
   ///
   /// @param[in]  font  The font
   /// @param[in]  scale The scale
+  /// @param[in]  stroke_width The stroke width
   ///
   /// @return     A pointer to a FontGlyphAtlas, or nullptr if the font and
   ///             scale are not available in the atlas.  The pointer is only
   ///             valid for the lifetime of the GlyphAtlas.
   ///
-  const FontGlyphAtlas* GetFontGlyphAtlas(const Font& font, Scalar scale) const;
+  const FontGlyphAtlas* GetFontGlyphAtlas(
+      const Font& font,
+      Scalar scale,
+      std::optional<Scalar> stroke_width) const;
 
  private:
   const Type type_;

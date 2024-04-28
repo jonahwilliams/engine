@@ -15,15 +15,14 @@ namespace impeller {
 
 //------------------------------------------------------------------------------
 /// @brief      A font and its properties.  Used as a key that represents a
-/// typeface
-///             within a glyph atlas.
+///             typeface within a glyph atlas.
 ///
 struct ScaledFont {
   Font font;
   /// A scaling factor applied to the font.
   Scalar scale;
-  /// Whether or not the font is stroked.
-  bool stroke;
+  /// Whether or not the font is stroked and if so what the stroke width is.
+  std::optional<Scalar> stroke_width;
 };
 
 using FontGlyphMap = std::unordered_map<ScaledFont, std::unordered_set<Glyph>>;
@@ -44,7 +43,8 @@ struct FontGlyphPair {
 template <>
 struct std::hash<impeller::ScaledFont> {
   constexpr std::size_t operator()(const impeller::ScaledFont& sf) const {
-    return fml::HashCombine(sf.font.GetHash(), sf.scale, sf.stroke);
+    return fml::HashCombine(sf.font.GetHash(), sf.scale,
+                            sf.stroke_width.value_or(-1));
   }
 };
 
@@ -53,7 +53,7 @@ struct std::equal_to<impeller::ScaledFont> {
   constexpr bool operator()(const impeller::ScaledFont& lhs,
                             const impeller::ScaledFont& rhs) const {
     return lhs.font.IsEqual(rhs.font) && lhs.scale == rhs.scale &&
-           lhs.stroke == rhs.stroke;
+           lhs.stroke_width.value_or(-1) == rhs.stroke_width.value_or(-1);
   }
 };
 

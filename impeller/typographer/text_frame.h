@@ -24,7 +24,7 @@ class TextFrame {
   TextFrame(std::vector<TextRun>& runs,
             Rect bounds,
             bool has_color,
-            bool is_stroke);
+            std::optional<Scalar> stroke_width);
 
   ~TextFrame();
 
@@ -55,10 +55,6 @@ class TextFrame {
   const std::vector<TextRun>& GetRuns() const;
 
   //----------------------------------------------------------------------------
-  /// @brief      Whether this text run contains only stroked glyphs.
-  bool GetIsStroke() const;
-
-  //----------------------------------------------------------------------------
   /// @brief      Whether any of the glyphs of this run are potentially
   /// overlapping
   ///
@@ -80,7 +76,7 @@ class TextFrame {
   std::vector<TextRun> runs_;
   Rect bounds_;
   bool has_color_ = false;
-  bool is_stroke_ = false;
+  std::optional<Scalar> stroke_width_;
 };
 
 }  // namespace impeller

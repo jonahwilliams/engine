@@ -40,7 +40,7 @@ static constexpr Scalar kScaleSize = 100000.0f;
 
 std::shared_ptr<TextFrame> MakeTextFrameFromTextBlobSkia(
     const sk_sp<SkTextBlob>& blob,
-    bool stroke) {
+    std::optional<Scalar> stroke_width) {
   bool has_color = false;
   std::vector<TextRun> runs;
   for (SkTextBlobRunIterator run(blob.get()); !run.done(); run.next()) {
@@ -90,7 +90,7 @@ std::shared_ptr<TextFrame> MakeTextFrameFromTextBlobSkia(
     }
   }
   return std::make_shared<TextFrame>(runs, ToRect(blob->bounds()), has_color,
-                                     stroke);
+                                     stroke_width);
 }
 
 }  // namespace impeller

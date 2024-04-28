@@ -12,11 +12,11 @@ TextFrame::TextFrame() = default;
 TextFrame::TextFrame(std::vector<TextRun>& runs,
                      Rect bounds,
                      bool has_color,
-                     bool is_stroke)
+                     std::optional<Scalar> stroke_width)
     : runs_(std::move(runs)),
       bounds_(bounds),
       has_color_(has_color),
-      is_stroke_(is_stroke) {}
+      stroke_width_(stroke_width) {}
 
 TextFrame::~TextFrame() = default;
 
@@ -26,10 +26,6 @@ Rect TextFrame::GetBounds() const {
 
 size_t TextFrame::GetRunCount() const {
   return runs_.size();
-}
-
-bool TextFrame::GetIsStroke() const {
-  return is_stroke_;
 }
 
 const std::vector<TextRun>& TextFrame::GetRuns() const {
@@ -90,7 +86,7 @@ void TextFrame::CollectUniqueFontGlyphPairs(FontGlyphMap& glyph_map,
     auto rounded_scale =
         RoundScaledFontSize(scale, font.GetMetrics().point_size);
     auto& set = glyph_map[ScaledFont{
-        .font = font, .scale = rounded_scale, .stroke = GetIsStroke()}];
+        .font = font, .scale = rounded_scale, .stroke_width = stroke_width_}];
     for (const TextRun::GlyphPosition& glyph_position :
          run.GetGlyphPositions()) {
 #if false

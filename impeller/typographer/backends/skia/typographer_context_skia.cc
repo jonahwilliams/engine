@@ -175,7 +175,11 @@ static void DrawGlyph(SkCanvas* canvas,
 
   SkPaint glyph_paint;
   glyph_paint.setColor(glyph_color);
-  glyph_paint.setStroke(scaled_font.stroke);
+  if (scaled_font.stroke_width.has_value()) {
+    glyph_paint.setStroke(true);
+    glyph_paint.setStrokeWidth(1);
+    FML_LOG(ERROR) << "stroke width: " << scaled_font.stroke_width.value();
+  }
   canvas->resetMatrix();
   canvas->scale(scaled_font.scale, scaled_font.scale);
   canvas->drawGlyphs(1u,         // count
@@ -338,8 +342,8 @@ std::shared_ptr<GlyphAtlas> TypographerContextSkia::CreateGlyphAtlas(
   std::vector<FontGlyphPair> new_glyphs;
   for (const auto& font_value : font_glyph_map) {
     const ScaledFont& scaled_font = font_value.first;
-    const FontGlyphAtlas* font_glyph_atlas =
-        last_atlas->GetFontGlyphAtlas(scaled_font.font, scaled_font.scale);
+    const FontGlyphAtlas* font_glyph_atlas = last_atlas->GetFontGlyphAtlas(
+        scaled_font.font, scaled_font.scale, scaled_font.stroke_width);
     if (font_glyph_atlas) {
       for (const Glyph& glyph : font_value.second) {
         if (!font_glyph_atlas->FindGlyphBounds(glyph)) {

@@ -93,10 +93,13 @@ class DisplayListParagraphPainter : public skt::ParagraphPainter {
         return;
       }
 
-      builder_->DrawTextFrame(impeller::MakeTextFrameFromTextBlobSkia(
-                                  blob, dl_paints_[paint_id].getDrawStyle() ==
-                                            /*stroke=*/DlDrawStyle::kStroke),
-                              x, y, dl_paints_[paint_id]);
+      std::optional<SkScalar> stroke_width;
+      if (dl_paints_[paint_id].getDrawStyle() == DlDrawStyle::kStroke) {
+        stroke_width = dl_paints_[paint_id].getStrokeWidth();
+      }
+      builder_->DrawTextFrame(
+          impeller::MakeTextFrameFromTextBlobSkia(blob, /*stroke_width=*/stroke_width), x, y,
+          dl_paints_[paint_id]);
       return;
     }
 #endif  // IMPELLER_SUPPORTS_RENDERING

@@ -51,6 +51,10 @@ void TextContents::SetForceTextColor(bool value) {
   force_text_color_ = value;
 }
 
+void TextContents::SetStrokeWidth(std::optional<Scalar> stroke_width) {
+  stroke_width_ = stroke_width;
+}
+
 std::optional<Rect> TextContents::GetCoverage(const Entity& entity) const {
   return frame_->GetBounds().TransformBounds(entity.GetTransform());
 }
@@ -164,7 +168,7 @@ bool TextContents::Render(const ContentContext& renderer,
           Scalar rounded_scale = TextFrame::RoundScaledFontSize(
               scale_, font.GetMetrics().point_size);
           const FontGlyphAtlas* font_atlas =
-              atlas->GetFontGlyphAtlas(font, rounded_scale);
+              atlas->GetFontGlyphAtlas(font, rounded_scale, stroke_width_);
           if (!font_atlas) {
             VALIDATION_LOG << "Could not find font in the atlas.";
             continue;
