@@ -101,7 +101,6 @@ class AHBSwapchainImplVK final
   Mutex currently_displayed_texture_mutex_;
   std::shared_ptr<AHBTextureSourceVK> currently_displayed_texture_
       IPLR_GUARDED_BY(currently_displayed_texture_mutex_);
-  std::shared_ptr<fml::Semaphore> pending_presents_;
   bool is_valid_ = false;
 
   explicit AHBSwapchainImplVK(
@@ -111,21 +110,19 @@ class AHBSwapchainImplVK final
       bool enable_msaa,
       size_t swapchain_image_count);
 
-  bool Present(const AutoSemaSignaler& signaler,
-               const std::shared_ptr<AHBTextureSourceVK>& texture);
+  bool Present(const std::shared_ptr<AHBTextureSourceVK>& texture);
 
-  vk::UniqueSemaphore CreateRenderReadySemaphore(
+  vk::UniqueFence CreateRenderReadyFence(
+      const ContextVK& context,
       const std::shared_ptr<fml::UniqueFD>& fd) const;
 
-  bool SubmitWaitForRenderReady(
-      const std::shared_ptr<fml::UniqueFD>& render_ready_fence,
-      const std::shared_ptr<AHBTextureSourceVK>& texture) const;
+  bool WaitForFence(const std::shared_ptr<fml::UniqueFD>& render_ready_fence,
+                    const std::shared_ptr<AHBTextureSourceVK>& texture) const;
 
   std::shared_ptr<ExternalFenceVK> SubmitSignalForPresentReady(
       const std::shared_ptr<AHBTextureSourceVK>& texture) const;
 
   void OnTextureUpdatedOnSurfaceControl(
-      const AutoSemaSignaler& signaler,
       std::shared_ptr<AHBTextureSourceVK> texture,
       ASurfaceTransactionStats* stats);
 };
