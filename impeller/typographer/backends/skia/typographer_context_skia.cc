@@ -34,7 +34,9 @@
 #include "include/core/SkPixelRef.h"
 #include "include/core/SkSize.h"
 
+#include "include/private/base/SkPoint_impl.h"
 #include "third_party/skia/include/core/SkBitmap.h"
+#include "third_party/skia/include/core/SkBlendMode.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "third_party/skia/include/core/SkFont.h"
 #include "third_party/skia/include/core/SkSurface.h"
@@ -45,56 +47,6 @@ namespace impeller {
 //              the underlying causes of the overlap.
 //              https://github.com/flutter/flutter/issues/114563
 constexpr auto kPadding = 2;
-
-namespace {
-
-class HostBufferAllocator : public SkBitmap::Allocator {
- public:
-  explicit HostBufferAllocator(HostBuffer& host_buffer)
-      : host_buffer_(host_buffer) {}
-
-  [[nodiscard]] BufferView TakeBufferView() {
-    buffer_view_.buffer->Flush();
-    return std::move(buffer_view_);
-  }
-
-  // |SkBitmap::Allocator|
-  bool allocPixelRef(SkBitmap* bitmap) override {
-    if (!bitmap) {
-      return false;
-    }
-    const SkImageInfo& info = bitmap->info();
-    if (kUnknown_SkColorType == info.colorType() || info.width() < 0 ||
-        info.height() < 0 || !info.validRowBytes(bitmap->rowBytes())) {
-      return false;
-    }
-
-    size_t required_bytes = bitmap->rowBytes() * bitmap->height();
-    BufferView buffer_view = host_buffer_.Emplace(nullptr, required_bytes,
-                                                  DefaultUniformAlignment());
-
-    // The impeller host buffer is not cleared between frames and may contain
-    // stale data. The Skia software canvas does not write to pixels without
-    // any contents, which causes this data to leak through.
-    ::memset(buffer_view.buffer->OnGetContents() + buffer_view.range.offset, 0,
-             required_bytes);
-
-    auto pixel_ref = sk_sp<SkPixelRef>(new SkPixelRef(
-        info.width(), info.height(),
-        buffer_view.buffer->OnGetContents() + buffer_view.range.offset,
-        bitmap->rowBytes()));
-
-    bitmap->setPixelRef(std::move(pixel_ref), 0, 0);
-    buffer_view_ = std::move(buffer_view);
-    return true;
-  }
-
- private:
-  BufferView buffer_view_;
-  HostBuffer& host_buffer_;
-};
-
-}  // namespace
 
 std::shared_ptr<TypographerContext> TypographerContextSkia::Make() {
   return std::make_shared<TypographerContextSkia>();
@@ -228,11 +180,11 @@ static ISize ComputeNextAtlasSize(
 }
 
 static void DrawGlyph(SkCanvas* canvas,
+                      SkPoint position,
                       const ScaledFont& scaled_font,
                       const Glyph& glyph,
                       bool has_color) {
   const auto& metrics = scaled_font.font.GetMetrics();
-  const auto position = SkPoint::Make(0, 0);
   SkGlyphID glyph_id = glyph.index;
 
   SkFont sk_font(
@@ -270,21 +222,26 @@ static bool UpdateAtlasBitmap(const GlyphAtlas& atlas,
 
   bool has_color = atlas.GetType() == GlyphAtlas::Type::kColorBitmap;
 
-  for (size_t i = start_index; i < end_index; i++) {
-    const FontGlyphPair& pair = new_pairs[i];
-    auto pos = atlas.FindFontGlyphBounds(pair);
-    if (!pos.has_value()) {
-      continue;
-    }
-    Size size = pos->GetSize();
-    if (size.IsEmpty()) {
-      continue;
-    }
+  // Render rows together.
+  struct State {
+    Rect position;
+    FontGlyphPair pair;
+  };
+  std::vector<State> states;
 
+  // Attempt to render all glyphs within a single row together.
+  auto flush = [&]() -> bool {
+    if (states.empty()) {
+      return true;
+    }
+    Rect bounds = states[0].position;
+    for (auto i = 1u; i < states.size(); i++) {
+      bounds = bounds.Union(states[i].position);
+    }
+    Point offset = bounds.GetLeftTop();
     SkBitmap bitmap;
-    HostBufferAllocator allocator(host_buffer);
-    bitmap.setInfo(GetImageInfo(atlas, size));
-    if (!bitmap.tryAllocPixels(&allocator)) {
+    bitmap.setInfo(GetImageInfo(atlas, bounds.GetSize()));
+    if (!bitmap.tryAllocPixels()) {
       return false;
     }
     auto surface = SkSurfaces::WrapPixels(bitmap.pixmap());
@@ -296,15 +253,44 @@ static bool UpdateAtlasBitmap(const GlyphAtlas& atlas,
       return false;
     }
 
-    DrawGlyph(canvas, pair.scaled_font, pair.glyph, has_color);
+    for (auto& state : states) {
+      SkPoint position = SkPoint::Make(
+          (state.position.GetX() - offset.x) / state.pair.scaled_font.scale,
+          (state.position.GetY() - offset.y) / state.pair.scaled_font.scale);
+      DrawGlyph(canvas, position, state.pair.scaled_font, state.pair.glyph,
+                has_color);
+    }
+    auto buffer_view = host_buffer.Emplace(
+        bitmap.getAddr(0, 0), bounds.GetSize().Area() * (has_color ? 4u : 1u),
+        DefaultUniformAlignment());
 
-    if (!blit_pass->AddCopy(allocator.TakeBufferView(), texture,
-                            IRect::MakeXYWH(pos->GetLeft(), pos->GetTop(),
-                                            size.width, size.height))) {
+    if (!blit_pass->AddCopy(
+            buffer_view, texture,
+            IRect::MakeXYWH(bounds.GetLeft(), bounds.GetTop(),
+                            bounds.GetWidth(), bounds.GetHeight()))) {
       return false;
     }
+    return true;
+  };
+
+  for (size_t i = start_index; i < end_index; i++) {
+    const FontGlyphPair& pair = new_pairs[i];
+    auto pos = atlas.FindFontGlyphBounds(pair);
+    if (!pos.has_value()) {
+      continue;
+    }
+    Size size = pos->GetSize();
+    if (size.IsEmpty()) {
+      continue;
+    }
+    if (!states.empty() && states.back().position.GetX() == pos->GetX()) {
+      if (!flush()) {
+        return false;
+      }
+    }
+    states.push_back(State{.position = pos.value(), .pair = pair});
   }
-  return true;
+  return flush();
 }
 
 std::shared_ptr<GlyphAtlas> TypographerContextSkia::CreateGlyphAtlas(
