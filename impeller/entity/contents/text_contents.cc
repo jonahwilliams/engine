@@ -13,6 +13,7 @@
 #include "impeller/core/sampler_descriptor.h"
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/entity.h"
+#include "impeller/geometry/point.h"
 #include "impeller/renderer/render_pass.h"
 #include "impeller/typographer/glyph_atlas.h"
 #include "impeller/typographer/lazy_glyph_atlas.h"
@@ -93,13 +94,11 @@ bool TextContents::Render(const ContentContext& renderer,
   VS::FrameInfo frame_info;
   frame_info.mvp =
       Entity::GetShaderTransform(entity.GetShaderClipDepth(), pass, Matrix());
-  frame_info.atlas_size =
-      Vector2{static_cast<Scalar>(atlas->GetTexture()->GetSize().width),
-              static_cast<Scalar>(atlas->GetTexture()->GetSize().height)};
-  frame_info.offset = offset_;
-  frame_info.is_translation_scale =
-      entity.GetTransform().IsTranslationScaleOnly();
-  frame_info.entity_transform = entity.GetTransform();
+  ISize atlas_size = atlas->GetTexture()->GetSize();
+  Point offset = offset_;
+  bool is_translation_scale = entity.GetTransform().IsTranslationScaleOnly();
+  Matrix entity_transform = entity.GetTransform();
+  Matrix basis_transform = entity_transform.Basis();
 
   VS::BindFrameInfo(pass,
                     renderer.GetTransientsBuffer().EmplaceUniform(frame_info));
@@ -113,7 +112,7 @@ bool TextContents::Render(const ContentContext& renderer,
                    renderer.GetTransientsBuffer().EmplaceUniform(frag_info));
 
   SamplerDescriptor sampler_desc;
-  if (frame_info.is_translation_scale) {
+  if (is_translation_scale) {
     sampler_desc.min_filter = MinMagFilter::kNearest;
     sampler_desc.mag_filter = MinMagFilter::kNearest;
   } else {
@@ -160,7 +159,7 @@ bool TextContents::Render(const ContentContext& renderer,
         VS::PerVertexData vtx;
         VS::PerVertexData* vtx_contents =
             reinterpret_cast<VS::PerVertexData*>(contents);
-        size_t offset = 0u;
+        size_t i = 0u;
         for (const TextRun& run : frame_->GetRuns()) {
           const Font& font = run.GetFont();
           Scalar rounded_scale = TextFrame::RoundScaledFontSize(
@@ -172,6 +171,8 @@ bool TextContents::Render(const ContentContext& renderer,
             continue;
           }
 
+          Scalar last_dx = 0.0;
+          Point screen_offset = (entity_transform * offset);
           for (const TextRun::GlyphPosition& glyph_position :
                run.GetGlyphPositions()) {
             std::optional<Rect> maybe_atlas_glyph_bounds =
@@ -181,13 +182,59 @@ bool TextContents::Render(const ContentContext& renderer,
               continue;
             }
             const Rect& atlas_glyph_bounds = maybe_atlas_glyph_bounds.value();
-            vtx.atlas_glyph_bounds = Vector4(atlas_glyph_bounds.GetXYWH());
-            vtx.glyph_bounds = Vector4(glyph_position.glyph.bounds.GetXYWH());
-            vtx.glyph_position = glyph_position.position;
+            Rect glyph_bounds = glyph_position.glyph.bounds;
+            // For each glyph, we compute two rectangles. One for the vertex
+            // positions and one for the texture coordinates (UVs).
+            Point uv_origin =
+                (atlas_glyph_bounds.GetLeftTop() - Point(0.5, 0.5)) /
+                atlas_size;
+            Point uv_size =
+                (atlas_glyph_bounds.GetSize() + Point(1, 1)) / atlas_size;
 
+            // Rounding here prevents most jitter between glyphs in the run when
+            // nearest sampling.
+            Point unrounded_glyph_position =
+                basis_transform *
+                (glyph_position.position + glyph_bounds.GetLeftTop());
+            Point screen_glyph_position =
+                (screen_offset + unrounded_glyph_position);
+
+            Scalar dx = 0.0;
+            Scalar dy = 0.0;
             for (const Point& point : unit_points) {
-              vtx.unit_position = point;
-              vtx_contents[offset++] = vtx;
+              Point position;
+              if (is_translation_scale) {
+                // Rouding up here prevents the bounds from becoming 1 pixel too
+                // small when nearest sampling. This path breaks down for
+                // projections.
+                position =
+                    (screen_glyph_position +
+                    (basis_transform * (point * glyph_bounds.GetSize()))) + Point(last_dx, 0);
+                if (point.x == 0.0) {
+                  dx = round(position.x) - position.x;
+                  FML_LOG(ERROR) << position.x << " -> " << round(position.x) << " : " << dx;
+                  position.x = round(position.x);
+                } else {
+                  FML_LOG(ERROR) << position.x << " -> " << ceil(position.x + dx);
+                  position.x = ceil(position.x + dx);
+                }
+                if (point.y == 0.0) {
+                  dy = round(position.y) - position.y;
+                  position.y = round(position.y);
+                } else {
+                  position.y = ceil(position.y + dy);
+                }
+              } else {
+                position =
+                    entity_transform * (offset + glyph_position.position +
+                                        glyph_bounds.GetLeftTop() +
+                                        point * glyph_bounds.GetSize());
+              }
+              last_dx = dx;
+
+              vtx.uv = uv_origin + (uv_size * point);
+              vtx.position = position;
+              vtx_contents[i++] = vtx;
             }
           }
         }
