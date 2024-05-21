@@ -209,13 +209,16 @@ bool TextContents::Render(const ContentContext& renderer,
                 // projections.
                 position =
                     (screen_glyph_position +
-                    (basis_transform * (point * glyph_bounds.GetSize()))) + Point(last_dx, 0);
+                     (basis_transform * (point * glyph_bounds.GetSize()))) +
+                    Point(last_dx, 0);
                 if (point.x == 0.0) {
                   dx = round(position.x) - position.x;
-                  FML_LOG(ERROR) << position.x << " -> " << round(position.x) << " : " << dx;
+                  FML_LOG(ERROR) << position.x << " -> " << round(position.x)
+                                 << " : " << dx;
                   position.x = round(position.x);
                 } else {
-                  FML_LOG(ERROR) << position.x << " -> " << ceil(position.x + dx);
+                  FML_LOG(ERROR)
+                      << position.x << " -> " << ceil(position.x + dx);
                   position.x = ceil(position.x + dx);
                 }
                 if (point.y == 0.0) {
