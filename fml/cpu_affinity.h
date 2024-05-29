@@ -19,6 +19,9 @@ enum class CpuAffinity {
   ///
   ///        Generally speaking, only the UI and Raster thread should
   ///        use this option.
+  ///        If there is only a single fast core, then instead of picking
+  ///        this set for peformance, we take the inverse of the slowest
+  ///        cores.
   kPerformance,
 
   /// @brief Request CPU affinity for the efficiency cores.
@@ -79,6 +82,7 @@ class CPUSpeedTracker {
   std::vector<size_t> efficiency_;
   std::vector<size_t> performance_;
   std::vector<size_t> not_performance_;
+  std::vector<size_t> not_efficiency_;
 };
 
 /// @note Visible for testing.

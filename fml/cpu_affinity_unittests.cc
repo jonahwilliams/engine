@@ -20,7 +20,8 @@ TEST(CpuAffinity, NonAndroidPlatformDefaults) {
 TEST(CpuAffinity, NormalSlowMedFastCores) {
   auto speeds = {CpuIndexAndSpeed{.index = 0, .speed = 1},
                  CpuIndexAndSpeed{.index = 1, .speed = 2},
-                 CpuIndexAndSpeed{.index = 2, .speed = 3}};
+                 CpuIndexAndSpeed{.index = 2, .speed = 3},
+                 CpuIndexAndSpeed{.index = 3, .speed = 3}};
   auto tracker = CPUSpeedTracker(speeds);
 
   ASSERT_TRUE(tracker.IsValid());
@@ -29,6 +30,23 @@ TEST(CpuAffinity, NormalSlowMedFastCores) {
   ASSERT_EQ(tracker.GetIndices(CpuAffinity::kNotPerformance).size(), 2u);
   ASSERT_EQ(tracker.GetIndices(CpuAffinity::kNotPerformance)[0], 0u);
   ASSERT_EQ(tracker.GetIndices(CpuAffinity::kNotPerformance)[1], 1u);
+}
+
+TEST(CpuAffinity, OneSuperFastCoreLotsOfOtherCores) {
+  auto speeds = {CpuIndexAndSpeed{.index = 0, .speed = 1},
+                 CpuIndexAndSpeed{.index = 1, .speed = 1},
+                 CpuIndexAndSpeed{.index = 2, .speed = 2},
+                 CpuIndexAndSpeed{.index = 3, .speed = 2},
+                 CpuIndexAndSpeed{.index = 4, .speed = 3}};
+  auto tracker = CPUSpeedTracker(speeds);
+
+  ASSERT_TRUE(tracker.IsValid());
+  ASSERT_EQ(tracker.GetIndices(CpuAffinity::kEfficiency).size(), 2u);
+  ASSERT_EQ(tracker.GetIndices(CpuAffinity::kPerformance).size(), 3u);
+  ASSERT_EQ(tracker.GetIndices(CpuAffinity::kNotPerformance).size(), 2u);
+  ASSERT_EQ(tracker.GetIndices(CpuAffinity::kPerformance)[0], 2u);
+  ASSERT_EQ(tracker.GetIndices(CpuAffinity::kPerformance)[1], 3u);
+  ASSERT_EQ(tracker.GetIndices(CpuAffinity::kPerformance)[2], 4u);
 }
 
 TEST(CpuAffinity, NoCpuData) {

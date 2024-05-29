@@ -58,6 +58,8 @@ CPUSpeedTracker::CPUSpeedTracker(std::vector<CpuIndexAndSpeed> data)
     }
     if (data.speed == min_speed_value) {
       efficiency_.push_back(data.index);
+    } else {
+      not_efficiency_.push_back(data.index);
     }
   }
 
@@ -72,7 +74,13 @@ const std::vector<size_t>& CPUSpeedTracker::GetIndices(
     CpuAffinity affinity) const {
   switch (affinity) {
     case CpuAffinity::kPerformance:
-      return performance_;
+      // If there is only one "fastest" core, then treat all cores
+      // faster than the slowest core as a fast core.
+      if (performance_.size() == 1 && not_efficiency_.size() > 1) {
+        return not_efficiency_;
+      } else {
+        return performance_;
+      }
     case CpuAffinity::kEfficiency:
       return efficiency_;
     case CpuAffinity::kNotPerformance:
