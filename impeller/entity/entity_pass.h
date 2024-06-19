@@ -232,7 +232,8 @@ class EntityPass {
                      int32_t pass_depth,
                      ContentContext& renderer,
                      EntityPassClipStack& clip_coverage_stack,
-                     Point global_pass_position) const;
+                     Point global_pass_position,
+                     bool force_restore = false) const;
 
   EntityResult GetEntityForElement(const EntityPass::Element& element,
                                    ContentContext& renderer,

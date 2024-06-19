@@ -374,6 +374,9 @@ class ContentContext {
 
   bool IsValid() const;
 
+  std::shared_ptr<Texture> current_backdrop = nullptr;
+  mutable std::optional<RenderTarget> downsample_target = std::nullopt;
+
 #if IMPELLER_ENABLE_3D
   std::shared_ptr<scene::SceneContext> GetSceneContext() const;
 #endif  // IMPELLER_ENABLE_3D

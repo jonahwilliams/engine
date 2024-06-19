@@ -357,6 +357,8 @@ bool EntityPass::Render(ContentContext& renderer,
   fml::ScopedCleanupClosure reset_state([&renderer]() {
     renderer.GetLazyGlyphAtlas()->ResetTextFrames();
     renderer.GetRenderTargetCache()->End();
+    renderer.current_backdrop = nullptr;
+    renderer.downsample_target = std::nullopt;
   });
 
   auto root_render_target = render_target;
@@ -566,9 +568,42 @@ EntityPass::EntityResult EntityPass::GetEntityForElement(
       return EntityPass::EntityResult::Skip();
     }
 
+    if (subpass->backdrop_filter_proc_ && !!renderer.current_backdrop) {
+      const auto& proc = subpass->backdrop_filter_proc_;
+      auto subpass_backdrop_filter_contents =
+          proc(FilterInput::Make(std::move(renderer.current_backdrop)),
+               subpass->transform_.Basis(),
+               // When the subpass has a translation that means the math with
+               // the snapshot has to be different.
+               subpass->transform_.HasTranslation()
+                   ? Entity::RenderingMode::kSubpassPrependSnapshotTransform
+                   : Entity::RenderingMode::kSubpassAppendSnapshotTransform);
+
+      // Directly render into the parent target and move on.
+      if (!subpass->OnRender(
+              renderer,                          // renderer
+              root_pass_size,                    // root_pass_size
+              pass_context.GetPassTarget(),      // pass_target
+              global_pass_position,              // global_pass_position
+              Point(),                           // local_pass_position
+              pass_depth,                        // pass_depth
+              clip_coverage_stack,               // clip_coverage_stack
+              clip_height_,                      // clip_height_floor
+              subpass_backdrop_filter_contents,  // backdrop_filter_contents
+              pass_context.GetRenderPass(pass_depth)  // collapsed_parent_pass
+              )) {
+        // Validation error messages are triggered for all `OnRender()` failure
+        // cases.
+        return EntityPass::EntityResult::Failure();
+      }
+      return EntityPass::EntityResult::Skip();
+    }
+
     std::shared_ptr<Contents> subpass_backdrop_filter_contents = nullptr;
     if (subpass->backdrop_filter_proc_) {
       auto texture = pass_context.GetTexture();
+      renderer.current_backdrop = texture;
+
       // Render the backdrop texture before any of the pass elements.
       const auto& proc = subpass->backdrop_filter_proc_;
 
@@ -744,7 +779,8 @@ bool EntityPass::RenderElement(Entity& element_entity,
                                int32_t pass_depth,
                                ContentContext& renderer,
                                EntityPassClipStack& clip_coverage_stack,
-                               Point global_pass_position) const {
+                               Point global_pass_position,
+                               bool force_restore) const {
   auto result = pass_context.GetRenderPass(pass_depth);
   if (!result.pass) {
     // Failure to produce a render pass should be explained by specific errors
