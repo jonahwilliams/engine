@@ -635,8 +635,6 @@ bool FlutterPlatformViewsController::SubmitFrame(GrDirectContext* gr_context,
   auto did_submit = true;
   auto num_platform_views = composition_order_.size();
 
-  size_t missing_layer_count = 0;
-
   // Pending Submit Callbacks
   std::vector<SurfaceFrame::DeferredSubmit> callbacks;
 
@@ -702,8 +700,16 @@ bool FlutterPlatformViewsController::SubmitFrame(GrDirectContext* gr_context,
         // Get a new host layer.
         std::shared_ptr<FlutterPlatformViewLayer> layer = GetExistingLayer();
         if (!layer) {
-          missing_layer_count++;
-          continue;
+          // TODO: Create all missing layers in a single task. Also figure out if this can
+          // deadlock during engine shutdown.
+          fml::AutoResetWaitableEvent latch;
+          platform_task_runner_->PostTask([&] {
+            CreateLayer(gr_context, ios_context, ((FlutterView*)flutter_view_.get()).pixelFormat);
+            latch.Signal();
+          });
+          latch.Wait();
+          layer = GetExistingLayer();
+          FML_CHECK(layer);
         }
 
         {
@@ -757,16 +763,13 @@ bool FlutterPlatformViewsController::SubmitFrame(GrDirectContext* gr_context,
   // Mark all layers as available, so they can be used in the next frame.
   std::vector<std::shared_ptr<FlutterPlatformViewLayer>> unused_layers =
       layer_pool_->GetUnusedLayers();
-  FML_DCHECK(unused_layers.empty() || missing_layer_count == 0);
   layer_pool_->RecycleLayers();
 
-  auto task = fml::MakeCopyable([&, platform_view_layers = std::move(platform_view_layers),
-                                 missing_layer_count,                                       //
-                                 current_composition_params = current_composition_params_,  //
-                                 views_to_recomposite = views_to_recomposite_,              //
-                                 callbacks = callbacks,                                     //
-                                 composition_order = composition_order_,                    //
-                                 unused_layers = unused_layers]() mutable {
+  fml::AutoResetWaitableEvent latch;
+
+  auto task = [this, &latch, platform_view_layers = std::move(platform_view_layers),
+               callbacks = std::move(callbacks),
+               unused_layers = std::move(unused_layers)]() mutable {
     TRACE_EVENT0("flutter", "FlutterPlatformViewsController::SubmitFrame::CATransaction");
 
     [CATransaction begin];
@@ -783,36 +786,30 @@ bool FlutterPlatformViewsController::SubmitFrame(GrDirectContext* gr_context,
     DisposeViews();
 
     // Composite Platform Views.
-    for (auto view_id : views_to_recomposite) {
-      CompositeWithParams(view_id, current_composition_params[view_id]);
+    for (auto view_id : views_to_recomposite_) {
+      CompositeWithParams(view_id, current_composition_params_[view_id]);
     }
 
     for (const auto& cb : callbacks) {
       cb();
     }
 
-    // Create Missing Layers
-    for (auto i = 0u; i < missing_layer_count; i++) {
-      CreateLayer(gr_context,              //
-                  ios_context,             //
-                  MTLPixelFormatBGRA10_XR  //
-      );
-    }
-
     // Organize the layers by their z indexes.
-    auto active_composition_order = BringLayersIntoView(platform_view_layers, composition_order);
+    auto active_composition_order = BringLayersIntoView(platform_view_layers, composition_order_);
 
     // If a layer was allocated in the previous frame, but it's not used in the current frame,
     // then it can be removed from the scene.
-    RemoveUnusedLayers(unused_layers, composition_order, active_composition_order);
+    RemoveUnusedLayers(unused_layers, composition_order_, active_composition_order);
 
     // If the frame is submitted with embedded platform views,
     // there should be a |[CATransaction begin]| call in this frame prior to all the drawing.
     // If that case, we need to commit the transaction.
     [CATransaction commit];
-  });
+    latch.Signal();
+  };
 
   platform_task_runner_->PostTask(task);
+  latch.Wait();
   return did_submit;
 }
 
