@@ -765,7 +765,9 @@ bool FlutterPlatformViewsController::SubmitFrame(GrDirectContext* gr_context,
       layer_pool_->GetUnusedLayers();
   layer_pool_->RecycleLayers();
 
-  auto task = [this, platform_view_layers = std::move(platform_view_layers),
+  fml::AutoResetWaitableEvent latch;
+
+  auto task = [this, &latch, platform_view_layers = std::move(platform_view_layers),
                callbacks = std::move(callbacks),
                unused_layers = std::move(unused_layers)]() mutable {
     TRACE_EVENT0("flutter", "FlutterPlatformViewsController::SubmitFrame::CATransaction");
@@ -803,9 +805,11 @@ bool FlutterPlatformViewsController::SubmitFrame(GrDirectContext* gr_context,
     // there should be a |[CATransaction begin]| call in this frame prior to all the drawing.
     // If that case, we need to commit the transaction.
     [CATransaction commit];
+    latch.Signal();
   };
 
   platform_task_runner_->PostTask(task);
+  latch.Wait();
   return did_submit;
 }
 
