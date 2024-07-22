@@ -13,6 +13,11 @@
 #include "flutter/fml/trace_event.h"
 #include "impeller/base/validation.h"
 
+#ifdef FML_OS_ANDROID
+#include <unistd.h>
+#include "impeller/toolkit/android/proc_table.h"
+#endif  // FML_OS_ANDROID
+
 namespace impeller {
 
 class WaitSetEntry {
@@ -94,6 +99,25 @@ void FenceWaiterVK::Main() {
       fml::Thread::ThreadConfig{"IplrVkFenceWait"});
   // Since this thread mostly waits on fences, it doesn't need to be fast.
   fml::RequestAffinity(fml::CpuAffinity::kEfficiency);
+
+#ifdef FML_OS_ANDROID
+  const auto& table = android::GetProcTable();
+  auto* manager = table.APerformanceHint_getManager();
+  pid_t id = ::gettid();
+  auto* session = table.APerformanceHint_createSession(manager, &id, 1, 0);
+  if (!session) {
+    FML_LOG(ERROR) << "Failed to create hint session";
+  }
+  if (session &&
+      !table.APerformanceHint_setPreferPowerEfficiency(session, true)) {
+    FML_LOG(ERROR) << "Failed to set performance hint";
+  }
+
+  if (session) {
+    table.APerformanceHint_closeSession(session);
+  }
+
+#endif  // FML_OS_ANDROID
 
   while (true) {
     // We'll read the terminate_ flag within the lock below.

@@ -8,6 +8,10 @@
 #include "flutter/fml/thread.h"
 #include "flutter/fml/trace_event.h"
 #include "fml/logging.h"
+#ifdef FML_OS_ANDROID
+#include <unistd.h>
+#include "impeller/toolkit/android/proc_table.h"
+#endif  // FML_OS_ANDROID
 
 namespace impeller {
 
@@ -42,6 +46,24 @@ void ResourceManagerVK::Start() {
   // While this code calls destructors it doesn't need to be particularly fast
   // with them, as long as it doesn't interrupt raster thread.
   fml::RequestAffinity(fml::CpuAffinity::kEfficiency);
+
+#ifdef FML_OS_ANDROID
+  const auto& table = android::GetProcTable();
+  auto* manager = table.APerformanceHint_getManager();
+  pid_t id = ::gettid();
+  auto* session = table.APerformanceHint_createSession(manager, &id, 1, 0);
+  if (!session) {
+    FML_LOG(ERROR) << "Failed to create hint session";
+  }
+  if (session &&
+      !table.APerformanceHint_setPreferPowerEfficiency(session, true)) {
+    FML_LOG(ERROR) << "Failed to set performance hint";
+  }
+  if (session) {
+    table.APerformanceHint_closeSession(session);
+  }
+
+#endif  // FML_OS_ANDROID
 
   bool should_exit = false;
   while (!should_exit) {

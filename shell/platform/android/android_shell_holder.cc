@@ -30,6 +30,7 @@
 #include "flutter/shell/platform/android/android_image_generator.h"
 #include "flutter/shell/platform/android/context/android_context.h"
 #include "flutter/shell/platform/android/platform_view_android.h"
+#include "impeller/toolkit/android/proc_table.h"
 
 namespace flutter {
 
@@ -39,24 +40,43 @@ static void AndroidPlatformThreadConfigSetter(
     const fml::Thread::ThreadConfig& config) {
   // set thread name
   fml::Thread::SetCurrentThreadName(config);
+
+  const auto& table = impeller::android::GetProcTable();
+  auto* manager = table.APerformanceHint_getManager();
+  pid_t id = ::gettid();
+  auto* session = table.APerformanceHint_createSession(manager, &id, 1, 0);
+  if (!session) {
+    FML_LOG(ERROR) << "Failed to create hint session";
+  }
+
   // set thread priority
   switch (config.priority) {
     case fml::Thread::ThreadPriority::kBackground: {
-      fml::RequestAffinity(fml::CpuAffinity::kEfficiency);
+      // fml::RequestAffinity(fml::CpuAffinity::kEfficiency);
+      if (session &&
+          !table.APerformanceHint_setPreferPowerEfficiency(session, true)) {
+        FML_LOG(ERROR) << "Failed to set performance hint";
+      }
       if (::setpriority(PRIO_PROCESS, 0, 10) != 0) {
         FML_LOG(ERROR) << "Failed to set IO task runner priority";
       }
       break;
     }
     case fml::Thread::ThreadPriority::kDisplay: {
-      fml::RequestAffinity(fml::CpuAffinity::kPerformance);
+      if (session &&
+          table.APerformanceHint_setPreferPowerEfficiency(session, false)) {
+      }
+      // fml::RequestAffinity(fml::CpuAffinity::kPerformance);
       if (::setpriority(PRIO_PROCESS, 0, -1) != 0) {
         FML_LOG(ERROR) << "Failed to set UI task runner priority";
       }
       break;
     }
     case fml::Thread::ThreadPriority::kRaster: {
-      fml::RequestAffinity(fml::CpuAffinity::kPerformance);
+      if (session &&
+          table.APerformanceHint_setPreferPowerEfficiency(session, false)) {
+      }
+      // fml::RequestAffinity(fml::CpuAffinity::kPerformance);
       // Android describes -8 as "most important display threads, for
       // compositing the screen and retrieving input events". Conservatively
       // set the raster thread to slightly lower priority than it.
@@ -74,6 +94,9 @@ static void AndroidPlatformThreadConfigSetter(
       if (::setpriority(PRIO_PROCESS, 0, 0) != 0) {
         FML_LOG(ERROR) << "Failed to set priority";
       }
+  }
+  if (session) {
+    table.APerformanceHint_closeSession(session);
   }
 }
 static PlatformData GetDefaultPlatformData() {

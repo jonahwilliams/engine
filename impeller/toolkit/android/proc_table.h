@@ -11,6 +11,7 @@
 #include <android/api-level.h>
 #include <android/hardware_buffer.h>
 #include <android/hardware_buffer_jni.h>
+#include <android/performance_hint.h>
 #include <android/surface_control.h>
 #include <android/trace.h>
 
@@ -18,6 +19,37 @@
 
 #include "flutter/fml/logging.h"
 #include "flutter/fml/native_library.h"
+
+// forward declares from newer NDK.
+
+struct AWorkDuration;
+
+int APerformanceHint_setPreferPowerEfficiency(APerformanceHintSession* session,
+                                              bool enabled);
+
+int APerformanceHint_setThreads(APerformanceHintSession* session,
+                                const pid_t* threadIds,
+                                size_t size);
+
+AWorkDuration* AWorkDuration_create();
+void AWorkDuration_release(AWorkDuration* WorkDuration);
+
+int APerformanceHint_reportActualWorkDuration2(APerformanceHintSession* session,
+                                               AWorkDuration* workDuration);
+
+void AWorkDuration_setActualCpuDurationNanos(AWorkDuration* aWorkDuration,
+                                             int64_t actualCpuDurationNanos);
+
+void AWorkDuration_setActualGpuDurationNanos(AWorkDuration* aWorkDuration,
+                                             int64_t actualGpuDurationNanos);
+
+void AWorkDuration_setActualTotalDurationNanos(
+    AWorkDuration* aWorkDuration,
+    int64_t actualTotalDurationNanos);
+
+void AWorkDuration_setWorkPeriodStartTimestampNanos(
+    AWorkDuration* aWorkDuration,
+    int64_t workPeriodStartTimestampNanos);
 
 namespace impeller::android {
 
@@ -63,6 +95,21 @@ namespace impeller::android {
   INVOKE(ASurfaceTransaction_setEnableBackPressure, 31)          \
   INVOKE(ASurfaceTransactionStats_getPreviousReleaseFenceFd, 29) \
   INVOKE(ATrace_isEnabled, 23)                                   \
+  INVOKE(APerformanceHint_closeSession, 31)                      \
+  INVOKE(APerformanceHint_createSession, 31)                     \
+  INVOKE(APerformanceHint_getManager, 31)                        \
+  INVOKE(APerformanceHint_getPreferredUpdateRateNanos, 31)       \
+  INVOKE(APerformanceHint_reportActualWorkDuration, 31)          \
+  INVOKE(APerformanceHint_reportActualWorkDuration2, 31)         \
+  INVOKE(APerformanceHint_setPreferPowerEfficiency, 31)          \
+  INVOKE(APerformanceHint_setThreads, 31)                        \
+  INVOKE(APerformanceHint_updateTargetWorkDuration, 31)          \
+  INVOKE(AWorkDuration_create, 31)                               \
+  INVOKE(AWorkDuration_release, 31)                              \
+  INVOKE(AWorkDuration_setActualCpuDurationNanos, 31)            \
+  INVOKE(AWorkDuration_setActualGpuDurationNanos, 31)            \
+  INVOKE(AWorkDuration_setActualTotalDurationNanos, 31)          \
+  INVOKE(AWorkDuration_setWorkPeriodStartTimestampNanos, 31)     \
   INVOKE(eglGetNativeClientBufferANDROID, 0)
 
 template <class T>
