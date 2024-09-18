@@ -16,6 +16,7 @@
 #include "impeller/core/shader_types.h"
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/runtime_effect.vert.h"
+#include "impeller/entity/runtime_effect_coordinates.vert.h"
 #include "impeller/renderer/capabilities.h"
 #include "impeller/renderer/pipeline_library.h"
 #include "impeller/renderer/render_pass.h"
@@ -75,7 +76,8 @@ bool RuntimeEffectContents::BootstrapShader(
   ContentContextOptions options;
   options.color_attachment_pixel_format =
       renderer.GetContext()->GetCapabilities()->GetDefaultColorFormat();
-  CreatePipeline(renderer, options, /*async=*/true);
+  CreatePipeline(renderer, options, /*use_coordinate_positions=*/false,
+                 /*async=*/true);
   return true;
 }
 
@@ -136,6 +138,7 @@ bool RuntimeEffectContents::RegisterShader(
 std::shared_ptr<Pipeline<PipelineDescriptor>>
 RuntimeEffectContents::CreatePipeline(const ContentContext& renderer,
                                       ContentContextOptions options,
+                                      bool use_coordinate_positions,
                                       bool async) const {
   const std::shared_ptr<Context>& context = renderer.GetContext();
   const std::shared_ptr<ShaderLibrary>& library = context->GetShaderLibrary();
@@ -144,23 +147,38 @@ RuntimeEffectContents::CreatePipeline(const ContentContext& renderer,
   const auto stencil_attachment_format = caps->GetDefaultDepthStencilFormat();
 
   using VS = RuntimeEffectVertexShader;
+  using VSTC = RuntimeEffectCoordinatesVertexShader;
 
   PipelineDescriptor desc;
   desc.SetLabel("Runtime Stage");
-  desc.AddStageEntrypoint(
-      library->GetFunction(VS::kEntrypointName, ShaderStage::kVertex));
+  std::shared_ptr<VertexDescriptor> vertex_descriptor =
+      std::make_shared<VertexDescriptor>();
+
+  if (use_coordinate_positions) {
+    desc.AddStageEntrypoint(
+        library->GetFunction(VSTC::kEntrypointName, ShaderStage::kVertex));
+    vertex_descriptor->SetStageInputs(VSTC::kAllShaderStageInputs,
+                                      VSTC::kInterleavedBufferLayout);
+    vertex_descriptor->RegisterDescriptorSetLayouts(
+        VSTC::kDescriptorSetLayouts);
+    vertex_descriptor->RegisterDescriptorSetLayouts(
+        runtime_stage_->GetDescriptorSetLayouts().data(),
+        runtime_stage_->GetDescriptorSetLayouts().size());
+  } else {
+    desc.AddStageEntrypoint(
+        library->GetFunction(VS::kEntrypointName, ShaderStage::kVertex));
+    vertex_descriptor->SetStageInputs(VS::kAllShaderStageInputs,
+                                      VS::kInterleavedBufferLayout);
+    vertex_descriptor->RegisterDescriptorSetLayouts(VS::kDescriptorSetLayouts);
+    vertex_descriptor->RegisterDescriptorSetLayouts(
+        runtime_stage_->GetDescriptorSetLayouts().data(),
+        runtime_stage_->GetDescriptorSetLayouts().size());
+  }
+
+  desc.SetVertexDescriptor(std::move(vertex_descriptor));
   desc.AddStageEntrypoint(library->GetFunction(runtime_stage_->GetEntrypoint(),
                                                ShaderStage::kFragment));
 
-  std::shared_ptr<VertexDescriptor> vertex_descriptor =
-      std::make_shared<VertexDescriptor>();
-  vertex_descriptor->SetStageInputs(VS::kAllShaderStageInputs,
-                                    VS::kInterleavedBufferLayout);
-  vertex_descriptor->RegisterDescriptorSetLayouts(VS::kDescriptorSetLayouts);
-  vertex_descriptor->RegisterDescriptorSetLayouts(
-      runtime_stage_->GetDescriptorSetLayouts().data(),
-      runtime_stage_->GetDescriptorSetLayouts().size());
-  desc.SetVertexDescriptor(std::move(vertex_descriptor));
   desc.SetColorAttachmentDescriptor(
       0u, {.format = color_attachment_format, .blending_enabled = true});
 
@@ -323,13 +341,30 @@ bool RuntimeEffectContents::Render(const ContentContext& renderer,
         // Pipeline creation callback for the cache handler to call.
         return renderer.GetCachedRuntimeEffectPipeline(
             runtime_stage_->GetEntrypoint(), options, [&]() {
-              return CreatePipeline(renderer, options, /*async=*/false);
+              return CreatePipeline(
+                  renderer, options,
+                  /*use_coordinate_positions=*/
+                  GetGeometry()->UseTextureCoordinateRuntimeEffect(),
+                  /*async=*/false);
             });
       };
 
-  return ColorSourceContents::DrawGeometry<VS>(renderer, entity, pass,
-                                               pipeline_callback,
-                                               VS::FrameInfo{}, bind_callback);
+  return ColorSourceContents::DrawGeometry<VS>(
+      renderer,                 //
+      entity,                   //
+      pass,                     //
+      pipeline_callback,        //
+      VS::FrameInfo{},          //
+      bind_callback,            //
+      /*force_stencil=*/false,  //
+      [&](const ContentContext& renderer, const Entity& entity,
+          RenderPass& pass, const Geometry& geom) {
+        if (geom.UseTextureCoordinateRuntimeEffect()) {
+          return geom.GetPositionAndTextureCoordinateBuffer(renderer, entity,
+                                                            pass);
+        }
+        return geom.GetPositionBuffer(renderer, entity, pass);
+      });
 }
 
 }  // namespace impeller

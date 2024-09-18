@@ -9,6 +9,7 @@
 
 #include "impeller/core/buffer_view.h"
 #include "impeller/entity/contents/content_context.h"
+#include "impeller/entity/runtime_effect_coordinates.vert.h"
 #include "impeller/geometry/color.h"
 
 namespace impeller {
@@ -172,6 +173,51 @@ GeometryResult VerticesGeometry::GetPositionUVColorBuffer(
               .vertices = vertex,
               .texture_coords = uv,
               .color = has_colors ? colors_[i] : Color::BlackTransparent(),
+          };
+          std::memcpy(vtx_contents++, &vertex_data, sizeof(VS::PerVertexData));
+        }
+      });
+
+  BufferView index_buffer = {};
+  auto index_count = indices_.size();
+  size_t total_idx_bytes = index_count * sizeof(uint16_t);
+  if (index_count > 0) {
+    index_buffer = renderer.GetTransientsBuffer().Emplace(
+        indices_.data(), total_idx_bytes, alignof(uint16_t));
+  }
+
+  return GeometryResult{
+      .type = GetPrimitiveType(),
+      .vertex_buffer =
+          {
+              .vertex_buffer = vertex_buffer,
+              .index_buffer = index_buffer,
+              .vertex_count = index_count > 0 ? index_count : vertex_count,
+              .index_type =
+                  index_count > 0 ? IndexType::k16bit : IndexType::kNone,
+          },
+      .transform = entity.GetShaderTransform(pass),
+  };
+}
+
+GeometryResult VerticesGeometry::GetPositionAndTextureCoordinateBuffer(
+    const ContentContext& renderer,
+    const Entity& entity,
+    RenderPass& pass) const {
+  using VS = RuntimeEffectCoordinatesVertexShader;
+
+  auto vertex_count = vertices_.size();
+  size_t total_vtx_bytes = vertices_.size() * sizeof(VS::PerVertexData);
+  auto vertex_buffer = renderer.GetTransientsBuffer().Emplace(
+      total_vtx_bytes, alignof(VS::PerVertexData), [&](uint8_t* data) {
+        VS::PerVertexData* vtx_contents =
+            reinterpret_cast<VS::PerVertexData*>(data);
+        for (auto i = 0u; i < vertices_.size(); i++) {
+          auto vertex = vertices_[i];
+          auto texture_coord = texture_coordinates_[i];
+          VS::PerVertexData vertex_data = {
+              .position = vertex,
+              .texture_coord = texture_coord,
           };
           std::memcpy(vtx_contents++, &vertex_data, sizeof(VS::PerVertexData));
         }

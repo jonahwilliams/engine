@@ -94,6 +94,16 @@ class Geometry {
                                            const Entity& entity,
                                            RenderPass& pass) const = 0;
 
+  /// @brief Upload a vertex buffer with both positions and texture coordinates.
+  ///
+  /// This is only valid if UseTextureCoordinateRuntimeEffect returns true.
+  virtual GeometryResult GetPositionAndTextureCoordinateBuffer(
+      const ContentContext& renderer,
+      const Entity& entity,
+      RenderPass& pass) const {
+    return {};
+  }
+
   virtual GeometryResult::Mode GetResultMode() const;
 
   virtual std::optional<Rect> GetCoverage(const Matrix& transform) const = 0;
@@ -122,6 +132,13 @@ class Geometry {
   virtual Scalar ComputeAlphaCoverage(const Matrix& transform) const {
     return 1.0;
   }
+
+  /// @brief Whether a runtime effect contents should use a vertex stage that
+  ///        supports a texture coordinates varying.
+  ///
+  /// This is used to improve the performance of drawVertices and runtime
+  /// effects with texture coordinates, like the mesh gradient package.
+  virtual bool UseTextureCoordinateRuntimeEffect() const { return false; }
 
  protected:
   static GeometryResult ComputePositionGeometry(

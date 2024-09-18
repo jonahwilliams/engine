@@ -46,6 +46,7 @@ class RuntimeEffectContents final : public ColorSourceContents {
   std::shared_ptr<Pipeline<PipelineDescriptor>> CreatePipeline(
       const ContentContext& renderer,
       ContentContextOptions options,
+      bool use_coordinate_positions,
       bool async) const;
 
   std::shared_ptr<RuntimeStage> runtime_stage_;

@@ -884,7 +884,8 @@ static bool UseColorSourceContents(
     return false;
   }
   if (vertices->HasTextureCoordinates() &&
-      (paint.color_source.GetType() == ColorSource::Type::kColor)) {
+      (paint.color_source.GetType() == ColorSource::Type::kColor ||
+       paint.color_source.GetType() == ColorSource::Type::kRuntimeEffect)) {
     return true;
   }
   return !vertices->HasTextureCoordinates();

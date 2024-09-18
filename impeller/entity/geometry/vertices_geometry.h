@@ -39,7 +39,18 @@ class VerticesGeometry final : public Geometry {
                                    RenderPass& pass) const override;
 
   // |Geometry|
+  GeometryResult GetPositionAndTextureCoordinateBuffer(
+      const ContentContext& renderer,
+      const Entity& entity,
+      RenderPass& pass) const override;
+
+  // |Geometry|
   std::optional<Rect> GetCoverage(const Matrix& transform) const override;
+
+  // |Geometry|
+  bool UseTextureCoordinateRuntimeEffect() const override {
+    return HasTextureCoordinates();
+  }
 
   bool HasVertexColors() const;
 
