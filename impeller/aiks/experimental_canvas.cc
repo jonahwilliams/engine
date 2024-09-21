@@ -430,43 +430,76 @@ void ExperimentalCanvas::SaveLayer(
           return filter;
         };
 
-    auto input_texture = FlipBackdrop(render_passes_,           //
-                                      GetGlobalPassPosition(),  //
-                                      clip_coverage_stack_,     //
-                                      renderer_                 //
-    );
+    std::shared_ptr<Texture> input_texture;
+    if (backdrop_texture_ == nullptr) {
+      input_texture = FlipBackdrop(render_passes_,           //
+                                   GetGlobalPassPosition(),  //
+                                   clip_coverage_stack_,     //
+                                   renderer_                 //
+      );
+      backdrop_texture_ = input_texture;
+    } else {
+      input_texture = backdrop_texture_;
+    }
+
     if (!input_texture) {
       // Validation failures are logged in FlipBackdrop.
       return;
     }
 
-    backdrop_filter_contents = backdrop_filter_proc(
-        FilterInput::Make(std::move(input_texture)),
-        transform_stack_.back().transform.Basis(),
-        // When the subpass has a translation that means the math with
-        // the snapshot has to be different.
-        transform_stack_.back().transform.HasTranslation()
-            ? Entity::RenderingMode::kSubpassPrependSnapshotTransform
-            : Entity::RenderingMode::kSubpassAppendSnapshotTransform);
+    if (!deferred_bdf_.has_value()) {
+      deferred_bdf_ =
+          backdrop_filter_proc(
+              FilterInput::Make(std::move(input_texture)),
+              transform_stack_.back().transform.Basis(),
+              // When the subpass has a translation that means the math with
+              // the snapshot has to be different.
+              transform_stack_.back().transform.HasTranslation()
+                  ? Entity::RenderingMode::kSubpassPrependSnapshotTransform
+                  : Entity::RenderingMode::kSubpassAppendSnapshotTransform)
+              ->RenderToSnapshot(renderer_, {});
+    }
   }
 
   // If the BDF save layer has no other properties, we can elide the
   // subpass and apply the filter output directly to the flipped backdrop.
-  if (Paint::CanApplyOpacityPeephole(paint) &&
-      transform_stack_.back().distributed_opacity >= 1.0) {
+  if (Paint::CanApplyOpacityPeephole(paint)) {
+    auto contents = TextureContents::MakeRect(subpass_coverage);
+    contents->SetTexture(deferred_bdf_->texture);
+    contents->SetSamplerDescriptor(deferred_bdf_->sampler_descriptor);
+
+    auto og =
+        subpass_coverage.TransformBounds(deferred_bdf_->transform.Invert());
+
+    contents->SetSourceRect(og);
+    contents->SetOpacity(deferred_bdf_->opacity *
+                         transform_stack_.back().distributed_opacity);
+
     Entity backdrop_entity;
-    backdrop_filter_contents->SetCoverageHint(subpass_coverage);
-    backdrop_entity.SetContents(std::move(backdrop_filter_contents));
+    backdrop_entity.SetContents(std::move(contents));
     backdrop_entity.SetTransform(
         Matrix::MakeTranslation(-GetGlobalPassPosition()));
     backdrop_entity.SetClipDepth(std::numeric_limits<uint32_t>::max());
-
     backdrop_entity.Render(
         renderer_,
         *render_passes_.back().inline_pass_context->GetRenderPass(0).pass);
 
     Save(0);
     return;
+
+    // Entity backdrop_entity;
+    // backdrop_filter_contents->SetCoverageHint(subpass_coverage);
+    // backdrop_entity.SetContents(std::move(backdrop_filter_contents));
+    // backdrop_entity.SetTransform(
+    //     Matrix::MakeTranslation(-GetGlobalPassPosition()));
+    // backdrop_entity.SetClipDepth(std::numeric_limits<uint32_t>::max());
+
+    // backdrop_entity.Render(
+    //     renderer_,
+    //     *render_passes_.back().inline_pass_context->GetRenderPass(0).pass);
+
+    // Save(0);
+    // return;
   }
 
   // When applying a save layer, absorb any pending distributed opacity.
@@ -961,6 +994,8 @@ void ExperimentalCanvas::EndReplay() {
 
   render_passes_.clear();
   renderer_.GetRenderTargetCache()->End();
+  backdrop_texture_ = nullptr;
+  deferred_bdf_ = std::nullopt;
 
   Reset();
   Initialize(initial_cull_rect_);

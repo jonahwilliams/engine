@@ -1046,6 +1046,10 @@ MakeRenderTargetFromBackingStoreImpeller(
     const FlutterBackingStoreConfig& config,
     const FlutterOpenGLFramebuffer* framebuffer) {
 #if defined(SHELL_ENABLE_GL) && defined(IMPELLER_SUPPORTS_RENDERING)
+  auto pixel_format = FlutterFormatToImpellerPixelFormat(framebuffer->target);
+  if (!pixel_format.has_value()) {
+    return nullptr;
+  }
 
   const auto& gl_context =
       impeller::ContextGLES::Cast(*aiks_context->GetContext());
@@ -1053,7 +1057,7 @@ MakeRenderTargetFromBackingStoreImpeller(
 
   impeller::TextureDescriptor color0_tex;
   color0_tex.type = impeller::TextureType::kTexture2D;
-  color0_tex.format = impeller::PixelFormat::kR8G8B8A8UNormInt;
+  color0_tex.format = pixel_format.value();
   color0_tex.size = size;
   color0_tex.usage = static_cast<impeller::TextureUsageMask>(
       impeller::TextureUsage::kRenderTarget);
@@ -1069,15 +1073,18 @@ MakeRenderTargetFromBackingStoreImpeller(
 
   impeller::TextureDescriptor depth_stencil_texture_desc;
   depth_stencil_texture_desc.type = impeller::TextureType::kTexture2D;
-  depth_stencil_texture_desc.format = impeller::PixelFormat::kR8G8B8A8UNormInt;
+  depth_stencil_texture_desc.format = impeller::PixelFormat::kD24UnormS8Uint;
   depth_stencil_texture_desc.size = size;
   depth_stencil_texture_desc.usage = static_cast<impeller::TextureUsageMask>(
       impeller::TextureUsage::kRenderTarget);
   depth_stencil_texture_desc.sample_count = impeller::SampleCount::kCount1;
 
-  auto depth_stencil_tex = std::make_shared<impeller::TextureGLES>(
-      gl_context.GetReactor(), depth_stencil_texture_desc,
-      impeller::TextureGLES::IsWrapped::kWrapped);
+  auto depth_stencil_tex =
+      aiks_context->GetContext()->GetResourceAllocator()->CreateTexture(
+          depth_stencil_texture_desc);
+  if (!depth_stencil_tex) {
+    return nullptr;
+  }
 
   impeller::DepthAttachment depth0;
   depth0.clear_depth = 0;
@@ -1109,6 +1116,22 @@ MakeRenderTargetFromBackingStoreImpeller(
   return nullptr;
 #endif
 }
+
+#if defined(SHELL_ENABLE_GL) && defined(IMPELLER_SUPPORTS_RENDERING)
+static std::optional<impeller::PixelFormat> FlutterFormatToImpellerPixelFormat(
+    uint32_t format) {
+  switch (format) {
+    case GL_BGRA8_EXT:
+      return impeller::PixelFormat::kB8G8R8A8UNormInt;
+    case GL_RGBA8:
+      return impeller::PixelFormat::kR8G8B8A8UNormInt;
+    default:
+      FML_LOG(ERROR) << "Cannot convert format " << format
+                     << " to impeller::PixelFormat.";
+      return std::nullopt;
+  }
+}
+#endif  // defined(SHELL_ENABLE_GL) && defined(IMPELLER_SUPPORTS_RENDERING)
 
 static std::unique_ptr<flutter::EmbedderRenderTarget>
 MakeRenderTargetFromBackingStoreImpeller(

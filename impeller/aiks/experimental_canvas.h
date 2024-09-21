@@ -15,6 +15,7 @@
 #include "impeller/entity/entity.h"
 #include "impeller/entity/entity_pass.h"
 #include "impeller/entity/entity_pass_clip_stack.h"
+#include "impeller/renderer/snapshot.h"
 
 namespace impeller {
 
@@ -112,6 +113,8 @@ class ExperimentalCanvas : public Canvas {
   EntityPassClipStack clip_coverage_stack_;
   std::vector<LazyRenderingConfig> render_passes_;
   std::vector<SaveLayerState> save_layer_state_;
+  std::shared_ptr<Texture> backdrop_texture_ = nullptr;
+  std::optional<Snapshot> deferred_bdf_ = std::nullopt;
 
   void SetupRenderPass();
 
