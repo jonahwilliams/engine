@@ -23,7 +23,7 @@ include_directories(${CMAKE_SOURCE_DIR}/../../third_party/glfw/include)
 # This is assuming you've built a local version of the Flutter Engine.  If you
 # downloaded yours is from the internet you'll have to change this.
 include_directories(${CMAKE_SOURCE_DIR}/../../shell/platform/embedder)
-find_library(FLUTTER_LIB flutter_engine PATHS ${CMAKE_SOURCE_DIR}/../../../out/host_debug_unopt)
+find_library(FLUTTER_LIB flutter_engine PATHS ${CMAKE_SOURCE_DIR}/../../../out/host_debug_arm64)
 target_link_libraries(flutter_glfw ${FLUTTER_LIB})
 
 # Copy the flutter library here since the shared library

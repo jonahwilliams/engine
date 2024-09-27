@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 project(FlutterEmbedderGLFW)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11" )
-set(FLUTTER_ENGINE_VARIANT "host_debug_unopt" CACHE STRING "")
+set(FLUTTER_ENGINE_VARIANT "host_debug_arm64" CACHE STRING "")
 
 add_executable(flutter_glfw FlutterEmbedderGLFW.cc)
 

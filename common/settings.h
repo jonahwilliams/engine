@@ -226,7 +226,7 @@ struct Settings {
 #if FML_OS_ANDROID || FML_OS_IOS || FML_OS_IOS_SIMULATOR
   bool enable_impeller = true;
 #else
-  bool enable_impeller = false;
+  bool enable_impeller = true;
 #endif
 
   // Force disable the android surface control even where supported.

@@ -19,8 +19,8 @@ flutter pub add flutter_gpu --sdk=flutter
 cp ../../../glfw/main.dart lib/main.dart
 flutter build bundle \
         --local-engine-src-path ../../../../../ \
-        --local-engine=host_debug_unopt \
-        --local-engine-host=host_debug_unopt
+        --local-engine=host_debug_arm64 \
+        --local-engine-host=host_debug_arm64
 popd > /dev/null
 
 #################################################################

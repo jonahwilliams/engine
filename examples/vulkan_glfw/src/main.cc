@@ -583,6 +583,8 @@ int main(int argc, char** argv) {
     for (const auto& layer : g_state.enabled_layer_names) {
       std::cout << "  - " << layer << std::endl;
     }
+    g_state.enabled_instance_extensions.push_back(
+        "VK_KHR_portability_enumeration");
 
     VkApplicationInfo app_info = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
@@ -595,7 +597,7 @@ int main(int argc, char** argv) {
     };
     VkInstanceCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    info.flags = 0;
+    info.flags = VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
     info.pApplicationInfo = &app_info;
     info.enabledExtensionCount = g_state.enabled_instance_extensions.size();
     info.ppEnabledExtensionNames = g_state.enabled_instance_extensions.data();
