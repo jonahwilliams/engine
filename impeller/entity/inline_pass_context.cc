@@ -63,6 +63,10 @@ bool InlinePassContext::EndPass() {
                       "render pass.";
     return false;
   }
+  auto oversized = renderer_.GetTransientsBuffer().TakeOversizedBuffers();
+  for (const auto& buffer : oversized) {
+    command_buffer_->Track(buffer);
+  }
 
   const std::shared_ptr<Texture>& target_texture =
       GetPassTarget().GetRenderTarget().GetRenderTargetTexture();

@@ -14,6 +14,7 @@
 
 #include "impeller/core/allocator.h"
 #include "impeller/core/buffer_view.h"
+#include "impeller/core/device_buffer.h"
 #include "impeller/core/platform.h"
 
 namespace impeller {
@@ -135,15 +136,23 @@ class HostBuffer {
   /// @brief Retrieve internal buffer state for test expectations.
   TestStateQuery GetStateForTest();
 
+  /// @brief Take all overiszed buffers to tracked.
+  std::vector<std::shared_ptr<DeviceBuffer>> TakeOversizedBuffers() {
+    return std::move(oversized_buffers_);
+  }
+
  private:
-  [[nodiscard]] std::tuple<Range, std::shared_ptr<DeviceBuffer>>
-  EmplaceInternal(const void* buffer, size_t length);
+  [[nodiscard]] std::tuple<Range, const DeviceBuffer*> EmplaceInternal(
+      const void* buffer,
+      size_t length);
 
-  std::tuple<Range, std::shared_ptr<DeviceBuffer>>
-  EmplaceInternal(size_t length, size_t align, const EmplaceProc& cb);
+  std::tuple<Range, const DeviceBuffer*> EmplaceInternal(size_t length,
+                                                         size_t align,
+                                                         const EmplaceProc& cb);
 
-  std::tuple<Range, std::shared_ptr<DeviceBuffer>>
-  EmplaceInternal(const void* buffer, size_t length, size_t align);
+  std::tuple<Range, const DeviceBuffer*> EmplaceInternal(const void* buffer,
+                                                         size_t length,
+                                                         size_t align);
 
   size_t GetLength() const { return offset_; }
 
@@ -166,6 +175,8 @@ class HostBuffer {
   std::shared_ptr<Allocator> allocator_;
   std::array<std::vector<std::shared_ptr<DeviceBuffer>>, kHostBufferArenaSize>
       device_buffers_;
+  // Oversized buffers tracked at the end of the frame.
+  std::vector<std::shared_ptr<DeviceBuffer>> oversized_buffers_;
   size_t current_buffer_ = 0u;
   size_t offset_ = 0u;
   size_t frame_index_ = 0u;

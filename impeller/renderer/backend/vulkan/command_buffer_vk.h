@@ -34,14 +34,6 @@ class CommandBufferVK final
   ///        completes execution.
   bool Track(std::shared_ptr<SharedObjectVK> object);
 
-  /// @brief Ensure that [buffer] is kept alive until this command buffer
-  ///        completes execution.
-  bool Track(const std::shared_ptr<const DeviceBuffer>& buffer);
-
-  /// @brief Ensure that [texture] is kept alive until this command buffer
-  ///       completes execution.
-  bool Track(const std::shared_ptr<const Texture>& texture);
-
   /// @brief Ensure that [texture] is kept alive until this command buffer
   ///        completes execution.
   bool Track(std::shared_ptr<const TextureSourceVK> texture);
@@ -81,7 +73,11 @@ class CommandBufferVK final
   // Visible for testing.
   bool IsTracking(const std::shared_ptr<const Texture>& texture) const;
 
-  void Reset();
+  // |CommandBuffer|
+  bool Track(const std::shared_ptr<const DeviceBuffer>& buffer) override;
+
+  // |CommandBuffer|
+  bool Track(const std::shared_ptr<const Texture>& texture) override;
 
  private:
   friend class ContextVK;
@@ -89,13 +85,11 @@ class CommandBufferVK final
 
   std::weak_ptr<const DeviceHolderVK> device_holder_;
   std::shared_ptr<TrackedObjectsVK> tracked_objects_;
-  std::shared_ptr<QueueVK> queue_;
   std::shared_ptr<FenceWaiterVK> fence_waiter_;
 
   CommandBufferVK(std::weak_ptr<const Context> context,
                   std::weak_ptr<const DeviceHolderVK> device_holder,
                   std::shared_ptr<TrackedObjectsVK> tracked_objects,
-                  std::shared_ptr<QueueVK> queue,
                   std::shared_ptr<FenceWaiterVK> fence_waiter);
 
   // |CommandBuffer|

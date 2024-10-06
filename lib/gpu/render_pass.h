@@ -14,6 +14,7 @@
 #include "impeller/core/formats.h"
 #include "impeller/core/vertex_buffer.h"
 #include "impeller/renderer/command.h"
+#include "impeller/renderer/command_buffer.h"
 #include "impeller/renderer/render_pass.h"
 #include "impeller/renderer/render_target.h"
 #include "lib/gpu/device_buffer.h"
@@ -54,6 +55,8 @@ class RenderPass : public RefCountedDartWrappable<RenderPass> {
 
   impeller::PipelineDescriptor& GetPipelineDescriptor();
 
+  const std::shared_ptr<impeller::CommandBuffer>& GetCommandBuffer() const;
+
   bool Begin(flutter::gpu::CommandBuffer& command_buffer);
 
   void SetPipeline(fml::RefPtr<RenderPipeline> pipeline);
@@ -70,6 +73,7 @@ class RenderPass : public RefCountedDartWrappable<RenderPass> {
  private:
   impeller::RenderTarget render_target_;
   std::shared_ptr<impeller::RenderPass> render_pass_;
+  std::shared_ptr<impeller::CommandBuffer> command_buffer_;
 
   // Command encoding state.
   impeller::Command command_;

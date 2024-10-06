@@ -1654,6 +1654,7 @@ static std::vector<std::shared_ptr<Texture>> CreateTestYUVTextures(
   auto y_mapping_buffer =
       context->GetResourceAllocator()->CreateBufferWithCopy(*y_mapping);
 
+  cmd_buffer->Track(y_mapping_buffer);
   blit_pass->AddCopy(DeviceBuffer::AsBufferView(y_mapping_buffer), y_texture);
 
   impeller::TextureDescriptor uv_texture_descriptor;
@@ -1666,6 +1667,7 @@ static std::vector<std::shared_ptr<Texture>> CreateTestYUVTextures(
   auto uv_mapping_buffer =
       context->GetResourceAllocator()->CreateBufferWithCopy(*uv_mapping);
 
+  cmd_buffer->Track(uv_mapping_buffer);
   blit_pass->AddCopy(DeviceBuffer::AsBufferView(uv_mapping_buffer), uv_texture);
 
   if (!blit_pass->EncodeCommands(context->GetResourceAllocator()) ||

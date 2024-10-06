@@ -183,13 +183,8 @@ bool ComputePassVK::BindResource(size_t binding,
     return false;
   }
 
-  const std::shared_ptr<const DeviceBuffer>& device_buffer = view.buffer;
-  auto buffer = DeviceBufferVK::Cast(*device_buffer).GetBuffer();
+  auto buffer = DeviceBufferVK::Cast(view.buffer)->GetBuffer();
   if (!buffer) {
-    return false;
-  }
-
-  if (!command_buffer_->Track(device_buffer)) {
     return false;
   }
 

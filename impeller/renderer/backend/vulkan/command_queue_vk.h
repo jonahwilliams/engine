@@ -13,7 +13,7 @@ class ContextVK;
 
 class CommandQueueVK : public CommandQueue {
  public:
-  explicit CommandQueueVK(const std::weak_ptr<ContextVK>& context);
+  explicit CommandQueueVK(const std::weak_ptr<Context>& context);
 
   ~CommandQueueVK() override;
 
@@ -22,7 +22,7 @@ class CommandQueueVK : public CommandQueue {
       const CompletionCallback& completion_callback = {}) override;
 
  private:
-  std::weak_ptr<ContextVK> context_;
+  std::weak_ptr<Context> context_;
 
   CommandQueueVK(const CommandQueueVK&) = delete;
 

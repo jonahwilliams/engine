@@ -15,7 +15,7 @@
 
 namespace impeller {
 
-CommandQueueVK::CommandQueueVK(const std::weak_ptr<ContextVK>& context)
+CommandQueueVK::CommandQueueVK(const std::weak_ptr<Context>& context)
     : context_(context) {}
 
 CommandQueueVK::~CommandQueueVK() = default;
@@ -46,7 +46,6 @@ fml::Status CommandQueueVK::Submit(
     }
     vk_buffers.push_back(command_buffer.GetCommandBuffer());
     tracked_objects.push_back(std::move(command_buffer.tracked_objects_));
-    command_buffer.Reset();
   }
 
   auto context = context_.lock();
@@ -54,7 +53,8 @@ fml::Status CommandQueueVK::Submit(
     VALIDATION_LOG << "Device lost.";
     return fml::Status(fml::StatusCode::kCancelled, "Device lost.");
   }
-  auto [fence_result, fence] = context->GetDevice().createFenceUnique({});
+  ContextVK& context_vk = ContextVK::Cast(*context);
+  auto [fence_result, fence] = context_vk.GetDevice().createFenceUnique({});
   if (fence_result != vk::Result::eSuccess) {
     VALIDATION_LOG << "Failed to create fence: " << vk::to_string(fence_result);
     return fml::Status(fml::StatusCode::kCancelled, "Failed to create fence.");
@@ -62,7 +62,7 @@ fml::Status CommandQueueVK::Submit(
 
   vk::SubmitInfo submit_info;
   submit_info.setCommandBuffers(vk_buffers);
-  auto status = context->GetGraphicsQueue()->Submit(submit_info, *fence);
+  auto status = context_vk.GetGraphicsQueue()->Submit(submit_info, *fence);
   if (status != vk::Result::eSuccess) {
     VALIDATION_LOG << "Failed to submit queue: " << vk::to_string(status);
     return fml::Status(fml::StatusCode::kCancelled, "Failed to submit queue: ");
@@ -70,7 +70,7 @@ fml::Status CommandQueueVK::Submit(
 
   // Submit will proceed, call callback with true when it is done and do not
   // call when `reset` is collected.
-  auto added_fence = context->GetFenceWaiter()->AddFence(
+  auto added_fence = context_vk.GetFenceWaiter()->AddFence(
       std::move(fence), [completion_callback, tracked_objects = std::move(
                                                   tracked_objects)]() mutable {
         // Ensure tracked objects are destructed before calling any final

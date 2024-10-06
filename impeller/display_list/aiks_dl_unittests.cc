@@ -506,8 +506,8 @@ TEST_P(AiksTest, MipmapGenerationWorksCorrectly) {
   auto command_buffer = GetContext()->CreateCommandBuffer();
   auto blit_pass = command_buffer->CreateBlitPass();
 
-  blit_pass->AddCopy(DeviceBuffer::AsBufferView(std::move(device_buffer)),
-                     texture);
+  command_buffer->Track(device_buffer);
+  blit_pass->AddCopy(DeviceBuffer::AsBufferView(device_buffer), texture);
   blit_pass->GenerateMipmap(texture);
   EXPECT_TRUE(blit_pass->EncodeCommands(GetContext()->GetResourceAllocator()));
   EXPECT_TRUE(GetContext()->GetCommandQueue()->Submit({command_buffer}).ok());
@@ -565,6 +565,8 @@ TEST_P(AiksTest, SetContentsWithRegion) {
       GetContext()->GetResourceAllocator()->CreateBufferWithCopy(*mapping);
   auto cmd_buffer = GetContext()->CreateCommandBuffer();
   auto blit_pass = cmd_buffer->CreateBlitPass();
+
+  cmd_buffer->Track(device_buffer);
   blit_pass->AddCopy(DeviceBuffer::AsBufferView(device_buffer), bridge,
                      IRect::MakeLTRB(50, 50, 150, 150));
 

@@ -410,9 +410,10 @@ static std::shared_ptr<Texture> CreateTextureForDecompressedImage(
   command_buffer->SetLabel("Mipmap Command Buffer");
 
   auto blit_pass = command_buffer->CreateBlitPass();
-  auto buffer_view = DeviceBuffer::AsBufferView(
-      context->GetResourceAllocator()->CreateBufferWithCopy(
-          *decompressed_image.GetAllocation()));
+  auto buffer = context->GetResourceAllocator()->CreateBufferWithCopy(
+      *decompressed_image.GetAllocation());
+  command_buffer->Track(buffer);
+  auto buffer_view = DeviceBuffer::AsBufferView(buffer);
   blit_pass->AddCopy(buffer_view, texture);
   if (enable_mipmapping) {
     blit_pass->SetLabel("Mipmap Blit Pass");
@@ -483,6 +484,7 @@ std::shared_ptr<Texture> Playground::CreateTextureCubeForFixture(
   for (size_t i = 0; i < fixture_names.size(); i++) {
     auto device_buffer = context_->GetResourceAllocator()->CreateBufferWithCopy(
         *images[i].GetAllocation());
+    cmd_buffer->Track(device_buffer);
     blit_pass->AddCopy(DeviceBuffer::AsBufferView(device_buffer), texture, {},
                        "", /*slice=*/i);
   }

@@ -5,7 +5,6 @@
 #ifndef FLUTTER_IMPELLER_CORE_BUFFER_VIEW_H_
 #define FLUTTER_IMPELLER_CORE_BUFFER_VIEW_H_
 
-#include <memory>
 #include "impeller/core/range.h"
 
 namespace impeller {
@@ -13,7 +12,7 @@ namespace impeller {
 class DeviceBuffer;
 
 struct BufferView {
-  std::shared_ptr<const DeviceBuffer> buffer;
+  const DeviceBuffer* buffer = nullptr;
   Range range;
 
   constexpr explicit operator bool() const { return static_cast<bool>(buffer); }

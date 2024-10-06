@@ -254,8 +254,7 @@ bool BlitPassVK::OnCopyBufferToTextureCommand(
   const auto& dst = TextureVK::Cast(*destination);
   const auto& src = DeviceBufferVK::Cast(*source.buffer);
 
-  if (!command_buffer_->Track(source.buffer) ||
-      !command_buffer_->Track(destination)) {
+  if (!command_buffer_->Track(destination)) {
     return false;
   }
 

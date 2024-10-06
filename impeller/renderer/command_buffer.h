@@ -90,6 +90,14 @@ class CommandBuffer {
   ///
   std::shared_ptr<ComputePass> CreateComputePass();
 
+  /// @brief Ensure that [buffer] is kept alive until this command buffer
+  ///        completes execution.
+  virtual bool Track(const std::shared_ptr<const DeviceBuffer>& buffer);
+
+  /// @brief Ensure that [texture] is kept alive until this command buffer
+  ///       completes execution.
+  virtual bool Track(const std::shared_ptr<const Texture>& texture);
+
  protected:
   std::weak_ptr<const Context> context_;
 

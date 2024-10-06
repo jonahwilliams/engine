@@ -65,4 +65,12 @@ std::shared_ptr<ComputePass> CommandBuffer::CreateComputePass() {
   return nullptr;
 }
 
+bool CommandBuffer::Track(const std::shared_ptr<const DeviceBuffer>& buffer) {
+  return true;
+}
+
+bool CommandBuffer::Track(const std::shared_ptr<const Texture>& texture) {
+  return true;
+}
+
 }  // namespace impeller

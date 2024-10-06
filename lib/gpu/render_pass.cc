@@ -9,6 +9,7 @@
 #include "flutter/lib/gpu/shader.h"
 #include "fml/memory/ref_ptr.h"
 #include "impeller/core/buffer_view.h"
+#include "impeller/core/device_buffer.h"
 #include "impeller/core/formats.h"
 #include "impeller/core/sampler_descriptor.h"
 #include "impeller/core/shader_types.h"
@@ -87,6 +88,7 @@ bool RenderPass::Begin(flutter::gpu::CommandBuffer& command_buffer) {
     return false;
   }
   command_buffer.AddRenderPass(render_pass_);
+  command_buffer_ = command_buffer.GetCommandBuffer();
   return true;
 }
 
@@ -191,6 +193,11 @@ bool RenderPass::Draw() {
   return render_pass_->Draw().ok();
 }
 
+const std::shared_ptr<impeller::CommandBuffer>& RenderPass::GetCommandBuffer()
+    const {
+  return command_buffer_;
+}
+
 }  // namespace gpu
 }  // namespace flutter
 
@@ -276,9 +283,8 @@ void InternalFlutterGpu_RenderPass_BindPipeline(
   wrapper->SetPipeline(std::move(ref));
 }
 
-template <typename TBuffer>
 static void BindVertexBuffer(flutter::gpu::RenderPass* wrapper,
-                             TBuffer buffer,
+                             const impeller::DeviceBuffer* buffer,
                              int offset_in_bytes,
                              int length_in_bytes,
                              int vertex_count) {
@@ -306,7 +312,8 @@ void InternalFlutterGpu_RenderPass_BindVertexBufferDevice(
     int offset_in_bytes,
     int length_in_bytes,
     int vertex_count) {
-  BindVertexBuffer(wrapper, device_buffer->GetBuffer(), offset_in_bytes,
+  wrapper->GetCommandBuffer()->Track(device_buffer->GetBuffer());
+  BindVertexBuffer(wrapper, device_buffer->GetBuffer().get(), offset_in_bytes,
                    length_in_bytes, vertex_count);
 }
 
@@ -328,9 +335,8 @@ void InternalFlutterGpu_RenderPass_BindVertexBufferHost(
                    view->range.length, vertex_count);
 }
 
-template <typename TBuffer>
 static void BindIndexBuffer(flutter::gpu::RenderPass* wrapper,
-                            TBuffer buffer,
+                            const impeller::DeviceBuffer* buffer,
                             int offset_in_bytes,
                             int length_in_bytes,
                             int index_type,
@@ -351,7 +357,8 @@ void InternalFlutterGpu_RenderPass_BindIndexBufferDevice(
     int length_in_bytes,
     int index_type,
     int index_count) {
-  BindIndexBuffer(wrapper, device_buffer->GetBuffer(), offset_in_bytes,
+  wrapper->GetCommandBuffer()->Track(device_buffer->GetBuffer());
+  BindIndexBuffer(wrapper, device_buffer->GetBuffer().get(), offset_in_bytes,
                   length_in_bytes, index_type, index_count);
 }
 
@@ -373,11 +380,10 @@ void InternalFlutterGpu_RenderPass_BindIndexBufferHost(
                   index_type, index_count);
 }
 
-template <typename TBuffer>
 static bool BindUniform(flutter::gpu::RenderPass* wrapper,
                         flutter::gpu::Shader* shader,
                         Dart_Handle uniform_name_handle,
-                        TBuffer buffer,
+                        const impeller::DeviceBuffer* buffer,
                         int offset_in_bytes,
                         int length_in_bytes) {
   auto& command = wrapper->GetCommand();
@@ -407,8 +413,9 @@ bool InternalFlutterGpu_RenderPass_BindUniformDevice(
     flutter::gpu::DeviceBuffer* device_buffer,
     int offset_in_bytes,
     int length_in_bytes) {
+  wrapper->GetCommandBuffer()->Track(device_buffer->GetBuffer());
   return BindUniform(wrapper, shader, uniform_name_handle,
-                     device_buffer->GetBuffer(), offset_in_bytes,
+                     device_buffer->GetBuffer().get(), offset_in_bytes,
                      length_in_bytes);
 }
 
