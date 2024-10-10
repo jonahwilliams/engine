@@ -39,6 +39,7 @@
 #include "flutter/lib/ui/text/paragraph_builder.h"
 #include "flutter/lib/ui/window/platform_configuration.h"
 #include "flutter/lib/ui/window/platform_isolate.h"
+#include "lib/ui/painting/impeller_interop.h"
 #include "third_party/tonic/converter/dart_converter.h"
 #include "third_party/tonic/dart_args.h"
 #include "third_party/tonic/logging/dart_error.h"
@@ -87,6 +88,8 @@ typedef CanvasPath Path;
   V(ImmutableBuffer::initFromAsset)                                \
   V(ImmutableBuffer::initFromFile)                                 \
   V(ImageDescriptor::initRaw)                                      \
+  V(ImpellerInterop::IsFormatSupported)                            \
+  V(ImpellerInterop::CreateImageFromBuffer)                        \
   V(IsolateNameServerNatives::LookupPortByName)                    \
   V(IsolateNameServerNatives::RegisterPortWithName)                \
   V(IsolateNameServerNatives::RemovePortNameMapping)               \

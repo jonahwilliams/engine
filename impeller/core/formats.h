@@ -100,6 +100,14 @@ enum class PixelFormat : uint8_t {
   kUnknown,
   kA8UNormInt,
   kR8UNormInt,
+  kR8SNormInt,
+
+  kR8UInt,
+  kR8SInt,
+  kR16UInt,
+  kR16SInt,
+  kR16Float,
+
   kR8G8UNormInt,
   kR8G8B8A8UNormInt,
   kR8G8B8A8UNormIntSRGB,
@@ -145,6 +153,18 @@ constexpr const char* PixelFormatToString(PixelFormat format) {
       return "A8UNormInt";
     case PixelFormat::kR8UNormInt:
       return "R8UNormInt";
+    case PixelFormat::kR8SNormInt:
+      return "R8SNormInt";
+    case PixelFormat::kR8UInt:
+      return "R8UInt";
+    case PixelFormat::kR8SInt:
+      return "R8SInt";
+    case PixelFormat::kR16UInt:
+      return "R16UInt";
+    case PixelFormat::kR16SInt:
+      return "R16SInt";
+    case PixelFormat::kR16Float:
+      return "R16Float";
     case PixelFormat::kR8G8UNormInt:
       return "R8G8UNormInt";
     case PixelFormat::kR8G8B8A8UNormInt:
@@ -171,6 +191,7 @@ constexpr const char* PixelFormatToString(PixelFormat format) {
       return "D24UnormS8Uint";
     case PixelFormat::kD32FloatS8UInt:
       return "D32FloatS8UInt";
+      break;
   }
   FML_UNREACHABLE();
 }
@@ -470,8 +491,14 @@ constexpr size_t BytesPerPixelForPixelFormat(PixelFormat format) {
     case PixelFormat::kA8UNormInt:
     case PixelFormat::kR8UNormInt:
     case PixelFormat::kS8UInt:
+    case PixelFormat::kR8SNormInt:
+    case PixelFormat::kR8UInt:
+    case PixelFormat::kR8SInt:
       return 1u;
     case PixelFormat::kR8G8UNormInt:
+    case PixelFormat::kR16UInt:
+    case PixelFormat::kR16SInt:
+    case PixelFormat::kR16Float:
       return 2u;
     case PixelFormat::kR8G8B8A8UNormInt:
     case PixelFormat::kR8G8B8A8UNormIntSRGB:

@@ -46,4 +46,5 @@ part 'pointer.dart';
 part 'semantics.dart';
 part 'setup_hooks.dart';
 part 'text.dart';
+part 'texture.dart';
 part 'window.dart';

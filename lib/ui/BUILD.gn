@@ -87,6 +87,8 @@ source_set("ui") {
     "painting/image_shader.h",
     "painting/immutable_buffer.cc",
     "painting/immutable_buffer.h",
+    "painting/impeller_interop.cc",
+    "painting/impeller_interop.h",
     "painting/matrix.cc",
     "painting/matrix.h",
     "painting/multi_frame_codec.cc",

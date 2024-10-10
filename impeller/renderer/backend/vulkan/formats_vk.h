@@ -162,6 +162,18 @@ constexpr vk::Format ToVKImageFormat(PixelFormat format) {
       return vk::Format::eR8Unorm;
     case PixelFormat::kR8G8UNormInt:
       return vk::Format::eR8G8Unorm;
+    case PixelFormat::kR8SNormInt:
+      return vk::Format::eR8Snorm;
+    case PixelFormat::kR8UInt:
+      return vk::Format::eR8Uint;
+    case PixelFormat::kR8SInt:
+      return vk::Format::eR8Sint;
+    case PixelFormat::kR16UInt:
+      return vk::Format::eR16Uint;
+    case PixelFormat::kR16SInt:
+      return vk::Format::eR16Sint;
+    case PixelFormat::kR16Float:
+      return vk::Format::eR16Sfloat;
   }
 
   FML_UNREACHABLE();
@@ -405,6 +417,12 @@ constexpr bool PixelFormatIsDepthStencil(PixelFormat format) {
     case PixelFormat::kB10G10R10XR:
     case PixelFormat::kB10G10R10XRSRGB:
     case PixelFormat::kB10G10R10A10XR:
+    case PixelFormat::kR8SNormInt:
+    case PixelFormat::kR8UInt:
+    case PixelFormat::kR8SInt:
+    case PixelFormat::kR16UInt:
+    case PixelFormat::kR16SInt:
+    case PixelFormat::kR16Float:
       return false;
     case PixelFormat::kS8UInt:
     case PixelFormat::kD24UnormS8Uint:
@@ -504,6 +522,12 @@ constexpr vk::ImageAspectFlags ToVKImageAspectFlags(PixelFormat format) {
     case PixelFormat::kB10G10R10XR:
     case PixelFormat::kB10G10R10XRSRGB:
     case PixelFormat::kB10G10R10A10XR:
+    case PixelFormat::kR8SNormInt:
+    case PixelFormat::kR8UInt:
+    case PixelFormat::kR8SInt:
+    case PixelFormat::kR16UInt:
+    case PixelFormat::kR16SInt:
+    case PixelFormat::kR16Float:
       return vk::ImageAspectFlagBits::eColor;
     case PixelFormat::kS8UInt:
       return vk::ImageAspectFlagBits::eStencil;
@@ -578,6 +602,12 @@ constexpr vk::ImageAspectFlags ToImageAspectFlags(PixelFormat format) {
     case PixelFormat::kB10G10R10XR:
     case PixelFormat::kB10G10R10XRSRGB:
     case PixelFormat::kB10G10R10A10XR:
+    case PixelFormat::kR8SNormInt:
+    case PixelFormat::kR8UInt:
+    case PixelFormat::kR8SInt:
+    case PixelFormat::kR16UInt:
+    case PixelFormat::kR16SInt:
+    case PixelFormat::kR16Float:
       return vk::ImageAspectFlagBits::eColor;
     case PixelFormat::kS8UInt:
       return vk::ImageAspectFlagBits::eStencil;

@@ -38,7 +38,14 @@ static bool IsDepthStencilFormat(PixelFormat format) {
     case PixelFormat::kB10G10R10XR:
     case PixelFormat::kB10G10R10XRSRGB:
     case PixelFormat::kB10G10R10A10XR:
+    case PixelFormat::kR8SNormInt:
+    case PixelFormat::kR8UInt:
+    case PixelFormat::kR8SInt:
+    case PixelFormat::kR16UInt:
+    case PixelFormat::kR16SInt:
+    case PixelFormat::kR16Float:
       return false;
+      break;
   }
   FML_UNREACHABLE();
 }
@@ -110,6 +117,14 @@ struct TexImage2DData {
       case PixelFormat::kB10G10R10XR:
       case PixelFormat::kB10G10R10A10XR:
         return;
+      case PixelFormat::kR8SNormInt:
+      case PixelFormat::kR8UInt:
+      case PixelFormat::kR8SInt:
+      case PixelFormat::kR16UInt:
+      case PixelFormat::kR16SInt:
+      case PixelFormat::kR16Float:
+        // TODO
+        break;
     }
     is_valid_ = true;
   }
@@ -352,6 +367,14 @@ static std::optional<GLenum> ToRenderBufferFormat(PixelFormat format) {
     case PixelFormat::kB10G10R10XR:
     case PixelFormat::kB10G10R10A10XR:
       return std::nullopt;
+    case PixelFormat::kR8SNormInt:
+    case PixelFormat::kR8UInt:
+    case PixelFormat::kR8SInt:
+    case PixelFormat::kR16UInt:
+    case PixelFormat::kR16SInt:
+    case PixelFormat::kR16Float:
+      // TODO
+      break;
   }
   FML_UNREACHABLE();
 }
