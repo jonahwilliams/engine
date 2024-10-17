@@ -21,6 +21,7 @@
 #include "impeller/renderer/backend/vulkan/sampler_library_vk.h"
 #include "impeller/renderer/backend/vulkan/shader_library_vk.h"
 #include "impeller/renderer/capabilities.h"
+#include "impeller/renderer/command_buffer.h"
 #include "impeller/renderer/command_queue.h"
 #include "impeller/renderer/context.h"
 
@@ -38,6 +39,7 @@ class SurfaceContextVK;
 class GPUTracerVK;
 class DescriptorPoolRecyclerVK;
 class CommandQueueVK;
+class DescriptorPoolVK;
 
 class ContextVK final : public Context,
                         public BackendCast<ContextVK, Context>,
@@ -177,6 +179,16 @@ class ContextVK final : public Context,
   /// disabled, even if the device is capable of supporting it.
   bool GetShouldDisableSurfaceControlSwapchain() const;
 
+  void ResetDescriptorPool();
+
+  void SubmitCommandBuffer(
+      std::shared_ptr<CommandBuffer> command_buffer) override;
+
+  void SubmitCommandBuffer(
+      std::vector<std::shared_ptr<CommandBuffer>> command_buffers) override;
+
+  void FlushCommandBuffers() override;
+
  private:
   struct DeviceHolderImpl : public DeviceHolderVK {
     // |DeviceHolder|
@@ -209,6 +221,8 @@ class ContextVK final : public Context,
   std::shared_ptr<GPUTracerVK> gpu_tracer_;
   std::shared_ptr<DescriptorPoolRecyclerVK> descriptor_pool_recycler_;
   std::shared_ptr<CommandQueue> command_queue_vk_;
+  std::shared_ptr<DescriptorPoolVK> descriptor_pool_vk_;
+  std::vector<std::shared_ptr<CommandBuffer>> pending_command_buffers_;
   bool should_disable_surface_control_ = false;
 
   const uint64_t hash_;

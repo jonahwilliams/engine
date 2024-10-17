@@ -81,16 +81,6 @@ SharedHandleVK<vk::RenderPass> RenderPassVK::CreateVKRenderPass(
     const ContextVK& context,
     const SharedHandleVK<vk::RenderPass>& recycled_renderpass,
     const std::shared_ptr<CommandBufferVK>& command_buffer) const {
-  BarrierVK barrier;
-  barrier.new_layout = vk::ImageLayout::eGeneral;
-  barrier.cmd_buffer = command_buffer->GetCommandBuffer();
-  barrier.src_access = vk::AccessFlagBits::eShaderRead;
-  barrier.src_stage = vk::PipelineStageFlagBits::eFragmentShader;
-  barrier.dst_access = vk::AccessFlagBits::eColorAttachmentWrite |
-                       vk::AccessFlagBits::eTransferWrite;
-  barrier.dst_stage = vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                      vk::PipelineStageFlagBits::eTransfer;
-
   RenderPassBuilderVK builder;
 
   for (const auto& [bind_point, color] : render_target_.GetColorAttachments()) {
@@ -101,9 +91,11 @@ SharedHandleVK<vk::RenderPass> RenderPassVK::CreateVKRenderPass(
         color.load_action,                                   //
         color.store_action                                   //
     );
-    TextureVK::Cast(*color.texture).SetLayout(barrier);
+    TextureVK::Cast(*color.texture)
+        .SetLayoutWithoutEncoding(vk::ImageLayout::eGeneral);
     if (color.resolve_texture) {
-      TextureVK::Cast(*color.resolve_texture).SetLayout(barrier);
+      TextureVK::Cast(*color.resolve_texture)
+          .SetLayoutWithoutEncoding(vk::ImageLayout::eGeneral);
     }
   }
 
@@ -151,11 +143,11 @@ RenderPassVK::RenderPassVK(const std::shared_ptr<const Context>& context,
 
   const auto& vk_context = ContextVK::Cast(*context);
   command_buffer_vk_ = command_buffer_->GetCommandBuffer();
-  render_target_.IterateAllAttachments([&](const auto& attachment) -> bool {
-    command_buffer_->Track(attachment.texture);
-    command_buffer_->Track(attachment.resolve_texture);
-    return true;
-  });
+  // render_target_.IterateAllAttachments([&](const auto& attachment) -> bool {
+  //   command_buffer_->Track(attachment.texture);
+  //   command_buffer_->Track(attachment.resolve_texture);
+  //   return true;
+  // });
 
   SharedHandleVK<vk::RenderPass> recycled_render_pass;
   SharedHandleVK<vk::Framebuffer> recycled_framebuffer;

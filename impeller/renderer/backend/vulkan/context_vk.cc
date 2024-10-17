@@ -445,6 +445,7 @@ void ContextVK::Setup(Settings settings) {
   device_name_ = std::string(physical_device_properties.deviceName);
   command_queue_vk_ = std::make_shared<CommandQueueVK>(weak_from_this());
   should_disable_surface_control_ = settings.disable_surface_control;
+  descriptor_pool_vk_ = std::make_shared<DescriptorPoolVK>(weak_from_this());
   is_valid_ = true;
 
   // Create the GPU Tracer later because it depends on state from
@@ -497,7 +498,8 @@ std::shared_ptr<CommandBuffer> ContextVK::CreateCommandBuffer() const {
   }
 
   auto tracked_objects = std::make_shared<TrackedObjectsVK>(
-      weak_from_this(), std::move(tls_pool), GetGPUTracer()->CreateGPUProbe());
+      weak_from_this(), std::move(tls_pool), descriptor_pool_vk_,
+      GetGPUTracer()->CreateGPUProbe());
   auto queue = GetGraphicsQueue();
 
   if (!tracked_objects || !tracked_objects->IsValid() || !queue) {
@@ -644,6 +646,27 @@ const std::unique_ptr<DriverInfoVK>& ContextVK::GetDriverInfo() const {
 
 bool ContextVK::GetShouldDisableSurfaceControlSwapchain() const {
   return should_disable_surface_control_;
+}
+
+void ContextVK::ResetDescriptorPool() {
+  descriptor_pool_vk_ = std::make_shared<DescriptorPoolVK>(weak_from_this());
+}
+
+void ContextVK::SubmitCommandBuffer(
+    std::shared_ptr<CommandBuffer> command_buffer) {
+  pending_command_buffers_.push_back(std::move(command_buffer));
+}
+
+void ContextVK::SubmitCommandBuffer(
+    std::vector<std::shared_ptr<CommandBuffer>> command_buffers) {
+  pending_command_buffers_.insert(pending_command_buffers_.end(),
+                                  command_buffers.begin(),
+                                  command_buffers.end());
+}
+
+void ContextVK::FlushCommandBuffers() {
+  GetCommandQueue()->Submit(pending_command_buffers_);
+  pending_command_buffers_.clear();
 }
 
 }  // namespace impeller

@@ -1597,12 +1597,7 @@ bool Canvas::BlitToOnscreen() {
       VALIDATION_LOG << "Failed to encode root pass blit command.";
       return false;
     }
-    if (!renderer_.GetContext()
-             ->GetCommandQueue()
-             ->Submit({command_buffer})
-             .ok()) {
-      return false;
-    }
+    renderer_.GetContext()->SubmitCommandBuffer(command_buffer);
   } else {
     auto render_pass = command_buffer->CreateRenderPass(render_target_);
     render_pass->SetLabel("EntityPass Root Render Pass");
@@ -1628,12 +1623,7 @@ bool Canvas::BlitToOnscreen() {
       VALIDATION_LOG << "Failed to encode root pass command buffer.";
       return false;
     }
-    if (!renderer_.GetContext()
-             ->GetCommandQueue()
-             ->Submit({command_buffer})
-             .ok()) {
-      return false;
-    }
+    renderer_.GetContext()->SubmitCommandBuffer(command_buffer);
   }
   return true;
 }
@@ -1654,6 +1644,7 @@ void Canvas::EndReplay() {
   renderer_.GetRenderTargetCache()->End();
   clip_geometry_.clear();
 
+  renderer_.GetContext()->FlushCommandBuffers();
   Reset();
   Initialize(initial_cull_rect_);
 }

@@ -90,6 +90,14 @@ class SurfaceContextVK : public Context,
 
   const std::shared_ptr<ContextVK>& GetParent() const;
 
+  void SubmitCommandBuffer(
+      std::shared_ptr<CommandBuffer> command_buffer) override;
+
+  void SubmitCommandBuffer(
+      std::vector<std::shared_ptr<CommandBuffer>> command_buffers) override;
+
+  void FlushCommandBuffers() override;
+
  private:
   std::shared_ptr<ContextVK> parent_;
   std::shared_ptr<SwapchainVK> swapchain_;

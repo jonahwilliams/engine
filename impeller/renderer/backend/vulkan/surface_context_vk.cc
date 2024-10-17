@@ -86,6 +86,7 @@ std::unique_ptr<Surface> SurfaceContextVK::AcquireNextSurface() {
     impeller::PipelineLibraryVK::Cast(*pipeline_library)
         .DidAcquireSurfaceFrame();
   }
+  parent_->ResetDescriptorPool();
   parent_->GetCommandPoolRecycler()->Dispose();
   parent_->GetResourceAllocator()->DebugTraceMemoryStatistics();
   return surface;
@@ -109,6 +110,20 @@ void SurfaceContextVK::DisposeThreadLocalCachedResources() {
 
 const std::shared_ptr<ContextVK>& SurfaceContextVK::GetParent() const {
   return parent_;
+}
+
+void SurfaceContextVK::SubmitCommandBuffer(
+    std::shared_ptr<CommandBuffer> command_buffer) {
+  return parent_->SubmitCommandBuffer(command_buffer);
+}
+
+void SurfaceContextVK::SubmitCommandBuffer(
+    std::vector<std::shared_ptr<CommandBuffer>> command_buffers) {
+  return parent_->SubmitCommandBuffer(command_buffers);
+}
+
+void SurfaceContextVK::FlushCommandBuffers() {
+  return parent_->FlushCommandBuffers();
 }
 
 }  // namespace impeller

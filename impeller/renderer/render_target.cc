@@ -27,7 +27,7 @@ bool RenderTarget::IsValid() const {
         << "Render target does not have color attachment at index 0.";
     return false;
   }
-
+#if !defined(NDEBUG)
   // Validate that all attachments are of the same size.
   {
     std::optional<ISize> size;
@@ -87,6 +87,7 @@ bool RenderTarget::IsValid() const {
       return false;
     }
   }
+#endif  // !defined(NDEBUG)
 
   return true;
 }
@@ -151,7 +152,7 @@ std::shared_ptr<Texture> RenderTarget::GetRenderTargetTexture() const {
 }
 
 PixelFormat RenderTarget::GetRenderTargetPixelFormat() const {
-  if (auto texture = GetRenderTargetTexture(); texture != nullptr) {
+  if (const auto& texture = GetRenderTargetTexture(); texture != nullptr) {
     return texture->GetTextureDescriptor().format;
   }
 
@@ -289,7 +290,7 @@ RenderTarget RenderTargetAllocator::CreateOffscreen(
       return {};
     }
   }
-  color0_tex->SetLabel(SPrintF("%s Color Texture", label.c_str()));
+  color0_tex->SetLabel(label);
 
   ColorAttachment color0;
   color0.clear_color = color_attachment_config.clear_color;
@@ -349,8 +350,7 @@ RenderTarget RenderTargetAllocator::CreateOffscreenMSAA(
       return {};
     }
   }
-  color0_msaa_tex->SetLabel(
-      SPrintF("%s Color Texture (Multisample)", label.c_str()));
+  color0_msaa_tex->SetLabel(label);
 
   // Create color resolve texture.
   std::shared_ptr<Texture> color0_resolve_tex;
@@ -372,7 +372,7 @@ RenderTarget RenderTargetAllocator::CreateOffscreenMSAA(
       return {};
     }
   }
-  color0_resolve_tex->SetLabel(SPrintF("%s Color Texture", label.c_str()));
+  color0_resolve_tex->SetLabel(label);
 
   // Color attachment.
 
@@ -451,8 +451,7 @@ void RenderTarget::SetupDepthStencilAttachments(
   stencil0.clear_stencil = 0u;
   stencil0.texture = std::move(depth_stencil_texture);
 
-  stencil0.texture->SetLabel(
-      SPrintF("%s Depth+Stencil Texture", label.c_str()));
+  stencil0.texture->SetLabel(label);
   SetDepthAttachment(std::move(depth0));
   SetStencilAttachment(std::move(stencil0));
 }

@@ -73,13 +73,7 @@ bool InlinePassContext::EndPass() {
       return false;
     }
   }
-  if (!renderer_.GetContext()
-           ->GetCommandQueue()
-           ->Submit({std::move(command_buffer_)})
-           .ok()) {
-    return false;
-  }
-
+  renderer_.GetContext()->SubmitCommandBuffer(command_buffer_);
   pass_ = nullptr;
   command_buffer_ = nullptr;
 

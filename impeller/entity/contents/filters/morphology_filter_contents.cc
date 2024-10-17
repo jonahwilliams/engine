@@ -144,12 +144,7 @@ std::optional<Entity> DirectionalMorphologyFilterContents::RenderFilter(
   if (!render_target.ok()) {
     return std::nullopt;
   }
-  if (!renderer.GetContext()
-           ->GetCommandQueue()
-           ->Submit(/*buffers=*/{std::move(command_buffer)})
-           .ok()) {
-    return std::nullopt;
-  }
+  renderer.GetContext()->SubmitCommandBuffer(command_buffer);
 
   SamplerDescriptor sampler_desc;
   sampler_desc.min_filter = MinMagFilter::kLinear;

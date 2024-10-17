@@ -203,6 +203,14 @@ class Context {
   /// operation completes in order to clear the cache.
   virtual void DisposeThreadLocalCachedResources() {}
 
+  virtual void SubmitCommandBuffer(
+      std::shared_ptr<CommandBuffer> command_buffer);
+
+  virtual void SubmitCommandBuffer(
+      std::vector<std::shared_ptr<CommandBuffer>> command_buffers);
+
+  virtual void FlushCommandBuffers();
+
  protected:
   Context();
 
