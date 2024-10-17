@@ -817,8 +817,11 @@ std::optional<Entity> GaussianBlurFilterContents::RenderFilter(
     return std::nullopt;
   }
 
+  // Work around Adreno Bug.
+  renderer.GetContext()->FlushCommandBuffers();
   renderer.GetContext()->SubmitCommandBuffer(
       {command_buffer_1, command_buffer_2, command_buffer_3});
+  renderer.GetContext()->FlushCommandBuffers();
 
   // The ping-pong approach requires that each render pass output has the same
   // size.
