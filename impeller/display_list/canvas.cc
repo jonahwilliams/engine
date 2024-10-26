@@ -298,6 +298,13 @@ void Canvas::DrawPath(const Path& path, const Paint& paint) {
   }
 }
 
+void Canvas::DrawGeometry(Geometry* geom, const Paint& paint) {
+  Entity entity;
+  entity.SetTransform(GetCurrentTransform());
+  entity.SetBlendMode(paint.blend_mode);
+  AddRenderEntityWithFiltersToCurrentPass(entity, geom, paint);
+}
+
 void Canvas::DrawPaint(const Paint& paint) {
   Entity entity;
   entity.SetTransform(GetCurrentTransform());

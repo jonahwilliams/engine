@@ -42,6 +42,8 @@ impeller_component("display_list") {
     "nine_patch_converter.h",
     "paint.cc",
     "paint.h",
+    "skia_fill_path_geometry.h",
+    "skia_fill_path_geometry.cc",
   ]
 
   public_deps = [

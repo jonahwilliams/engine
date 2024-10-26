@@ -282,6 +282,14 @@ class Tessellator {
                                             const Rect& bounds,
                                             const Size& radii);
 
+  std::vector<Point>& UnsafeGetPointBuffer() {
+    return *point_buffer_;
+  }
+
+  std::vector<uint16_t>& UnsafeGetIndexBuffer() {
+    return *index_buffer_;
+  }
+
  protected:
   /// Used for polyline generation.
   std::unique_ptr<std::vector<Point>> point_buffer_;

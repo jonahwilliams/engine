@@ -197,6 +197,8 @@ class Canvas {
 
   void DrawCircle(const Point& center, Scalar radius, const Paint& paint);
 
+  void DrawGeometry(Geometry* geom, const Paint& paint);
+
   void DrawPoints(std::vector<Point> points,
                   Scalar radius,
                   const Paint& paint,

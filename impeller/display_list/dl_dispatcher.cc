@@ -20,6 +20,7 @@
 #include "impeller/display_list/dl_vertices_geometry.h"
 #include "impeller/display_list/nine_patch_converter.h"
 #include "impeller/display_list/skia_conversions.h"
+#include "impeller/display_list/skia_fill_path_geometry.h"
 #include "impeller/entity/contents/atlas_contents.h"
 #include "impeller/entity/contents/content_context.h"
 #include "impeller/entity/contents/filters/filter_contents.h"
@@ -494,7 +495,7 @@ void DlDispatcherBase::clipPath(const DlPath& path, ClipOp sk_op, bool is_aa) {
                              skia_conversions::ToSize(rrect.getSimpleRadii()));
       GetCanvas().ClipGeometry(geom, clip_op);
     } else {
-      FillPathGeometry geom(path.GetPath());
+      SkiaFillPathGeometry geom(path.GetSkPath());
       GetCanvas().ClipGeometry(geom, clip_op);
     }
   }
@@ -635,8 +636,12 @@ void DlDispatcherBase::SimplifyOrDrawPath(Canvas& canvas,
     canvas.DrawOval(rect, paint);
     return;
   }
-
-  canvas.DrawPath(path.GetPath(), paint);
+  if (paint.style == Paint::Style::kStroke) {
+    canvas.DrawPath(path.GetPath(), paint);
+  } else {
+    SkiaFillPathGeometry geom(path.GetSkPath());
+    canvas.DrawGeometry(&geom, paint);
+  }
 }
 
 // |flutter::DlOpReceiver|
