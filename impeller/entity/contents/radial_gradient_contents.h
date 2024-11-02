@@ -52,6 +52,11 @@ class RadialGradientContents final : public ColorSourceContents {
   bool RenderSSBO(const ContentContext& renderer,
                   const Entity& entity,
                   RenderPass& pass) const;
+
+  bool FastRadialGradient(const ContentContext& renderer,
+                          const Entity& entity,
+                          RenderPass& pass) const;
+
   Point center_;
   Scalar radius_;
   std::vector<Color> colors_;
