@@ -94,6 +94,8 @@ impeller_shaders("framebuffer_blend_entity_shaders") {
   shaders = [
     "shaders/blending/framebuffer_blend.vert",
     "shaders/blending/framebuffer_blend.frag",
+    "shaders/blending/backdrop_alpha.frag",
+    "shaders/blending/backdrop_alpha.vert",
   ]
 }
 
@@ -103,6 +105,8 @@ impeller_component("entity") {
     "contents/anonymous_contents.h",
     "contents/atlas_contents.cc",
     "contents/atlas_contents.h",
+    "contents/backdrop_alpha_contents.cc",
+    "contents/backdrop_alpha_contents.h",
     "contents/clip_contents.cc",
     "contents/clip_contents.h",
     "contents/color_source_contents.cc",

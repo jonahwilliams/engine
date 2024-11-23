@@ -68,6 +68,8 @@
 
 #include "impeller/entity/advanced_blend.frag.h"
 #include "impeller/entity/advanced_blend.vert.h"
+#include "impeller/entity/backdrop_alpha.frag.h"
+#include "impeller/entity/backdrop_alpha.vert.h"
 
 #include "impeller/entity/framebuffer_blend.frag.h"
 #include "impeller/entity/framebuffer_blend.vert.h"
@@ -248,6 +250,8 @@ using FramebufferBlendScreenPipeline =
 using FramebufferBlendSoftLightPipeline =
     RenderPipelineHandle<FramebufferBlendVertexShader,
                          FramebufferBlendFragmentShader>;
+using BackdropAlphaPipeline = RenderPipelineHandle<BackdropAlphaVertexShader,
+                                                   BackdropAlphaFragmentShader>;
 
 /// Draw Vertices/Atlas Uber Shader
 using VerticesUberShader = RenderPipelineHandle<PorterDuffBlendVertexShader,
@@ -708,6 +712,12 @@ class ContentContext {
     return GetPipeline(framebuffer_blend_softlight_pipelines_, opts);
   }
 
+  std::shared_ptr<Pipeline<PipelineDescriptor>> GetBackdropAlphaPipeline(
+      ContentContextOptions opts) const {
+    FML_DCHECK(GetDeviceCapabilities().SupportsFramebufferFetch());
+    return GetPipeline(backdrop_alpha_pipelines_, opts);
+  }
+
   std::shared_ptr<Pipeline<PipelineDescriptor>> GetDrawVerticesUberShader(
       ContentContextOptions opts) const {
     return GetPipeline(vertices_uber_shader_, opts);
@@ -989,6 +999,7 @@ class ContentContext {
       framebuffer_blend_screen_pipelines_;
   mutable Variants<FramebufferBlendSoftLightPipeline>
       framebuffer_blend_softlight_pipelines_;
+  mutable Variants<BackdropAlphaPipeline> backdrop_alpha_pipelines_;
   mutable Variants<VerticesUberShader> vertices_uber_shader_;
 
   template <class TypedPipeline>

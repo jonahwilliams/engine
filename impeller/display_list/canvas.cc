@@ -18,6 +18,7 @@
 #include "impeller/display_list/image_filter.h"
 #include "impeller/display_list/skia_conversions.h"
 #include "impeller/entity/contents/atlas_contents.h"
+#include "impeller/entity/contents/backdrop_alpha_contents.h"
 #include "impeller/entity/contents/clip_contents.h"
 #include "impeller/entity/contents/color_source_contents.h"
 #include "impeller/entity/contents/content_context.h"
@@ -1138,6 +1139,40 @@ void Canvas::SaveLayer(const Paint& paint,
     }
   }
 
+  if (!backdrop_filter && !paint.image_filter && !paint.color_filter &&
+      render_passes_.back().IsApplyingClearColor() &&
+      renderer_.GetDeviceCapabilities().SupportsFramebufferFetch()) {
+    CanvasStackEntry entry;
+    entry.transform = transform_stack_.back().transform;
+    entry.clip_depth = current_depth_ + total_content_depth;
+    FML_DCHECK(entry.clip_depth <= transform_stack_.back().clip_depth)
+        << entry.clip_depth << " <=? " << transform_stack_.back().clip_depth
+        << " after allocating " << total_content_depth;
+    entry.clip_height = transform_stack_.back().clip_height;
+    entry.rendering_mode = Entity::RenderingMode::kDirectBackdropAlpha;
+    entry.did_round_out = did_round_out;
+    entry.backdrop_opacity =
+        paint.color.alpha * transform_stack_.back().distributed_opacity;
+    entry.distributed_opacity = 1.0;
+    entry.backdrop_coverage = subpass_coverage;
+    {
+      RenderTarget& render_target = render_passes_.back()
+                                        .inline_pass_context->GetPassTarget()
+                                        .GetRenderTarget();
+      ColorAttachment attachment =
+          render_target.GetColorAttachments().find(0u)->second;
+      entry.backdrop_color = attachment.clear_color;
+
+      attachment.clear_color = Color::BlackTransparent();
+      render_target.SetColorAttachment(attachment, 0u);
+    }
+    // Force disable subsequent changes to clear color.
+    GetCurrentRenderPass().GetRenderTarget();
+
+    transform_stack_.emplace_back(entry);
+    return;
+  }
+
   // When applying a save layer, absorb any pending distributed opacity.
   Paint paint_copy = paint;
   paint_copy.color.alpha *= transform_stack_.back().distributed_opacity;
@@ -1211,9 +1246,44 @@ bool Canvas::Restore() {
   }
 
   if (transform_stack_.back().rendering_mode ==
-          Entity::RenderingMode::kSubpassAppendSnapshotTransform ||
-      transform_stack_.back().rendering_mode ==
-          Entity::RenderingMode::kSubpassPrependSnapshotTransform) {
+      Entity::RenderingMode::kDirectBackdropAlpha) {
+    size_t num_clips = transform_stack_.back().num_clips;
+    Scalar alpha = transform_stack_.back().backdrop_opacity;
+    Color backdrop_color = transform_stack_.back().backdrop_color;
+
+    if (num_clips > 0) {
+      EntityPassClipStack::ClipStateResult clip_state_result =
+          clip_coverage_stack_.RecordRestore(GetGlobalPassPosition(),
+                                             GetClipHeight());
+
+      // Clip restores are never required with depth based clipping.
+      FML_DCHECK(!clip_state_result.should_render);
+      if (clip_state_result.clip_did_change) {
+        // We only need to update the pass scissor if the clip state has
+        // changed.
+        SetClipScissor(
+            clip_coverage_stack_.CurrentClipCoverage(),                   //
+            *render_passes_.back().inline_pass_context->GetRenderPass(),  //
+            GetGlobalPassPosition()                                       //
+        );
+      }
+    }
+    Entity entity;
+    entity.SetBlendMode(BlendMode::kSource);
+    entity.SetClipDepth(++current_depth_);
+    auto global_pass_position = GetGlobalPassPosition();
+    entity.SetTransform(
+        Matrix::MakeTranslation(Vector3{-global_pass_position}) *  //
+        transform_stack_.back().transform);
+
+    RenderBackdropAlpha(
+        renderer_, entity, GetCurrentRenderPass(),
+        Rect::MakeSize(GetCurrentRenderPass().GetRenderTargetSize()),
+        backdrop_color, alpha);
+  } else if (transform_stack_.back().rendering_mode ==
+                 Entity::RenderingMode::kSubpassAppendSnapshotTransform ||
+             transform_stack_.back().rendering_mode ==
+                 Entity::RenderingMode::kSubpassPrependSnapshotTransform) {
     auto lazy_render_pass = std::move(render_passes_.back());
     render_passes_.pop_back();
     // Force the render pass to be constructed if it never was.

@@ -28,6 +28,7 @@ class Entity {
     /// In direct mode, the Entity's transform is used as the current
     /// local-to-screen transform matrix.
     kDirect,
+    kDirectBackdropAlpha,
     /// In subpass mode, the Entity passed through the filter is in screen space
     /// rather than local space, and so some filters (namely,
     /// MatrixFilterContents) need to interpret the given EffectTransform as the

@@ -404,6 +404,7 @@ ContentContext::ContentContext(
     framebuffer_blend_softlight_pipelines_.CreateDefault(
         *context_, options_trianglestrip,
         {static_cast<Scalar>(BlendSelectValues::kSoftLight), supports_decal});
+    backdrop_alpha_pipelines_.CreateDefault(*context_, options_trianglestrip);
   } else {
     blend_color_pipelines_.CreateDefault(
         *context_, options_trianglestrip,
